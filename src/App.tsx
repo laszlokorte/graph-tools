@@ -39,6 +39,17 @@ const Scroller = styled.div`
     overflow:scroll;
 `
 
+const LinkList = styled.ul`
+    margin: 0;
+    padding:0;
+    list-style: none;
+`
+
+const Link = styled.span`
+    text-decoration: underline;
+    cursor: pointer;
+`
+
 const NodeDetails = ({deleteNode, setNodeLabel, setNodeColor, selectEdge, selectNode, nodeId, state}) =>
     <div>
         <h3>Node #{nodeId} ({state.labels.nodes[nodeId]})</h3>
@@ -50,13 +61,13 @@ const NodeDetails = ({deleteNode, setNodeLabel, setNodeColor, selectEdge, select
         <br />
         <button onClick={() => deleteNode(nodeId)}>Delete</button>
         <h4>Neighbours</h4>
-        <ul>
+        <LinkList>
             {state.graph.nodes[nodeId].map((neighbour, idx) =>
                neighbour === nodeId ?
-                    <li key={idx}><a onClick={() => selectEdge(nodeId, idx)}>{ state.labels.edges[nodeId][idx] } ↩ </a></li> :
-                    <li key={idx}><a onClick={() => selectEdge(nodeId, idx)}>{ state.labels.edges[nodeId][idx] } → </a><a onClick={() => selectNode(neighbour)}>Node #{neighbour} ({state.labels.nodes[neighbour]})</a></li>
+                <li key={idx}><Link onClick={() => selectEdge(nodeId, idx)}>{ state.labels.edges[nodeId][idx] } ↩ </Link>&nbsp;(self)</li> :
+                <li key={idx}><Link onClick={() => selectEdge(nodeId, idx)}>{ state.labels.edges[nodeId][idx] } → </Link>&nbsp;<Link onClick={() => selectNode(neighbour)}>Node #{neighbour} ({state.labels.nodes[neighbour]})</Link></li>
             )}
-        </ul>
+        </LinkList>
     </div>
 
 const EdgeDetails = ({deleteEdge, setEdgeLabel, setEdgeWeight, selectNode, nodeId, edgeIndex, state}) =>
@@ -69,10 +80,11 @@ const EdgeDetails = ({deleteEdge, setEdgeLabel, setEdgeWeight, selectNode, nodeI
         <input type="text" value={JSON.stringify(state.graph.weights[nodeId][edgeIndex])} onChange={(evt) => setEdgeWeight(nodeId, edgeIndex, JSON.parse(evt.target.value))} />
         <br />
         <button onClick={() => deleteEdge(nodeId, edgeIndex)}>Delete</button>
-        <br />
-        From: <a onClick={() => selectNode(nodeId)}>Node #{nodeId} ({state.labels.nodes[nodeId]})</a>
-        <br />
-        To: <a onClick={() => selectNode(state.graph.nodes[nodeId][edgeIndex])}>Node #{state.graph.nodes[nodeId][edgeIndex]} ({state.labels.nodes[state.graph.nodes[nodeId][edgeIndex]]})</a>
+
+        <LinkList>
+        <li>From: <Link onClick={() => selectNode(nodeId)}>Node #{nodeId} ({state.labels.nodes[nodeId]})</Link></li>
+        <li>To: <Link onClick={() => selectNode(state.graph.nodes[nodeId][edgeIndex])}>Node #{state.graph.nodes[nodeId][edgeIndex]} ({state.labels.nodes[state.graph.nodes[nodeId][edgeIndex]]})</Link></li>
+        </LinkList>
     </div>
 
 
@@ -347,10 +359,18 @@ const NodeBoxSelection = styled.rect`
 	stroke-width: 6;
 `
 
+const NodeId = styled.text`
+    cursor: default;
+    text-anchor: middle;
+    dominant-baseline: central;
+    fill: #777;
+    font-size: 0.5em;
+`
+
 const NodeLabel = styled.text`
-	cursor: default;
-	text-anchor: middle;
-	dominant-baseline: central;
+    cursor: default;
+    text-anchor: middle;
+    dominant-baseline: central;
 `
 const NodeLabelSelection = styled.text`
 	cursor: default;
@@ -414,7 +434,7 @@ const EdgeHead = ({x,y, angle, selected = false}) => {
 	</>
 }
 
-const Node = ({x,y, nodeType = 'circle', label, selected = false, onClick = null, onDoubleClick = null, style = {}, labelStyle = {}}) =>
+const Node = ({x, y, nodeType = 'circle', id, label, selected = false, onClick = null, onDoubleClick = null, style = {}, labelStyle = {}}) =>
 	<g onClick={onClick} onDoubleClick={onDoubleClick}>
 		{nodeType === 'circle' ?
 			<NodeCircleSelection selected={selected} cx={x} cy={y} r={20} /> :
@@ -425,6 +445,7 @@ const Node = ({x,y, nodeType = 'circle', label, selected = false, onClick = null
 			<NodeCircle cx={x} cy={y} r={20} /> :
 			<NodeBox x={x - 17} y={y - 17} width={34} height={34} />
 		}
+        <NodeId x={x} y={y}>#{id}</NodeId>
 		</g>
 		<NodeLabelSelection selected={selected} x={x} y={y+20} dy="0.6em">{label}</NodeLabelSelection>
 		<NodeLabel x={x} y={y+20} dy="0.6em" style={labelStyle}>{label}</NodeLabel>
@@ -557,6 +578,7 @@ const Graph = ({state, selectEdge, selectNode, deleteNode, addEdge, deleteEdge})
         {state.graph.nodes.map((neighbors, nodeId) =>
             <Node
                 key={nodeId}
+                id={nodeId}
                 selected={state.selection.nodes.includes(nodeId)}
                 onClick={(e) => {e.stopPropagation(); e.metaKey && (state.selection.nodes.length === 1) ? addEdge(state.selection.nodes[0], nodeId) : selectNode(nodeId, e.shiftKey)}}
                 onDoubleClick={(e) => {e.stopPropagation(); deleteNode(nodeId)}}
