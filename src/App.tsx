@@ -39,6 +39,10 @@ const Scroller = styled.div`
     overflow:scroll;
 `
 
+const Padding = styled.div`
+    padding: 0.5em;
+`
+
 const LinkList = styled.ul`
     margin: 0;
     padding:0;
@@ -52,7 +56,7 @@ const Link = styled.span`
 
 const NodeDetails = ({deleteNode, setNodeLabel, setNodeColor, selectEdge, selectNode, nodeId, state}) =>
     <div>
-        <h3>Node #{nodeId} ({state.labels.nodes[nodeId]})</h3>
+        <h3>Node (#{nodeId})</h3>
         Label:
         <input type="text" value={state.labels.nodes[nodeId]} onChange={(evt) => setNodeLabel(nodeId, evt.target.value)} />
         <br />
@@ -72,7 +76,9 @@ const NodeDetails = ({deleteNode, setNodeLabel, setNodeColor, selectEdge, select
 
 const EdgeDetails = ({deleteEdge, setEdgeLabel, setEdgeWeight, selectNode, nodeId, edgeIndex, state}) =>
     <div>
-        <h3>Edge #{nodeId}->#{state.graph.nodes[nodeId][edgeIndex]}</h3>
+        {state.graph.nodes[nodeId][edgeIndex] === nodeId ?
+            <h3>Edge (<Link onClick={() => selectNode(nodeId)}>#{nodeId}</Link> ↩)</h3> :
+            <h3>Edge (<Link onClick={() => selectNode(nodeId)}>#{nodeId}</Link> → <Link onClick={() => selectNode(state.graph.nodes[nodeId][edgeIndex])}>#{state.graph.nodes[nodeId][edgeIndex]}</Link>)</h3>}
         Label:
         <input type="text" value={state.labels.edges[nodeId][edgeIndex]} onChange={(evt) => setEdgeLabel(nodeId, edgeIndex, evt.target.value)} />
         <br />
@@ -80,22 +86,20 @@ const EdgeDetails = ({deleteEdge, setEdgeLabel, setEdgeWeight, selectNode, nodeI
         <input type="text" value={JSON.stringify(state.graph.weights[nodeId][edgeIndex])} onChange={(evt) => setEdgeWeight(nodeId, edgeIndex, JSON.parse(evt.target.value))} />
         <br />
         <button onClick={() => deleteEdge(nodeId, edgeIndex)}>Delete</button>
-
-        <LinkList>
-        <li>From: <Link onClick={() => selectNode(nodeId)}>Node #{nodeId} ({state.labels.nodes[nodeId]})</Link></li>
-        <li>To: <Link onClick={() => selectNode(state.graph.nodes[nodeId][edgeIndex])}>Node #{state.graph.nodes[nodeId][edgeIndex]} ({state.labels.nodes[state.graph.nodes[nodeId][edgeIndex]]})</Link></li>
-        </LinkList>
     </div>
 
 
 const Menu = ({state,deleteNode, deleteEdge, setNodeLabel, setNodeColor, setEdgeLabel, setEdgeWeight, selectEdge, selectNode}) =>
     <Scroller>
-        <h2>Selected</h2>
-        {state.selection.nodes.map((nodeId) =>
-            <NodeDetails key={nodeId} deleteNode={deleteNode} setNodeLabel={setNodeLabel} setNodeColor={setNodeColor} selectEdge={selectEdge} selectNode={selectNode} nodeId={nodeId} state={state} />)}
-        {state.selection.edges.map((edges, nodeId) => edges.map((edgeIndex) =>
-            <EdgeDetails key={nodeId + "-" + edgeIndex} deleteEdge={deleteEdge} setEdgeLabel={setEdgeLabel} setEdgeWeight={setEdgeWeight} selectNode={selectNode} nodeId={nodeId} edgeIndex={edgeIndex} state={state} />
-        ))}
+        <Padding>
+            <h2>Selected</h2>
+            {state.selection.nodes.map((nodeId) =>
+                <NodeDetails key={nodeId} deleteNode={deleteNode} setNodeLabel={setNodeLabel} setNodeColor={setNodeColor} selectEdge={selectEdge} selectNode={selectNode} nodeId={nodeId} state={state} />)}
+            <hr/>
+            {state.selection.edges.map((edges, nodeId) => edges.map((edgeIndex) =>
+                <EdgeDetails key={nodeId + "-" + edgeIndex} deleteEdge={deleteEdge} setEdgeLabel={setEdgeLabel} setEdgeWeight={setEdgeWeight} selectNode={selectNode} nodeId={nodeId} edgeIndex={edgeIndex} state={state} />
+            ))}
+        </Padding>
     </Scroller>
 
 const Dump = ({state}) =>
