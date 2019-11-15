@@ -12,6 +12,7 @@ const Svg = styled.svg`
 	display: block;
 	width: 100%;
 	height: 100%;
+    grid-area: d;
 `;
 
 const Container = styled.div`
@@ -19,16 +20,54 @@ const Container = styled.div`
 	width: 100vw;
 	display: grid;
 	grid-template-columns: 1fr 3fr;
-	grid-template-rows: 3em 1fr;
-	grid-template-areas: "a b" "c d";
+	grid-template-rows: 3em 1fr 1fr;
+	grid-template-areas: "a b" "c d" "e d";
 	justify-items: stretch;
 	align-items: stretch;
 `;
 
-const Menu = ({graph}) =>
-	<div style={{whiteSpace:'pre-wrap', overflow:'scroll', fontFamily: 'monospace'}}>
-        {JSON.stringify(graph, null, 2)}
-	</div>
+const Code = styled.div`
+    white-space:pre-wrap;
+    overflow:scroll;
+    font-family: monospace;
+    background: #333;
+    color: #fff;
+    font-size: 1.2em;
+`
+
+const NodeDetails = ({deleteNode, setNodeLabel, nodeId, state}) =>
+    <div>
+        <h3>Node #{nodeId} ({state.labels.nodes[nodeId]})</h3>
+        Label:
+        <input type="text" value={state.labels.nodes[nodeId]} onChange={(evt) => setNodeLabel(nodeId, evt.target.value)} />
+        <br />
+        <button onClick={() => deleteNode(nodeId)}>Delete</button>
+    </div>
+
+const EdgeDetails = ({deleteEdge, setEdgeLabel, nodeId, edgeIndex, state}) =>
+    <div>
+        <h3>Edge #{nodeId}->#{state.graph.nodes[nodeId][edgeIndex]}</h3>
+        Label:
+        <input type="text" value={state.labels.edges[nodeId][edgeIndex]} onChange={(evt) => setEdgeLabel(nodeId, edgeIndex, evt.target.value)} />
+        <br />
+        <button onClick={() => deleteEdge(nodeId, edgeIndex)}>Delete</button>
+    </div>
+
+
+const Menu = ({state,deleteNode,deleteEdge,setNodeLabel,setEdgeLabel}) =>
+    <div>
+        <h2>Selected</h2>
+        {state.selection.nodes.map((nodeId) =>
+            <NodeDetails key={nodeId} deleteNode={deleteNode} setNodeLabel={setNodeLabel} nodeId={nodeId} state={state} />)}
+        {state.selection.edges.map((edges, nodeId) => edges.map((edgeIndex) =>
+            <EdgeDetails key={nodeId + "-" + edgeIndex} deleteEdge={deleteEdge} setEdgeLabel={setEdgeLabel} nodeId={nodeId} edgeIndex={edgeIndex} state={state} />
+        ))}
+    </div>
+
+const Dump = ({state}) =>
+    <Code>
+        {JSON.stringify(state, null, 2)}
+    </Code>
 
 const viewboxString = (screen, camera) =>
   (camera.center.x - screen.width / 2 / camera.zoom) + " " +
@@ -36,17 +75,17 @@ const viewboxString = (screen, camera) =>
   (screen.width / camera.zoom) + " " +
   (screen.height / camera.zoom)
 
-const useSVGPosition = (ref) => {
-    const svgPoint = useMemo(() => ref.current && ref.current.createSVGPoint(), [ref.current]);
-    const screenCTM = useMemo(() => ref.current && ref.current.getScreenCTM(), [ref.current]);
+const useSVGPosition = () => {
+    const ref = useRef();
+    const svgPoint = useMemo(() => ref.current && ref.current.parentNode.createSVGPoint(), [ref.current]);
 
     const svgEventPosition = (coords) => {
-        if(!svgPoint || !screenCTM) {
+        if(!svgPoint) {
             return;
         }
         svgPoint.x = coords.x
         svgPoint.y = coords.y
-        var result = svgPoint.matrixTransform(screenCTM.inverse());
+        var result = svgPoint.matrixTransform(ref.current.getScreenCTM().inverse());
 
         return {
             x: result.x,
@@ -54,7 +93,15 @@ const useSVGPosition = (ref) => {
         };
     }
 
-    return svgEventPosition;
+    return [svgEventPosition, ref];
+}
+
+const wheelFactor = (evt) => {
+  var wheel = evt.deltaY / -40
+  return Math.pow(
+    1 + Math.abs(wheel) / 2,
+    wheel > 0 ? 1 : -1
+  )
 }
 
 const Canvas = ({bounds = {
@@ -63,17 +110,85 @@ const Canvas = ({bounds = {
 	maxX: +400,
 	maxY: +400,
 	minZoom: 0.5,
-	maxZoom: 2
+	maxZoom: 2,
+    defaultZoom: 1,
 }, onMouseMove, onClick, onMouseDown, onMouseUp, children}) => {
 	const [camera, setCamera] = useState({
-		center: {x: 0, y:0},
-		rotation: 0,
-		zoom: 2,
-	})
+        center: {x: 0, y:0},
+        rotation: 0,
+        zoom: 2,
+    })
+
+    const [dragState, setDragState] = useState({
+        startX: null,
+        startY: null,
+    })
+
+    const zoom = (pivot, factor) => {
+      const newZoom = Math.max(bounds.minZoom, Math.min(bounds.maxZoom, camera.zoom * factor))
+      const realFactor = newZoom / camera.zoom;
+      const panFactor = 1 - 1 / realFactor;
+
+      const newX = Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x + (pivot.x - camera.center.x) * panFactor))
+      const newY = Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y + (pivot.y - camera.center.y) * panFactor))
+
+      setCamera({
+          ...camera,
+          zoom: newZoom,
+          center: {
+              ...camera.center,
+              x: newX,
+              y: newY,
+          },
+      })
+    }
+
+    const rotate = (pivot, deltaAngle) => {
+      var dx = camera.center.x - pivot.x;
+      var dy = camera.center.y - pivot.y;
+      var rad = Math.PI * deltaAngle / 180;
+      var sin = Math.sin(-rad)
+      var cos = Math.cos(-rad)
+
+
+      setCamera({
+          ...camera,
+          center: {
+              ...camera.center,
+              x: Math.max(bounds.minX, Math.min(bounds.maxX, pivot.x + cos * dx - sin * dy)),
+              y: Math.max(bounds.minY, Math.min(bounds.maxY, pivot.y + sin * dx + cos * dy)),
+          },
+          rotation: (camera.rotation + deltaAngle) % 360,
+      })
+    }
+
+    const pan = (deltaX, deltaY) => {
+        setCamera({
+          ...camera,
+            center: {
+                ...camera.center,
+                x: Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x - deltaX)),
+                y: Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y - deltaY))
+            },
+        })
+    }
+
+    const resetCamera = (deltaX, deltaY) => {
+        setCamera({
+          ...camera,
+            center: {
+                ...camera.center,
+                x: 0,
+                y: 0
+            },
+            rotation: 0,
+            zoom: bounds.defaultZoom,
+        })
+    }
 
 	const ref = useRef();
     const screen = useSize(ref);
-    const svgPos = useSVGPosition(ref);
+    const [svgPos, posRef] = useSVGPosition();
 
     const box = {
     	width: bounds.maxX - bounds.minX,
@@ -81,46 +196,78 @@ const Canvas = ({bounds = {
     }
     const viewBox = viewboxString(box, camera);
 
-    let onMouseMoveHandler = null;
-    let onMouseDownHandler = null;
-    let onMouseUpHandler = null;
-    let onClickHandler = null;
+    const onMouseMoveHandler = (e) => {
+        const pos = svgPos({x: e.clientX, y: e.clientY})
 
-    if(onMouseMove) {
-        onMouseMoveHandler = (e) => {
-            const pos = svgPos({x: e.clientX, y: e.clientY})
-            if(pos) {
+
+        if(dragState.startX || dragState.startY) {
+            pan(pos.x - dragState.startX, pos.y - dragState.startY)
+        } else {
+            if(pos && onMouseMove) {
                 onMouseMove(e, pos)
             }
         }
     }
 
-    if(onClick) {
-        onClickHandler = (e) => {
-            const pos = svgPos({x: e.clientX, y: e.clientY})
-            if(pos) {
-                onClick(e, pos)
-            }
+    const onClickHandler = (e) => {
+        const pos = svgPos({x: e.clientX, y: e.clientY})
+
+        if(pos && onClick && e.metaKey) {
+            onClick(e, pos)
         }
     }
 
-    if(onMouseDown) {
-        onMouseDownHandler = (e) => {
-            const pos = svgPos({x: e.clientX, y: e.clientY})
-            if(pos) {
-                onMouseDown(e, pos)
-            }
+     const onDoubleClickHandler = (e) => {
+        const pos = svgPos({x: e.clientX, y: e.clientY})
+
+
+        if(camera.rotation != 0) {
+            resetCamera()
+        } else if(Math.abs(camera.zoom / bounds.defaultZoom) < 1.05) {
+            zoom(pos, bounds.maxZoom / 2);
+        } else {
+            zoom(pos, bounds.defaultZoom / camera.zoom);
         }
     }
 
-    if(onMouseUp) {
-        onMouseUpHandler = (e) => {
-            const pos = svgPos({x: e.clientX, y: e.clientY})
-            if(pos) {
-                onMouseUp(e, pos)
-            }
+    const onMouseDownHandler = (e) => {
+        const pos = svgPos({x: e.clientX, y: e.clientY})
+        if(pos && onMouseDown) {
+            onMouseDown(e, pos)
+        }
+
+        setDragState({
+            startX: pos.x,
+            startY: pos.y,
+        })
+    }
+
+    const onMouseUpHandler = (e) => {
+        const pos = svgPos({x: e.clientX, y: e.clientY})
+        if(pos && onMouseUp) {
+            onMouseUp(e, pos)
+        }
+
+        setDragState({
+            startX: null,
+            startY: null,
+        })
+    }
+
+    const onWheelHandler = (e) => {
+        e.preventDefault();
+
+        const pivot = svgPos({x: e.clientX, y: e.clientY})
+        const factor = wheelFactor(e);
+
+        if(e.altKey) {
+            rotate(pivot, 10 * Math.log2(factor))
+        } else {
+            zoom(pivot, factor)
         }
     }
+
+    const [left,top,width,height] = viewBox.split(' ');
 
 	return <Svg
         ref={ref}
@@ -128,15 +275,23 @@ const Canvas = ({bounds = {
         onMouseDown={onMouseDownHandler}
         onMouseUp={onMouseUpHandler}
         onClick={onClickHandler}
+        onDoubleClick={onDoubleClickHandler}
+        onWheel={onWheelHandler}
         viewBox={viewBox}
-        preserveAspectRatio="xMidYMid meet">
-		<g transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
-			<rect
-				x={bounds.minX}
-				y={bounds.minY}
-				width={bounds.maxX - bounds.minX}
-				height={bounds.maxY - bounds.minY}
-				fill="#ccc" />
+        preserveAspectRatio="xMidYMid slice">
+        <rect
+                x={left}
+                y={top}
+                width={width}
+                height={height}
+                fill="#ccc" />
+		<g ref={posRef} transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
+            <rect
+                x={bounds.minX}
+                y={bounds.minY}
+                width={bounds.maxX - bounds.minX}
+                height={bounds.maxY - bounds.minY}
+                fill="#fff" />
 			{children}
 		</g>
 	</Svg>;
@@ -370,7 +525,6 @@ const Graph = ({state, selectEdge, selectNode, deleteNode, addEdge, deleteEdge})
                     y1={state.positions[2*neighbourId+1]}
                     label={`${state.labels.edges[nodeId][edgeIdx]} (${state.graph.weights[nodeId][edgeIdx]})`}
                     selected={state.selection.edges[nodeId].includes(edgeIdx)}
-                    style={{color: '#005', strokeDasharray: '5 5'}}
                     onClick={(e) => {e.stopPropagation(); selectEdge(nodeId,edgeIdx,e.shiftKey)}}
                     onDoubleClick={(e) => {e.stopPropagation(); deleteEdge(nodeId, edgeIdx)}}
                 />
@@ -649,9 +803,46 @@ export default () => {
             },
         });
 
+    const setEdgeLabel = (nodeId, edgeIndex, label) =>
+        setState({
+            ...state,
+            labels: {
+                ...state.labels,
+                edges: [
+                    ...state.labels.edges.slice(0, nodeId),
+                    [
+                        ...state.labels.edges[nodeId].slice(0, edgeIndex),
+                        label,
+                        ...state.labels.edges[nodeId].slice(edgeIndex + 1),
+                    ],
+                    ...state.labels.edges.slice(nodeId+1)
+                ],
+            },
+        })
+
+    const setNodeLabel = (nodeId, label) =>
+        setState({
+            ...state,
+            labels: {
+                ...state.labels,
+                nodes: [
+                    ...state.labels.nodes.slice(0, nodeId),
+                    label,
+                    ...state.labels.nodes.slice(nodeId+1)
+                ],
+            },
+        })
+
 	return <Container>
 		<Title>Graph</Title>
-		<Menu graph={state} />
+        <Menu
+            state={state}
+            deleteEdge={deleteEdge}
+            deleteNode={deleteNode}
+            setEdgeLabel={setEdgeLabel}
+            setNodeLabel={setNodeLabel}
+        />
+        <Dump state={state} />
 		<Canvas
             onClick={(e,{x,y}) => createNode(x,y)}
             onMouseMove={(e, {x,y}) => e.altKey && state.selection.nodes.length === 1 && setPosition(state.selection.nodes[0], x, y)}>
