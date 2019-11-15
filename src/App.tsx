@@ -20,7 +20,7 @@ const Container = styled.div`
 	width: 100vw;
 	display: grid;
 	grid-template-columns: 1fr 3fr;
-	grid-template-rows: 3em 1fr 1fr;
+	grid-template-rows: 3em 3fr 1fr;
 	grid-template-areas: "a b" "c d" "e d";
 	justify-items: stretch;
 	align-items: stretch;
@@ -28,46 +28,70 @@ const Container = styled.div`
 
 const Code = styled.div`
     white-space:pre-wrap;
-    overflow:scroll;
     font-family: monospace;
     background: #333;
     color: #fff;
     font-size: 1.2em;
 `
 
-const NodeDetails = ({deleteNode, setNodeLabel, nodeId, state}) =>
+
+const Scroller = styled.div`
+    overflow:scroll;
+`
+
+const NodeDetails = ({deleteNode, setNodeLabel, setNodeColor, selectEdge, selectNode, nodeId, state}) =>
     <div>
         <h3>Node #{nodeId} ({state.labels.nodes[nodeId]})</h3>
         Label:
         <input type="text" value={state.labels.nodes[nodeId]} onChange={(evt) => setNodeLabel(nodeId, evt.target.value)} />
         <br />
+        Color:
+        <input type="text" value={JSON.stringify(state.graph.colors[nodeId])} onChange={(evt) => setNodeColor(nodeId, JSON.parse(evt.target.value))} />
+        <br />
         <button onClick={() => deleteNode(nodeId)}>Delete</button>
+        <h4>Neighbours</h4>
+        <ul>
+            {state.graph.nodes[nodeId].map((neighbour, idx) =>
+               neighbour === nodeId ?
+                    <li key={idx}><a onClick={() => selectEdge(nodeId, idx)}>{ state.labels.edges[nodeId][idx] } ↩ </a></li> :
+                    <li key={idx}><a onClick={() => selectEdge(nodeId, idx)}>{ state.labels.edges[nodeId][idx] } → </a><a onClick={() => selectNode(neighbour)}>Node #{neighbour} ({state.labels.nodes[neighbour]})</a></li>
+            )}
+        </ul>
     </div>
 
-const EdgeDetails = ({deleteEdge, setEdgeLabel, nodeId, edgeIndex, state}) =>
+const EdgeDetails = ({deleteEdge, setEdgeLabel, setEdgeWeight, selectNode, nodeId, edgeIndex, state}) =>
     <div>
         <h3>Edge #{nodeId}->#{state.graph.nodes[nodeId][edgeIndex]}</h3>
         Label:
         <input type="text" value={state.labels.edges[nodeId][edgeIndex]} onChange={(evt) => setEdgeLabel(nodeId, edgeIndex, evt.target.value)} />
         <br />
+        Weight:
+        <input type="text" value={JSON.stringify(state.graph.weights[nodeId][edgeIndex])} onChange={(evt) => setEdgeWeight(nodeId, edgeIndex, JSON.parse(evt.target.value))} />
+        <br />
         <button onClick={() => deleteEdge(nodeId, edgeIndex)}>Delete</button>
+        <br />
+        From: <a onClick={() => selectNode(nodeId)}>Node #{nodeId} ({state.labels.nodes[nodeId]})</a>
+        <br />
+        To: <a onClick={() => selectNode(state.graph.nodes[nodeId][edgeIndex])}>Node #{state.graph.nodes[nodeId][edgeIndex]} ({state.labels.nodes[state.graph.nodes[nodeId][edgeIndex]]})</a>
     </div>
 
 
-const Menu = ({state,deleteNode,deleteEdge,setNodeLabel,setEdgeLabel}) =>
-    <div>
+const Menu = ({state,deleteNode, deleteEdge, setNodeLabel, setNodeColor, setEdgeLabel, setEdgeWeight, selectEdge, selectNode}) =>
+    <Scroller>
         <h2>Selected</h2>
         {state.selection.nodes.map((nodeId) =>
-            <NodeDetails key={nodeId} deleteNode={deleteNode} setNodeLabel={setNodeLabel} nodeId={nodeId} state={state} />)}
+            <NodeDetails key={nodeId} deleteNode={deleteNode} setNodeLabel={setNodeLabel} setNodeColor={setNodeColor} selectEdge={selectEdge} selectNode={selectNode} nodeId={nodeId} state={state} />)}
         {state.selection.edges.map((edges, nodeId) => edges.map((edgeIndex) =>
-            <EdgeDetails key={nodeId + "-" + edgeIndex} deleteEdge={deleteEdge} setEdgeLabel={setEdgeLabel} nodeId={nodeId} edgeIndex={edgeIndex} state={state} />
+            <EdgeDetails key={nodeId + "-" + edgeIndex} deleteEdge={deleteEdge} setEdgeLabel={setEdgeLabel} setEdgeWeight={setEdgeWeight} selectNode={selectNode} nodeId={nodeId} edgeIndex={edgeIndex} state={state} />
         ))}
-    </div>
+    </Scroller>
 
 const Dump = ({state}) =>
+    <Scroller>
     <Code>
         {JSON.stringify(state, null, 2)}
     </Code>
+    </Scroller>
 
 const viewboxString = (screen, camera) =>
   (camera.center.x - screen.width / 2 / camera.zoom) + " " +
@@ -441,8 +465,8 @@ const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClic
 		<EdgeHead x={x1} y={y1} angle={headAngle} selected={selected} />
 		<EdgeLine d={`M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`} />
 		</g>
-		<EdgeLabelSelection selected={selected} orientation={orientation} x={textX} y={textY}>{label}</EdgeLabelSelection>
-		<EdgeLabel orientation={orientation} x={textX} y={textY} labelStyle={labelStyle}>{label}</EdgeLabel>
+		<EdgeLabelSelection selected={selected} orientation={orientation} x={textX} y={textY}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabelSelection>
+		<EdgeLabel orientation={orientation} x={textX} y={textY} labelStyle={labelStyle}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabel>
 	</g>
 }
 
@@ -512,7 +536,7 @@ const Graph = ({state, selectEdge, selectNode, deleteNode, addEdge, deleteEdge})
                     angle={Math.PI/1}
                     x={state.positions[2*nodeId]}
                     y={state.positions[2*nodeId+1]}
-                    label={`${state.labels.edges[nodeId][edgeIdx]} (${state.graph.weights[nodeId][edgeIdx]})`}
+                    label={`${state.labels.edges[nodeId][edgeIdx]}<br>(${state.graph.weights[nodeId][edgeIdx]})`}
                     selected={state.selection.edges[nodeId].includes(edgeIdx)}
                     onClick={(e) => {e.stopPropagation(); selectEdge(nodeId,edgeIdx,e.shiftKey)}}
                     onDoubleClick={(e) => {e.stopPropagation(); deleteEdge(nodeId, edgeIdx)}}
@@ -523,7 +547,7 @@ const Graph = ({state, selectEdge, selectNode, deleteNode, addEdge, deleteEdge})
                     y0={state.positions[2*nodeId+1]}
                     x1={state.positions[2*neighbourId]}
                     y1={state.positions[2*neighbourId+1]}
-                    label={`${state.labels.edges[nodeId][edgeIdx]} (${state.graph.weights[nodeId][edgeIdx]})`}
+                    label={`${state.labels.edges[nodeId][edgeIdx]}<br>(${state.graph.weights[nodeId][edgeIdx]})`}
                     selected={state.selection.edges[nodeId].includes(edgeIdx)}
                     onClick={(e) => {e.stopPropagation(); selectEdge(nodeId,edgeIdx,e.shiftKey)}}
                     onDoubleClick={(e) => {e.stopPropagation(); deleteEdge(nodeId, edgeIdx)}}
@@ -820,6 +844,23 @@ export default () => {
             },
         })
 
+    const setEdgeWeight = (nodeId, edgeIndex, weight) =>
+        setState({
+            ...state,
+            graph: {
+                ...state.graph,
+                weights: [
+                    ...state.graph.weights.slice(0, nodeId),
+                    [
+                        ...state.graph.weights[nodeId].slice(0, edgeIndex),
+                        weight,
+                        ...state.graph.weights[nodeId].slice(edgeIndex + 1),
+                    ],
+                    ...state.graph.weights.slice(nodeId+1)
+                ],
+            }
+        })
+
     const setNodeLabel = (nodeId, label) =>
         setState({
             ...state,
@@ -833,6 +874,20 @@ export default () => {
             },
         })
 
+
+    const setNodeColor = (nodeId, color) =>
+        setState({
+            ...state,
+            graph: {
+                ...state.graph,
+                colors: [
+                    ...state.graph.colors.slice(0, nodeId),
+                    color,
+                    ...state.graph.colors.slice(nodeId+1)
+                ],
+            },
+        })
+
 	return <Container>
 		<Title>Graph</Title>
         <Menu
@@ -840,7 +895,11 @@ export default () => {
             deleteEdge={deleteEdge}
             deleteNode={deleteNode}
             setEdgeLabel={setEdgeLabel}
+            setEdgeWeight={setEdgeWeight}
             setNodeLabel={setNodeLabel}
+            setNodeColor={setNodeColor}
+            selectEdge={selectEdge}
+            selectNode={selectNode}
         />
         <Dump state={state} />
 		<Canvas
