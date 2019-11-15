@@ -2,6 +2,8 @@
 
 JS GUI for exploring graph algorithms
 
+![Screenshot om the UI][screenshot]
+
 ## Status
 
 I just started this project. You can already construct a simple graph not not much else can be done yet.
@@ -32,3 +34,5 @@ $ yarn parcel index.html
 ```
 
 Then open http://localhost:1234
+
+[screenshot]:screenshot.png
