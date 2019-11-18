@@ -727,7 +727,7 @@ export default () => {
 
 const GraphEditor = () => {
     const dispatch = useDispatch()
-    const fullState = useSelector((state) => state)
+    const present = useSelector((state) => state.present)
 
     const [pressedNode, setPressedNode] = useState(null);
 
@@ -735,7 +735,7 @@ const GraphEditor = () => {
             <History />
             <Title>Graph</Title>
             <Menu />
-            <Dump value={fullState} />
+            <Dump value={present} />
             <Canvas
                 onClick={(e,{x,y}) => {if(e.metaKey) { dispatch(actions.createNode(x,y)) } else if(!e.shiftKey) { dispatch(actions.clearSelection()) } }}
                 onMouseMove={(e, {x,y}) => pressedNode!==null && dispatch(actions.setPosition(pressedNode, x, y))}>

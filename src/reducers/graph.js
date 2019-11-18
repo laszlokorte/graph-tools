@@ -43,6 +43,165 @@ const initialState = {
     }
 };
 
+const example = {
+    "nodes": [
+      [
+        1,
+        4
+      ],
+      [
+        0
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        1,
+        3
+      ],
+      [],
+      []
+    ],
+    "attributes": {
+      "edges": {
+        "label": [
+          [
+            "",
+            ""
+          ],
+          [
+            ""
+          ],
+          [
+            "",
+            ""
+          ],
+          [
+            "",
+            ""
+          ],
+          [
+            "",
+            ""
+          ],
+          [],
+          []
+        ],
+        "weight": [
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [],
+          []
+        ]
+      },
+      "nodes": {
+        "position": [
+          {
+            "x": -43.09393310546875,
+            "y": -136.52548217773438
+          },
+          {
+            "x": -191.44488525390625,
+            "y": -78.0384521484375
+          },
+          {
+            "x": 79.068115234375,
+            "y": -46.26679992675781
+          },
+          {
+            "x": -9.89251708984375,
+            "y": 118.94583129882812
+          },
+          {
+            "x": -158.76547241210938,
+            "y": 102.60614013671875
+          },
+          {
+            "x": 192.538330078125,
+            "y": -7.2330322265625
+          },
+          {
+            "x": 124.45623779296875,
+            "y": 102.60614013671875
+          }
+        ],
+        "label": [
+          "new",
+          "new",
+          "new",
+          "new",
+          "new",
+          "new",
+          "new"
+        ],
+        "color": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    },
+    "flags": {
+      "multiGraph": false,
+      "directed": true
+    },
+    "attributeTypes": {
+      "edges": {
+        "label": {
+          "default": "",
+          "type": "text"
+        },
+        "weight": {
+          "default": 1,
+          "type": "numeric"
+        }
+      },
+      "nodes": {
+        "position": {
+          "default": {
+            "x": 0,
+            "y": 0
+          },
+          "type": "object"
+        },
+        "label": {
+          "default": "new",
+          "type": "text"
+        },
+        "color": {
+          "default": null,
+          "type": "color"
+        }
+      }
+    }
+  };
+
 const flagConversions = {
     multiGraph: (state, yes) => {
         return state;
@@ -63,7 +222,7 @@ const objectMap = (obj, fn) => {
     return result;
 }
 
-const thisReducer = (state = initialState, action) => {
+const thisReducer = (state = /*initialState*/example, action) => {
     switch(action.type) {
         case 'ADD_EDGE':
             if(!state.flags.multiGraph && state.nodes[action.fromNodeId].includes(action.toNodeId)) {
