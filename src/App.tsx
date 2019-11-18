@@ -2,6 +2,10 @@ import React, {useState, useRef, useMemo} from 'react';
 import styled from 'styled-components';
 import { useSize } from 'react-hook-size';
 
+import { useSelector, useDispatch } from 'react-redux'
+
+import * as actions from './actions'
+
 const Title = styled.h1`
 	margin: 0;
 	padding: 0;
@@ -54,58 +58,80 @@ const Link = styled.span`
     cursor: pointer;
 `
 
-const NodeDetails = ({deleteNode, setNodeLabel, setNodeColor, selectEdge, selectNode, nodeId, state}) =>
-    <div>
+const NodeDetails = ({nodeId}) => {
+    const dispatch = useDispatch()
+
+    const labels = useSelector(state => state.graph.attributes.nodes.label)
+    const color = useSelector(state => state.graph.attributes.nodes.color[nodeId])
+    const neighbours = useSelector(state => state.graph.nodes[nodeId])
+    const edgeLabels = useSelector(state => state.graph.attributes.edges.label[nodeId])
+
+
+    return <div>
         <h3>Node (#{nodeId})</h3>
         Label:
-        <input type="text" value={state.labels.nodes[nodeId]} onChange={(evt) => setNodeLabel(nodeId, evt.target.value)} />
+        <input type="text" value={labels[nodeId]} onChange={(evt) => dispatch(actions.setNodeLabel(nodeId, evt.target.value))} />
         <br />
         Color:
-        <input type="text" value={JSON.stringify(state.graph.colors[nodeId])} onChange={(evt) => setNodeColor(nodeId, JSON.parse(evt.target.value))} />
+        <input type="text" value={JSON.stringify(color)} onChange={(evt) => dispatch(actions.setNodeColor(nodeId, JSON.parse(evt.target.value)))} />
         <br />
-        <button onClick={() => deleteNode(nodeId)}>Delete</button>
+        <button onClick={() => dispatch(actions.deleteNode(nodeId))}>Delete</button>
         <h4>Neighbours</h4>
         <LinkList>
-            {state.graph.nodes[nodeId].map((neighbour, idx) =>
+            {neighbours.map((neighbour, idx) =>
                neighbour === nodeId ?
-                <li key={idx}><Link onClick={() => selectEdge(nodeId, idx)}>{ state.labels.edges[nodeId][idx] } ↩ </Link>&nbsp;(self)</li> :
-                <li key={idx}><Link onClick={() => selectEdge(nodeId, idx)}>{ state.labels.edges[nodeId][idx] } → </Link>&nbsp;<Link onClick={() => selectNode(neighbour)}>Node #{neighbour} ({state.labels.nodes[neighbour]})</Link></li>
+                <li key={idx}><Link onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>{ edgeLabels[idx] } ↩ </Link>&nbsp;(self)</li> :
+                <li key={idx}><Link onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>{ edgeLabels[idx] } → </Link>&nbsp;<Link onClick={() => dispatch(actions.selectNode(neighbour))}>Node #{neighbour} ({labels[neighbour]})</Link></li>
             )}
         </LinkList>
     </div>
+}
 
-const EdgeDetails = ({deleteEdge, setEdgeLabel, setEdgeWeight, selectNode, nodeId, edgeIndex, state}) =>
-    <div>
-        {state.graph.nodes[nodeId][edgeIndex] === nodeId ?
-            <h3>Edge (<Link onClick={() => selectNode(nodeId)}>#{nodeId}</Link> ↩)</h3> :
-            <h3>Edge (<Link onClick={() => selectNode(nodeId)}>#{nodeId}</Link> → <Link onClick={() => selectNode(state.graph.nodes[nodeId][edgeIndex])}>#{state.graph.nodes[nodeId][edgeIndex]}</Link>)</h3>}
+const EdgeDetails = ({nodeId, edgeIndex}) => {
+    const dispatch = useDispatch()
+
+    const target = useSelector(state => state.graph.nodes[nodeId][edgeIndex])
+    const label = useSelector(state => state.graph.attributes.edges.label[nodeId][edgeIndex])
+    const weight = useSelector(state => state.graph.attributes.edges.weight[nodeId][edgeIndex])
+
+
+    return <div>
+        {target === nodeId ?
+            <h3>Edge (<Link onClick={() => dispatch(actions.selectNode(nodeId))}>#{nodeId}</Link> ↩)</h3> :
+            <h3>Edge (<Link onClick={() => dispatch(actions.selectNode(nodeId))}>#{nodeId}</Link> → <Link onClick={() => dispatch(actions.selectNode(target))}>#{target}</Link>)</h3>}
         Label:
-        <input type="text" value={state.labels.edges[nodeId][edgeIndex]} onChange={(evt) => setEdgeLabel(nodeId, edgeIndex, evt.target.value)} />
+        <input type="text" value={label} onChange={(evt) => dispatch(actions.setEdgeLabel(nodeId, edgeIndex, evt.target.value))} />
         <br />
         Weight:
-        <input type="text" value={JSON.stringify(state.graph.weights[nodeId][edgeIndex])} onChange={(evt) => setEdgeWeight(nodeId, edgeIndex, JSON.parse(evt.target.value))} />
+        <input type="text" value={JSON.stringify(weight)} onChange={(evt) => dispatch(actions.setEdgeWeight(nodeId, edgeIndex, JSON.parse(evt.target.value)))} />
         <br />
-        <button onClick={() => deleteEdge(nodeId, edgeIndex)}>Delete</button>
+        <button onClick={() => dispatch(actions.deleteEdge(nodeId, edgeIndex))}>Delete</button>
     </div>
+}
+
+const Menu = () => {
+    const nodes = useSelector(state => state.selection.nodes)
+    const edges = useSelector(state => state.selection.edges)
+    const empty = useSelector(state => state.selection.edges.length < 1 && state.selection.nodes.length < 1)
 
 
-const Menu = ({state,deleteNode, deleteEdge, setNodeLabel, setNodeColor, setEdgeLabel, setEdgeWeight, selectEdge, selectNode}) =>
-    <Scroller>
+    return <Scroller>
         <Padding>
             <h2>Selected</h2>
-            {state.selection.nodes.map((nodeId) =>
-                <NodeDetails key={nodeId} deleteNode={deleteNode} setNodeLabel={setNodeLabel} setNodeColor={setNodeColor} selectEdge={selectEdge} selectNode={selectNode} nodeId={nodeId} state={state} />)}
-            <hr/>
-            {state.selection.edges.map((edges, nodeId) => edges.map((edgeIndex) =>
-                <EdgeDetails key={nodeId + "-" + edgeIndex} deleteEdge={deleteEdge} setEdgeLabel={setEdgeLabel} setEdgeWeight={setEdgeWeight} selectNode={selectNode} nodeId={nodeId} edgeIndex={edgeIndex} state={state} />
-            ))}
+            {nodes.map((nodeId) =>
+                <NodeDetails key={nodeId} nodeId={nodeId} />)}
+            {edges.map(([nodeId, edgeIndex]) =>
+                <EdgeDetails key={nodeId + "-" + edgeIndex} nodeId={nodeId} edgeIndex={edgeIndex} />
+            )}
+            {empty ? <p>Nothing Selected</p> : null}
         </Padding>
     </Scroller>
+}
 
-const Dump = ({state}) =>
+const Dump = ({value}) =>
     <Scroller>
     <Code>
-        {JSON.stringify(state, null, 2)}
+        {JSON.stringify(value, null, 2)}
     </Code>
     </Scroller>
 
@@ -117,14 +143,14 @@ const viewboxString = (screen, camera) =>
 
 const useSVGPosition = () => {
     const ref = useRef();
-    const svgPoint = useMemo(() => ref.current && ref.current.parentNode.createSVGPoint(), [ref.current]);
+    const svgPoint = useMemo(() => ref.current ? ref.current.parentNode.createSVGPoint() : null, [ref.current]);
 
-    const svgEventPosition = (coords) => {
+    const svgEventPosition = ({x,y}) => {
         if(!svgPoint) {
             return;
         }
-        svgPoint.x = coords.x
-        svgPoint.y = coords.y
+        svgPoint.x = x
+        svgPoint.y = y
         var result = svgPoint.matrixTransform(ref.current.getScreenCTM().inverse());
 
         return {
@@ -150,7 +176,7 @@ const Canvas = ({bounds = {
 	maxX: +400,
 	maxY: +400,
 	minZoom: 0.5,
-	maxZoom: 2,
+	maxZoom: 10,
     defaultZoom: 1,
 }, onMouseMove, onClick, onMouseDown, onMouseUp, children}) => {
 	const [camera, setCamera] = useState({
@@ -213,7 +239,7 @@ const Canvas = ({bounds = {
         })
     }
 
-    const resetCamera = (deltaX, deltaY) => {
+    const resetCamera = () => {
         setCamera({
           ...camera,
             center: {
@@ -252,7 +278,7 @@ const Canvas = ({bounds = {
     const onClickHandler = (e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
-        if(pos && onClick && e.metaKey) {
+        if(pos && onClick) {
             onClick(e, pos)
         }
     }
@@ -276,6 +302,8 @@ const Canvas = ({bounds = {
             onMouseDown(e, pos)
         }
 
+        e.preventDefault();
+        e.stopPropagation();
         setDragState({
             startX: pos.x,
             startY: pos.y,
@@ -287,6 +315,8 @@ const Canvas = ({bounds = {
         if(pos && onMouseUp) {
             onMouseUp(e, pos)
         }
+
+        e.preventDefault();
 
         setDragState({
             startX: null,
@@ -438,8 +468,8 @@ const EdgeHead = ({x,y, angle, selected = false}) => {
 	</>
 }
 
-const Node = ({x, y, nodeType = 'circle', id, label, selected = false, onClick = null, onDoubleClick = null, style = {}, labelStyle = {}}) =>
-	<g onClick={onClick} onDoubleClick={onDoubleClick}>
+const Node = ({x, y, nodeType = 'circle', id, label, selected = false, onClick = null, onDoubleClick = null, onMouseDown = null, style = {}, labelStyle = {}}) =>
+	<g onClick={onClick} onDoubleClick={onDoubleClick} onMouseDown={onMouseDown}>
 		{nodeType === 'circle' ?
 			<NodeCircleSelection selected={selected} cx={x} cy={y} r={20} /> :
 			<NodeBoxSelection selected={selected} x={x - 17} y={y - 17} width={34} height={34} />
@@ -551,394 +581,138 @@ const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDo
 	/>
 }
 
-const Graph = ({state, selectEdge, selectNode, deleteNode, addEdge, deleteEdge}) => {
+const Graph = ({onNodePress}) => {
+    const dispatch = useDispatch()
+
+    const selectedNodes = useSelector(state => state.selection.nodes)
+    const selectedEdges = useSelector(state => state.selection.edges)
+    const nodes = useSelector(state => state.graph.nodes)
+    const positions = useSelector(state => state.graph.attributes.nodes.position)
+    const nodeLabels = useSelector(state => state.graph.attributes.nodes.label)
+    const nodeColors = useSelector(state => state.graph.attributes.nodes.color)
+    const edgeLabels = useSelector(state => state.graph.attributes.edges.label)
+    const edgeWeights = useSelector(state => state.graph.attributes.edges.weight)
+
     return <>
-        {state.graph.nodes.map((neighbors, nodeId) =>
+        {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) =>
                 nodeId===neighbourId ?
                 <ReflexiveEdge
                     key={`${nodeId}-${edgeIdx}`}
                     angle={Math.PI/1}
-                    x={state.positions[2*nodeId]}
-                    y={state.positions[2*nodeId+1]}
-                    label={`${state.labels.edges[nodeId][edgeIdx]}<br>(${state.graph.weights[nodeId][edgeIdx]})`}
-                    selected={state.selection.edges[nodeId].includes(edgeIdx)}
-                    onClick={(e) => {e.stopPropagation(); selectEdge(nodeId,edgeIdx,e.shiftKey)}}
-                    onDoubleClick={(e) => {e.stopPropagation(); deleteEdge(nodeId, edgeIdx)}}
+                    x={positions[nodeId].x}
+                    y={positions[nodeId].y}
+                    label={`${edgeLabels[nodeId][edgeIdx]}<br>(${edgeWeights[nodeId][edgeIdx]})`}
+                    selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
+                    onClick={(e) => {e.stopPropagation(); dispatch(actions.selectEdge(nodeId,edgeIdx,e.shiftKey))}}
+                    onDoubleClick={(e) => {e.stopPropagation(); dispatch(actions.deleteEdge(nodeId, edgeIdx))}}
                 /> :
                 <NodeEdge
                     key={`${nodeId}-${edgeIdx}`}
-                    x0={state.positions[2*nodeId]}
-                    y0={state.positions[2*nodeId+1]}
-                    x1={state.positions[2*neighbourId]}
-                    y1={state.positions[2*neighbourId+1]}
-                    label={`${state.labels.edges[nodeId][edgeIdx]}<br>(${state.graph.weights[nodeId][edgeIdx]})`}
-                    selected={state.selection.edges[nodeId].includes(edgeIdx)}
-                    onClick={(e) => {e.stopPropagation(); selectEdge(nodeId,edgeIdx,e.shiftKey)}}
-                    onDoubleClick={(e) => {e.stopPropagation(); deleteEdge(nodeId, edgeIdx)}}
+                    x0={positions[nodeId].x}
+                    y0={positions[nodeId].y}
+                    x1={positions[neighbourId].x}
+                    y1={positions[neighbourId].y}
+                    label={`${edgeLabels[nodeId][edgeIdx]}<br>(${edgeWeights[nodeId][edgeIdx]})`}
+                    selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
+                    onClick={(e) => {e.stopPropagation(); dispatch(actions.selectEdge(nodeId,edgeIdx,e.shiftKey))}}
+                    onDoubleClick={(e) => {e.stopPropagation(); dispatch(actions.deleteEdge(nodeId, edgeIdx))}}
                 />
             )
         )}
-        {state.graph.nodes.map((neighbors, nodeId) =>
+        {nodes.map((neighbors, nodeId) =>
             <Node
                 key={nodeId}
                 id={nodeId}
-                selected={state.selection.nodes.includes(nodeId)}
-                onClick={(e) => {e.stopPropagation(); e.metaKey && (state.selection.nodes.length === 1) ? addEdge(state.selection.nodes[0], nodeId) : selectNode(nodeId, e.shiftKey)}}
-                onDoubleClick={(e) => {e.stopPropagation(); deleteNode(nodeId)}}
-                x={state.positions[2*nodeId]}
-                y={state.positions[2*nodeId+1]}
-                label={state.labels.nodes[nodeId]}
-                style={{color: null && state.graph.colors[nodeId]}}
-                nodeType={state.partitions[1] && state.partitions[1].includes(nodeId) ? 'rect' : 'circle'}
+                selected={selectedNodes.includes(nodeId)}
+                onClick={(e) => {e.stopPropagation(); e.metaKey && (selectedNodes.length === 1) ? dispatch(actions.addEdge(selectedNodes[0], nodeId)) : dispatch(actions.selectNode(nodeId, e.shiftKey))}}
+                onMouseDown={(e) => onNodePress && onNodePress(e, nodeId)}
+                onDoubleClick={(e) => {e.stopPropagation(); dispatch(actions.deleteNode(nodeId))}}
+                x={positions[nodeId].x}
+                y={positions[nodeId].y}
+                label={nodeLabels[nodeId]}
+                style={{color: null && nodeColors[nodeId]}}
             />
         )}
     </>
 }
 
+
 export default () => {
-	const [state, setState] = useState({
-		graph: {
-			nodes: [
-				[0,1],
-				[0,2],
-				[0,1],
-				[]
-			],
-			weights: [
-				[1,1],
-				[3,1],
-				[1,1],
-				[]
-			],
-			colors: [
-				'cyan',
-				'magenta',
-				'yellow',
-				'white',
-			]
-		},
-		partitions: [
-			[0,1,2,3],
-		],
-		labels: {
-			nodes: [
-				'a','b','c','d'
-			],
-			edges: [
-				['p','q'],
-				['r',''],
-				['s','t'],
-				[],
-			],
-		},
-		positions: [
-			-100,-100,
-			100,100,
-			-100,100,
-			100, -100,
-		],
-		selection: {
-			nodes: [0],
-			edges: [
-				[],
-				[],
-				[0],
-				[],
-			]
-		}
-	});
-
-	const selectNode = (n, add = false) =>
-		setState({
-			...state,
-			selection: {
-				...state.selection,
-				nodes: add ?
-                    [...state.selection.nodes.filter(x=>x!==n), n] :
-                    [n],
-				edges: add ?
-                    state.selection.edges :
-                    state.graph.nodes.map(
-					(neighbors, node) => []
-				),
-			},
-		});
-
-	const selectEdge = (from, edgeIdx, add = false) =>
-		setState({
-			...state,
-			selection: {
-				...state.selection,
-				nodes: add ?
-                    state.selection.nodes : [],
-				edges: state.graph.nodes.map(
-					(neighbors, node) => add ?
-                        (node===from ?
-                        [...state.selection.edges[node].filter(x=>x!==edgeIdx), edgeIdx] : state.selection.edges[node]) :
-                        node===from ?
-                        [edgeIdx] : []
-				),
-			},
-		});
-
-	const setPosition = (nodeId, x, y) =>
-        setState({
-            ...state,
-            positions: [
-                ...state.positions.slice(0, 2*nodeId),
-                x, y,
-                ...state.positions.slice(2*(nodeId+1)),
+    const initialGraph = {
+        graph: {
+            nodes: [
+                [0,1],
+                [0,2],
+                [0,1],
+                []
             ],
-        });
-
-    const addEdge = (from, to) =>
-        state.graph.nodes[from].includes(to) ? state :
-        setState({
-            ...state,
-            graph: {
-                ...state.graph,
-                nodes: [
-                    ...state.graph.nodes.slice(0, from),
-                    [...state.graph.nodes[from], to],
-                    ...state.graph.nodes.slice(from+1)
-                ],
-                weights: [
-                    ...state.graph.weights.slice(0, from),
-                    [...state.graph.weights[from], 1],
-                    ...state.graph.weights.slice(from+1)
-                ],
-            },
-            labels: {
-                ...state.labels,
-                edges: [
-                    ...state.labels.edges.slice(0, from),
-                    [...state.labels.edges[from], "new"],
-                    ...state.labels.edges.slice(from+1)
-                ],
-            },
-            selection: {
-                ...state.selection,
-                edges: state.graph.nodes.map((_,n) => n===from ? [state.graph.nodes[from].length] : []),
-            },
-        });
-
-    const _removeNodeIndex = (nodeId, list) =>
-        list
-            .filter((n) => n !== nodeId)
-            .map((n) => n > nodeId ? n-1 : n)
-
-    const deleteNode = (nodeId) =>
-        setState({
-            ...state,
-            graph: {
-                ...state.graph,
-                nodes: [
-                    ...state.graph.nodes.slice(0, nodeId),
-                    ...state.graph.nodes.slice(nodeId+1)
-                ].map((neighbours) =>
-                    _removeNodeIndex(nodeId, neighbours)),
-                weights: [
-                    ...state.graph.weights.slice(0, nodeId),
-                    ...state.graph.weights.slice(nodeId+1)
-                ].map((neighbours, n) =>
-                    neighbours.filter((_, i) =>
-                        state.graph.nodes[n][i] !== nodeId)),
-                colors: [
-                    ...state.graph.colors.slice(0, nodeId),
-                    ...state.graph.colors.slice(nodeId+1)
-                ],
-            },
-            partitions: [
-                ..._removeNodeIndex(nodeId, state.partitions)
+            weights: [
+                [1,1],
+                [3,1],
+                [1,1],
+                []
             ],
-            labels: {
-                nodes: [
-                    ...state.labels.nodes.slice(0, nodeId),
-                    ...state.labels.nodes.slice(nodeId+1)
-                ],
-                edges: [
-                    ...state.labels.edges.slice(0, nodeId),
-                    ...state.labels.edges.slice(nodeId+1)
-                ].map((neighbours, n) =>
-                    neighbours.filter((_, i) =>
-                        state.graph.nodes[n][i] !== nodeId)),
-            },
-            positions: [
-                 ...state.positions.slice(0, 2 * nodeId),
-                 ...state.positions.slice(2 * (nodeId + 1)),
+            colors: [
+                'cyan',
+                'magenta',
+                'yellow',
+                'white',
+            ]
+        },
+        partitions: [
+            [0,1,2,3],
+        ],
+        labels: {
+            nodes: [
+                'a','b','c','d'
             ],
-            selection: {
-                nodes: [],
-                edges: state.graph.nodes.map(() => []),
-            },
-        });
-
-    const createNode = (x, y) =>
-        setState({
-            ...state,
-            graph: {
-                ...state.graph,
-                nodes: [
-                    ...state.graph.nodes,
-                    []
-                ],
-                weights: [
-                    ...state.graph.weights,
-                    []
-                ],
-                colors: [
-                    ...state.graph.colors,
-                    null
-                ],
-            },
-            partitions: [
-                ...state.partitions
+            edges: [
+                ['p','q'],
+                ['r',''],
+                ['s','t'],
+                [],
             ],
-            labels: {
-                nodes: [
-                    ...state.labels.nodes,
-                    'new'
-                ],
-                edges: [
-                    ...state.labels.edges,
-                    []
-                ],
+        },
+        positions: [
+            -100,-100,
+            100,100,
+            -100,100,
+            100, -100,
+        ],
+        attributes: {
+            edges: {
+                label: [[]],
+                weight: [[]]
             },
-            positions: [
-                 ...state.positions, x, y
-            ],
-            selection: {
-                nodes: [state.graph.nodes.length],
-                edges: state.graph.nodes.map(() => []),
-            },
-        });
-
-    const deleteEdge = (nodeId, edgeIndex) =>
-        setState({
-            ...state,
-            graph: {
-                ...state.graph,
-                nodes: [
-                    ...state.graph.nodes.slice(0, nodeId),
-                    [
-                        ...state.graph.nodes[nodeId].slice(0, edgeIndex),
-                        ...state.graph.nodes[nodeId].slice(edgeIndex + 1)
-                    ],
-                    ...state.graph.nodes.slice(nodeId+1)
-                ],
-                weights: [
-                    ...state.graph.weights.slice(0, nodeId),
-                    [
-                        ...state.graph.weights[nodeId].slice(0, edgeIndex),
-                        ...state.graph.weights[nodeId].slice(edgeIndex + 1)
-                    ],
-                    ...state.graph.weights.slice(nodeId+1)
-                ],
-            },
-            labels: {
-                ...state.labels,
-                edges: [
-                    ...state.labels.edges.slice(0, nodeId),
-                    [
-                        ...state.labels.edges[nodeId].slice(0, edgeIndex),
-                        ...state.labels.edges[nodeId].slice(edgeIndex + 1)
-                    ],
-                    ...state.labels.edges.slice(nodeId+1)
-                ],
-            },
-            selection: {
-                ...state.selection,
-                edges: state.graph.nodes.map((_,n) => []),
-            },
-        });
-
-    const setEdgeLabel = (nodeId, edgeIndex, label) =>
-        setState({
-            ...state,
-            labels: {
-                ...state.labels,
-                edges: [
-                    ...state.labels.edges.slice(0, nodeId),
-                    [
-                        ...state.labels.edges[nodeId].slice(0, edgeIndex),
-                        label,
-                        ...state.labels.edges[nodeId].slice(edgeIndex + 1),
-                    ],
-                    ...state.labels.edges.slice(nodeId+1)
-                ],
-            },
-        })
-
-    const setEdgeWeight = (nodeId, edgeIndex, weight) =>
-        setState({
-            ...state,
-            graph: {
-                ...state.graph,
-                weights: [
-                    ...state.graph.weights.slice(0, nodeId),
-                    [
-                        ...state.graph.weights[nodeId].slice(0, edgeIndex),
-                        weight,
-                        ...state.graph.weights[nodeId].slice(edgeIndex + 1),
-                    ],
-                    ...state.graph.weights.slice(nodeId+1)
-                ],
+            nodes: {
+                label: [],
+                color: [],
             }
-        })
+        }
+    };
 
-    const setNodeLabel = (nodeId, label) =>
-        setState({
-            ...state,
-            labels: {
-                ...state.labels,
-                nodes: [
-                    ...state.labels.nodes.slice(0, nodeId),
-                    label,
-                    ...state.labels.nodes.slice(nodeId+1)
-                ],
-            },
-        })
+	return <GraphEditor />
+}
 
+const GraphEditor = () => {
+    const dispatch = useDispatch()
+    const fullState = useSelector((state) => state)
 
-    const setNodeColor = (nodeId, color) =>
-        setState({
-            ...state,
-            graph: {
-                ...state.graph,
-                colors: [
-                    ...state.graph.colors.slice(0, nodeId),
-                    color,
-                    ...state.graph.colors.slice(nodeId+1)
-                ],
-            },
-        })
+    const [pressedNode, setPressedNode] = useState(null);
 
-	return <Container>
-		<Title>Graph</Title>
-        <Menu
-            state={state}
-            deleteEdge={deleteEdge}
-            deleteNode={deleteNode}
-            setEdgeLabel={setEdgeLabel}
-            setEdgeWeight={setEdgeWeight}
-            setNodeLabel={setNodeLabel}
-            setNodeColor={setNodeColor}
-            selectEdge={selectEdge}
-            selectNode={selectNode}
-        />
-        <Dump state={state} />
-		<Canvas
-            onClick={(e,{x,y}) => createNode(x,y)}
-            onMouseMove={(e, {x,y}) => e.altKey && state.selection.nodes.length === 1 && setPosition(state.selection.nodes[0], x, y)}>
-		    <Graph
-                state={state}
-                selectNode={selectNode}
-                selectEdge={selectEdge}
-                addEdge={addEdge}
-                deleteNode={deleteNode}
-                deleteEdge={deleteEdge}
-            />
-		</Canvas>
-	</Container>
+    dispatch({type: 'foo'})
+
+    return <Container onMouseUp={() => setPressedNode(null)}>
+            <Title>Graph</Title>
+            <Menu />
+            <Dump value={fullState} />
+            <Canvas
+                onClick={(e,{x,y}) => {if(e.metaKey) { dispatch(actions.createNode(x,y)) } else if(!e.shiftKey) { dispatch(actions.clearSelection()) } }}
+                onMouseMove={(e, {x,y}) => pressedNode!==null && dispatch(actions.setPosition(pressedNode, x, y))}>
+                <Graph
+                    onNodePress={(e, nodeId) => (e.stopPropagation(), e.preventDefault(), setPressedNode(nodeId))}
+                />
+            </Canvas>
+        </Container>;
 }

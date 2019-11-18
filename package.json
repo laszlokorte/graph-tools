@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "react-hook-size": "^1.3.5",
+    "react-redux": "^7.1.3",
+    "redux": "^4.0.4",
     "styled-components": "^5.0.0-rc.2"
   }
 }
