@@ -1,8 +1,10 @@
-import React, {useState, useRef, useMemo} from 'react';
+import React from 'react';
+import {useState, useRef, useMemo} from 'react';
 import styled from 'styled-components';
 import { useSize } from 'react-hook-size';
 
 import { useSelector, useDispatch } from 'react-redux'
+import { ActionCreators } from 'redux-undo';
 
 import * as actions from './actions'
 
@@ -58,65 +60,140 @@ const Link = styled.span`
     cursor: pointer;
 `
 
+const NodeAttribute = ({nodeId, attrKey}) => {
+    const dispatch = useDispatch()
+    const value = useSelector(state => state.present.graph.attributes.nodes[attrKey][nodeId])
+    const type = useSelector(state => state.present.graph.attributeTypes.nodes[attrKey].type)
+
+
+    if(['text','color','numeric'].includes(type)) {
+        return <div>
+            {attrKey}:
+            <input type="text" value={value || ''} onChange={(evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))} />
+        </div>
+    } else {
+        return <div>{attrKey}: <input type={type} value={JSON.stringify(value)} readOnly /></div>
+    }
+}
+
 const NodeDetails = ({nodeId}) => {
     const dispatch = useDispatch()
 
-    const labels = useSelector(state => state.graph.attributes.nodes.label)
-    const color = useSelector(state => state.graph.attributes.nodes.color[nodeId])
-    const neighbours = useSelector(state => state.graph.nodes[nodeId])
-    const edgeLabels = useSelector(state => state.graph.attributes.edges.label[nodeId])
+    const neighbours = useSelector(state => state.present.graph.nodes[nodeId])
+    const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label[nodeId])
+    const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label[nodeId])
+    const attributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes))
 
 
     return <div>
         <h3>Node (#{nodeId})</h3>
-        Label:
-        <input type="text" value={labels[nodeId]} onChange={(evt) => dispatch(actions.setNodeLabel(nodeId, evt.target.value))} />
-        <br />
-        Color:
-        <input type="text" value={JSON.stringify(color)} onChange={(evt) => dispatch(actions.setNodeColor(nodeId, JSON.parse(evt.target.value)))} />
-        <br />
+        {attributes.map((attrKey) =>
+            <NodeAttribute key={attrKey} nodeId={nodeId} attrKey={attrKey} />
+        )}
         <button onClick={() => dispatch(actions.deleteNode(nodeId))}>Delete</button>
         <h4>Neighbours</h4>
         <LinkList>
             {neighbours.map((neighbour, idx) =>
                neighbour === nodeId ?
                 <li key={idx}><Link onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>{ edgeLabels[idx] } ↩ </Link>&nbsp;(self)</li> :
-                <li key={idx}><Link onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>{ edgeLabels[idx] } → </Link>&nbsp;<Link onClick={() => dispatch(actions.selectNode(neighbour))}>Node #{neighbour} ({labels[neighbour]})</Link></li>
+                <li key={idx}><Link onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>{ edgeLabels[idx] } → </Link>&nbsp;<Link onClick={() => dispatch(actions.selectNode(neighbour))}>Node #{neighbour} ({nodeLabels[neighbour]})</Link></li>
             )}
         </LinkList>
     </div>
 }
 
+const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
+    const dispatch = useDispatch()
+    const value = useSelector(state => state.present.graph.attributes.edges[attrKey][nodeId][edgeIndex])
+    const type = useSelector(state => state.present.graph.attributeTypes.edges[attrKey].type)
+
+    if(['text','color','numeric'].includes(type)) {
+        return <div>
+            {attrKey}:
+            <input type={type} value={value||''} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value))} />
+        </div>
+    } else {
+        return <div>{attrKey}: <input type={type} value={JSON.stringify(value)} readOnly /></div>
+    }
+}
+
 const EdgeDetails = ({nodeId, edgeIndex}) => {
     const dispatch = useDispatch()
 
-    const target = useSelector(state => state.graph.nodes[nodeId][edgeIndex])
-    const label = useSelector(state => state.graph.attributes.edges.label[nodeId][edgeIndex])
-    const weight = useSelector(state => state.graph.attributes.edges.weight[nodeId][edgeIndex])
-
+    const target = useSelector(state => state.present.graph.nodes[nodeId][edgeIndex])
+    const attributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges))
+    const flags = useSelector(state => state.present.graph.flags)
+    const prev = useSelector(state => edgeIndex > 0 && state.present.graph.nodes[nodeId][edgeIndex - 1] === target ? edgeIndex - 1 : null)
+    const next = useSelector(state => edgeIndex < state.present.graph.nodes[nodeId].length && state.present.graph.nodes[nodeId][edgeIndex + 1] === target ? edgeIndex + 1 : null)
 
     return <div>
         {target === nodeId ?
             <h3>Edge (<Link onClick={() => dispatch(actions.selectNode(nodeId))}>#{nodeId}</Link> ↩)</h3> :
             <h3>Edge (<Link onClick={() => dispatch(actions.selectNode(nodeId))}>#{nodeId}</Link> → <Link onClick={() => dispatch(actions.selectNode(target))}>#{target}</Link>)</h3>}
-        Label:
-        <input type="text" value={label} onChange={(evt) => dispatch(actions.setEdgeLabel(nodeId, edgeIndex, evt.target.value))} />
-        <br />
-        Weight:
-        <input type="text" value={JSON.stringify(weight)} onChange={(evt) => dispatch(actions.setEdgeWeight(nodeId, edgeIndex, JSON.parse(evt.target.value)))} />
-        <br />
         <button onClick={() => dispatch(actions.deleteEdge(nodeId, edgeIndex))}>Delete</button>
+        <h4>Attributes</h4>
+        {attributes.map((attrKey) =>
+            <EdgeAttribute key={attrKey} nodeId={nodeId} edgeIndex={edgeIndex} attrKey={attrKey} />
+        )}
+        {!flags.multiGraph ? null : <div>
+            <h4>Partner Edges</h4>
+            {prev === null ? 'Prev' :
+            <Link onClick={() => dispatch(actions.selectEdge(nodeId, prev))}>Prev</Link>}
+            &nbsp;|&nbsp;
+            {next === null ? 'Next' :
+            <Link onClick={() => dispatch(actions.selectEdge(nodeId, next))}>Next</Link>}
+        </div>}
     </div>
 }
 
-const Menu = () => {
-    const nodes = useSelector(state => state.selection.nodes)
-    const edges = useSelector(state => state.selection.edges)
-    const empty = useSelector(state => state.selection.edges.length < 1 && state.selection.nodes.length < 1)
+const GraphOptions = () => {
+    const dispatch = useDispatch()
 
+    const flags = useSelector(state => state.present.graph.flags)
+
+    return <div>
+        {Object.keys(flags).map((flagKey) =>
+            <label key={flagKey}>
+                <input type="checkbox" onChange={(e) => dispatch(actions.setFlag(flagKey, e.target.checked))} checked={flags[flagKey]} /> {flagKey}
+            </label>
+        )}
+    </div>
+}
+
+const History = () => {
+    const dispatch = useDispatch();
+    const canUndo = useSelector(state => state.past.length > 0)
+    const canRedo = useSelector(state => state.future.length > 0)
+
+    const undo = () => dispatch(ActionCreators.undo())
+    const redo = () => dispatch(ActionCreators.redo())
+
+    return <Padding>
+        <button disabled={!canUndo} onClick={undo}>Undo</button>
+        <button disabled={!canRedo} onClick={redo}>Redo</button>
+    </Padding>
+}
+
+const Menu = () => {
+    const dispatch = useDispatch();
+    const nodes = useSelector(state => state.present.selection.nodes)
+    const edges = useSelector(state => state.present.selection.edges)
+    const empty = useSelector(state => state.present.selection.edges.length < 1 && state.present.selection.nodes.length < 1)
+
+
+    const nodeCount = useSelector(state => state.present.graph.nodes.length)
+    const edgeCount = useSelector(state => state.present.graph.nodes.reduce((a,es) => a+es.length, 0))
 
     return <Scroller>
         <Padding>
+            <dl>
+                <dt>Nodes</dt>
+                <dd>{nodeCount}</dd>
+                <dt>Edgs</dt>
+                <dd>{edgeCount}</dd>
+            </dl>
+            <h3>Graph Options</h3>
+                <GraphOptions/>
             <h2>Selected</h2>
             {nodes.map((nodeId) =>
                 <NodeDetails key={nodeId} nodeId={nodeId} />)}
@@ -141,8 +218,7 @@ const viewboxString = (screen, camera) =>
   (screen.width / camera.zoom) + " " +
   (screen.height / camera.zoom)
 
-const useSVGPosition = () => {
-    const ref = useRef();
+const useSVGPosition = (ref) => {
     const svgPoint = useMemo(() => ref.current ? ref.current.parentNode.createSVGPoint() : null, [ref.current]);
 
     const svgEventPosition = ({x,y}) => {
@@ -159,7 +235,7 @@ const useSVGPosition = () => {
         };
     }
 
-    return [svgEventPosition, ref];
+    return svgEventPosition;
 }
 
 const wheelFactor = (evt) => {
@@ -252,9 +328,10 @@ const Canvas = ({bounds = {
         })
     }
 
-	const ref = useRef();
+    const ref = useRef();
+    const posRef = useRef();
     const screen = useSize(ref);
-    const [svgPos, posRef] = useSVGPosition();
+    const svgPos = useSVGPosition(posRef);
 
     const box = {
     	width: bounds.maxX - bounds.minX,
@@ -456,7 +533,6 @@ const ArrowHeadSelection = styled.polygon`
     stroke-dasharray: none;
 `
 const EdgeHead = ({x,y, angle, selected = false}) => {
-
 	const size = 12
 	const spike = 0.25 * Math.PI / 2;
 	const a = `${x},${y}`;
@@ -485,7 +561,7 @@ const Node = ({x, y, nodeType = 'circle', id, label, selected = false, onClick =
 		<NodeLabel x={x} y={y+20} dy="0.6em" style={labelStyle}>{label}</NodeLabel>
 	</g>
 
-const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClick = null, style, labelStyle}) => {
+const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClick = null, style, labelStyle, directed = true}) => {
 	const midX = (x0 + x1) / 2
 	const midY = (y0 + y1) / 2
 	let dirX = x1 - x0
@@ -498,8 +574,8 @@ const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClic
 	const length = Math.sqrt(length2)
 	const normX = dirX/length
 	const normY = dirY/length
-	const bendA = 80/Math.log(Math.max(3, length))
-	const bendB = 80/Math.log(Math.max(3, length))
+	const bendA = directed ? 80/Math.log(Math.max(3, length)) : 0
+	const bendB = directed ? 80/Math.log(Math.max(3, length)) : 0
 
 	const orientation = Math.round(((Math.atan2(normY, normX) + Math.PI) / Math.PI + 0.5) * 2) % 4
 
@@ -517,9 +593,12 @@ const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClic
 	return <g onClick={onClick} onDoubleClick={onDoubleClick}>
 		<EdgeSelection selected={selected} d={`M${x1},${y1} C${cbX},${cbY} ${caX},${caY} ${x0},${y0}`} />
 		<g style={style}>
-		<EdgeHead x={x1} y={y1} angle={headAngle} selected={selected} />
-		<EdgeLine d={`M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`} />
-		</g>
+        {directed ?
+            <EdgeHead x={x1} y={y1} angle={headAngle} selected={selected} />
+            :null
+        }
+        <EdgeLine d={`M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`} />
+        </g>
 		<EdgeLabelSelection selected={selected} orientation={orientation} x={textX} y={textY}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabelSelection>
 		<EdgeLabel orientation={orientation} x={textX} y={textY} labelStyle={labelStyle}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabel>
 	</g>
@@ -536,9 +615,10 @@ const ReflexiveEdge = ({x, y, label, angle = 0, selected = false, onClick = null
 		onClick={onClick}
         onDoubleClick={onDoubleClick}
 		style={style}
+        directed={true}
 	/>
 
-const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDoubleClick = null, style}) => {
+const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDoubleClick = null, style, directed = true}) => {
 	let dirX = x1 - x0
 	let dirY = y1 - y0
     if(!dirX && !dirY) {
@@ -551,7 +631,7 @@ const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDo
 	const normY = dirY/length
 	const midX = (x0 + x1) / 2
 	const midY = (y0 + y1) / 2
-	const bend = 30
+	const bend = directed ? 30 : 0
 
 	const cX = midX + bend * normY
 	const cY = midY - bend * normX
@@ -578,20 +658,22 @@ const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDo
 		onClick={onClick}
         onDoubleClick={onDoubleClick}
 		style={style}
+        directed={directed}
 	/>
 }
 
 const Graph = ({onNodePress}) => {
     const dispatch = useDispatch()
 
-    const selectedNodes = useSelector(state => state.selection.nodes)
-    const selectedEdges = useSelector(state => state.selection.edges)
-    const nodes = useSelector(state => state.graph.nodes)
-    const positions = useSelector(state => state.graph.attributes.nodes.position)
-    const nodeLabels = useSelector(state => state.graph.attributes.nodes.label)
-    const nodeColors = useSelector(state => state.graph.attributes.nodes.color)
-    const edgeLabels = useSelector(state => state.graph.attributes.edges.label)
-    const edgeWeights = useSelector(state => state.graph.attributes.edges.weight)
+    const flags = useSelector(state => state.present.graph.flags)
+    const selectedNodes = useSelector(state => state.present.selection.nodes)
+    const selectedEdges = useSelector(state => state.present.selection.edges)
+    const nodes = useSelector(state => state.present.graph.nodes)
+    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+    const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label)
+    const nodeColors = useSelector(state => state.present.graph.attributes.nodes.color)
+    const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label)
+    const edgeWeights = useSelector(state => state.present.graph.attributes.edges.weight)
 
     return <>
         {nodes.map((neighbors, nodeId) =>
@@ -617,6 +699,7 @@ const Graph = ({onNodePress}) => {
                     selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
                     onClick={(e) => {e.stopPropagation(); dispatch(actions.selectEdge(nodeId,edgeIdx,e.shiftKey))}}
                     onDoubleClick={(e) => {e.stopPropagation(); dispatch(actions.deleteEdge(nodeId, edgeIdx))}}
+                    directed={flags.directed}
                 />
             )
         )}
@@ -639,59 +722,6 @@ const Graph = ({onNodePress}) => {
 
 
 export default () => {
-    const initialGraph = {
-        graph: {
-            nodes: [
-                [0,1],
-                [0,2],
-                [0,1],
-                []
-            ],
-            weights: [
-                [1,1],
-                [3,1],
-                [1,1],
-                []
-            ],
-            colors: [
-                'cyan',
-                'magenta',
-                'yellow',
-                'white',
-            ]
-        },
-        partitions: [
-            [0,1,2,3],
-        ],
-        labels: {
-            nodes: [
-                'a','b','c','d'
-            ],
-            edges: [
-                ['p','q'],
-                ['r',''],
-                ['s','t'],
-                [],
-            ],
-        },
-        positions: [
-            -100,-100,
-            100,100,
-            -100,100,
-            100, -100,
-        ],
-        attributes: {
-            edges: {
-                label: [[]],
-                weight: [[]]
-            },
-            nodes: {
-                label: [],
-                color: [],
-            }
-        }
-    };
-
 	return <GraphEditor />
 }
 
@@ -701,9 +731,8 @@ const GraphEditor = () => {
 
     const [pressedNode, setPressedNode] = useState(null);
 
-    dispatch({type: 'foo'})
-
     return <Container onMouseUp={() => setPressedNode(null)}>
+            <History />
             <Title>Graph</Title>
             <Menu />
             <Dump value={fullState} />

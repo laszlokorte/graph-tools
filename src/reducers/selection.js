@@ -24,7 +24,7 @@ export default (state = initialState, action) => {
                 nodes: action.add ?
                     state.nodes : [],
                 edges: action.add ?
-                    [...state.edges.filter(([n,i]) => (n!=action.nodeId || i!=action.edgeIndex)), [action.nodeId, action.edgeIndex]] :
+                    [...state.edges.filter(([n,i]) => (n!==action.nodeId || i!==action.edgeIndex)), [action.nodeId, action.edgeIndex]] :
                     [[action.nodeId, action.edgeIndex]]
                 ,
             })

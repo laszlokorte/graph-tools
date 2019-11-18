@@ -45,30 +45,22 @@ export const deleteEdge = (nodeId, edgeIndex) => ({
     nodeId, edgeIndex,
 })
 
-export const setEdgeLabel = (nodeId, edgeIndex, label) => ({
+export const setEdgeAttribute = (nodeId, edgeIndex, attribute, value) => ({
     type: 'SET_EDGE_ATTRIBUTE',
     nodeId, edgeIndex,
-    attribute: 'label',
-    value: label,
+    attribute,
+    value,
 })
 
-export const setEdgeWeight = (nodeId, edgeIndex, weight) => ({
-    type: 'SET_EDGE_ATTRIBUTE',
-    nodeId, edgeIndex,
-    attribute: 'weight',
-    value: weight,
-})
-
-export const setNodeLabel = (nodeId, label) => ({
+export const setNodeAttribute = (nodeId, attribute, value) => ({
     type: 'SET_NODE_ATTRIBUTE',
     nodeId,
-    attribute: 'label',
-    value: label,
+    attribute,
+    value,
 })
 
-export const setNodeColor = (nodeId, color) => ({
-    type: 'SET_NODE_ATTRIBUTE',
-    nodeId,
-    attribute: 'color',
-    value: color,
+export const setFlag = (flag, set) => ({
+    type: 'SET_GRAPH_FLAG',
+    flag,
+    set,
 })
