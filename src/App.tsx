@@ -32,7 +32,13 @@ const Container = styled.div`
 	align-items: stretch;
 `;
 
-const Code = styled.div`
+const Code = styled.textarea`
+    display: block;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    border: 0;
     white-space:pre-wrap;
     font-family: monospace;
     background: #333;
@@ -216,12 +222,11 @@ const Menu = () => {
     </Scroller>
 }
 
+
 const Dump = ({value}) =>
-    <Scroller>
-    <Code>
+    <Code readOnly>
         {JSON.stringify(value, null, 2)}
     </Code>
-    </Scroller>
 
 const viewboxString = (screen, camera) =>
   (camera.center.x - screen.width / 2 / camera.zoom) + " " +
@@ -556,6 +561,15 @@ const NodeConnector = styled.path`
     opacity: 0.5;
 `;
 
+const NodeConnectorTarget = styled.path`
+    cursor: alias;
+    fill: #FB7423;
+    opacity: 0.5;
+    :hover {
+        fill: #895440
+    }
+`;
+
 const EdgeHead = ({x,y, angle, selected = false}) => {
 	const size = 12
 	const spike = 0.25 * Math.PI / 2;
@@ -783,7 +797,7 @@ const Graph = ({onNodePress}) => {
                  </> : null}
                  {
                    (connection !== null ?
-                    <NodeConnector d="M 0, 0
+                    <NodeConnectorTarget d="M 0, 0
                     m 0, -40
                     a 40, 40, 0, 1, 0, 0, 80
                     a 40, 40, 0, 1, 0, 0, -80
