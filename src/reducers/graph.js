@@ -322,9 +322,9 @@ const thisReducer = (state = /*initialState*/example, action) => {
                         (key, values) => [
                             ...values.slice(0, action.nodeId),
                             ...values.slice(action.nodeId+1)
-                        ].map((values, nodeId) => values
+                        ].map((values, newNodeId) => values
                             .filter((v, i) =>
-                                state.nodes[nodeId > action.nodeId ? nodeId - 1 : nodeId][i] !== action.nodeId))
+                                state.nodes[newNodeId > action.nodeId ? newNodeId + 1 : newNodeId][i] !== action.nodeId))
                     )
                 },
             });

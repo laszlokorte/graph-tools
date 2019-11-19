@@ -1,5 +1,5 @@
 import React from 'react';
-import {useState, useRef, useMemo} from 'react';
+import {useState, useRef, useMemo, useEffect} from 'react';
 import styled from 'styled-components';
 import { useSize } from 'react-hook-size';
 
@@ -180,20 +180,31 @@ const Menu = () => {
     const edges = useSelector(state => state.present.selection.edges)
     const empty = useSelector(state => state.present.selection.edges.length < 1 && state.present.selection.nodes.length < 1)
 
-
-    const nodeCount = useSelector(state => state.present.graph.nodes.length)
-    const edgeCount = useSelector(state => state.present.graph.nodes.reduce((a,es) => a+es.length, 0))
+    const properties = useSelector(state => state.present.properties)
+    const algorithms = useSelector(state => state.present.algorithms)
 
     return <Scroller>
         <Padding>
-            <dl>
-                <dt>Nodes</dt>
-                <dd>{nodeCount}</dd>
-                <dt>Edgs</dt>
-                <dd>{edgeCount}</dd>
-            </dl>
             <h3>Graph Options</h3>
                 <GraphOptions/>
+            <h3>Properties</h3>
+            <dl>
+                {Object.keys(properties).map((prop) =>
+                    <React.Fragment key={prop}>
+                    <dt>{prop}</dt>
+                    <dd>{properties[prop] === true ? 'true' : properties[prop] === false ? 'false' : properties[prop]}</dd>
+                    </React.Fragment>
+                )}
+            </dl>
+            <h3>Algorithms</h3>
+            <dl>
+                {Object.keys(algorithms).map((alg) =>
+                    <React.Fragment key={alg}>
+                    <dt>{alg}</dt>
+                    <dd><Link onClick={() => dispatch(actions.runAlgorithm(alg))}>🔄</Link>{algorithms[alg].result !== null ? "✅":null}</dd>
+                    </React.Fragment>
+                )}
+            </dl>
             <h2>Selected</h2>
             {nodes.map((nodeId) =>
                 <NodeDetails key={nodeId} nodeId={nodeId} />)}
@@ -532,6 +543,19 @@ const ArrowHeadSelection = styled.polygon`
 	stroke-width: 6;
     stroke-dasharray: none;
 `
+
+const NodeDragger = styled.path`
+    cursor: move;
+    fill: #333;
+    opacity: 0.5;
+`;
+
+const NodeConnector = styled.path`
+    cursor: alias;
+    fill: #3290E8;
+    opacity: 0.5;
+`;
+
 const EdgeHead = ({x,y, angle, selected = false}) => {
 	const size = 12
 	const spike = 0.25 * Math.PI / 2;
@@ -544,8 +568,8 @@ const EdgeHead = ({x,y, angle, selected = false}) => {
 	</>
 }
 
-const Node = ({x, y, nodeType = 'circle', id, label, selected = false, onClick = null, onDoubleClick = null, onMouseDown = null, style = {}, labelStyle = {}}) =>
-	<g onClick={onClick} onDoubleClick={onDoubleClick} onMouseDown={onMouseDown}>
+const Node = ({children, x, y, nodeType = 'circle', id, label, selected = false, style = {}, labelStyle = {}, onClick}) =>
+	<g onClick={onClick}>
 		{nodeType === 'circle' ?
 			<NodeCircleSelection selected={selected} cx={x} cy={y} r={20} /> :
 			<NodeBoxSelection selected={selected} x={x - 17} y={y - 17} width={34} height={34} />
@@ -559,6 +583,7 @@ const Node = ({x, y, nodeType = 'circle', id, label, selected = false, onClick =
 		</g>
 		<NodeLabelSelection selected={selected} x={x} y={y+20} dy="0.6em">{label}</NodeLabelSelection>
 		<NodeLabel x={x} y={y+20} dy="0.6em" style={labelStyle}>{label}</NodeLabel>
+        {children}
 	</g>
 
 const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClick = null, style, labelStyle, directed = true}) => {
@@ -675,6 +700,21 @@ const Graph = ({onNodePress}) => {
     const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label)
     const edgeWeights = useSelector(state => state.present.graph.attributes.edges.weight)
 
+    const [connection, setConnection] = useState(null);
+
+    useEffect(() => {
+        const onMouseUp = (evt) => {
+
+            setConnection(null)
+        }
+
+        window.addEventListener('mouseup', onMouseUp)
+
+        return () => {
+            window.removeEventListener('mouseup', onMouseUp)
+        }
+    }, []);
+
     return <>
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) =>
@@ -708,14 +748,54 @@ const Graph = ({onNodePress}) => {
                 key={nodeId}
                 id={nodeId}
                 selected={selectedNodes.includes(nodeId)}
-                onClick={(e) => {e.stopPropagation(); e.metaKey && (selectedNodes.length === 1) ? dispatch(actions.addEdge(selectedNodes[0], nodeId)) : dispatch(actions.selectNode(nodeId, e.shiftKey))}}
-                onMouseDown={(e) => onNodePress && onNodePress(e, nodeId)}
-                onDoubleClick={(e) => {e.stopPropagation(); dispatch(actions.deleteNode(nodeId))}}
                 x={positions[nodeId].x}
                 y={positions[nodeId].y}
                 label={nodeLabels[nodeId]}
                 style={{color: null && nodeColors[nodeId]}}
-            />
+                onClick={(e) => {e.stopPropagation(); dispatch(actions.selectNode(nodeId, e.shiftKey))}}
+            >
+                {selectedNodes.includes(nodeId) ?
+                <>
+                <NodeConnector d="M 0, 0
+                    m 0, -40
+                    a 40, 40, 0, 1, 0, 0, 80
+                    a 40, 40, 0, 1, 0, 0, -80
+                    Z
+                    m 0 20
+                    a 20, 20, 0, 1, 1, 0, 40
+                    a 20, 20, 0, 1, 1, 0, -40
+                    Z"
+                    transform={`translate(${positions[nodeId].x} ${positions[nodeId].y})`}
+                    onClick={(e) => {e.stopPropagation(); e.metaKey && (selectedNodes.length === 1) && dispatch(actions.addEdge(selectedNodes[0], nodeId))}}
+                    onMouseDown={(e) => (e.stopPropagation(), setConnection(nodeId))}
+                    fillRule="evenodd"
+                    />
+                 <NodeDragger d="M 0, 0
+                    m 0, -15
+                    a 15, 15, 0, 1, 0, 0, 30
+                    a 15, 15, 0, 1, 0, 0, -30"
+                    transform={`translate(${positions[nodeId].x} ${positions[nodeId].y})`}
+                    onMouseDown={(e) => onNodePress && onNodePress(e, nodeId)}
+                    onDoubleClick={(e) => (e.stopPropasgation(), dispatch(actions.deleteNode(nodeId)))}
+                    fillRule="evenodd"
+                    fill="#111"
+                    />
+                 </> : null}
+                 {
+                   (connection !== null ?
+                    <NodeConnector d="M 0, 0
+                    m 0, -40
+                    a 40, 40, 0, 1, 0, 0, 80
+                    a 40, 40, 0, 1, 0, 0, -80
+                    Z"
+                    transform={`translate(${positions[nodeId].x} ${positions[nodeId].y})`}
+                    onMouseUp={(e) => dispatch(actions.addEdge(connection, nodeId))}
+                    fillRule="evenodd"
+                    fill="#111"
+                    />
+                    : null)
+                }
+            </Node>
         )}
     </>
 }

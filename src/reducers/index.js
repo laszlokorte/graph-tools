@@ -2,6 +2,8 @@ import { combineReducers } from 'redux'
 import undoable, { includeAction, excludeAction } from 'redux-undo';import selection from './selection'
 import graph from './graph'
 import graphSelection from './graph_selection'
+import algorithms from './algorithms'
+import properties from './properties'
 
 export default undoable((state, action) => {
     const combination = combineReducers({
@@ -9,11 +11,16 @@ export default undoable((state, action) => {
         graph,
     })
 
-    const intermediateState = combination(state, action);
+    const intermediateState = combination({
+        selection: state ? state.selection : undefined,
+        graph: state ? state.graph : undefined,
+    }, action);
 
     return {
         ...intermediateState,
         selection: graphSelection(intermediateState.graph, intermediateState.selection, action),
+        algorithms: algorithms(state ? state.algorithms : undefined, intermediateState.graph, action),
+        properties: properties(state ? state.properties : undefined, intermediateState.graph, action),
     };
 }, {
     limit: 10,

@@ -64,3 +64,9 @@ export const setFlag = (flag, set) => ({
     flag,
     set,
 })
+
+export const runAlgorithm = (algorithm, options) => ({
+    type: 'RUN_ALGORITHM',
+    algorithm,
+    options
+})
