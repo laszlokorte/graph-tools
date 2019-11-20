@@ -1,7 +1,7 @@
 import React from 'react';
-import {useState, useRef, useMemo, useEffect} from 'react';
+import {useState, useRef, useMemo, useEffect, useContext} from 'react';
 import styled from 'styled-components';
-import { useSize } from 'react-hook-size';
+import { useSize } from './react-hook-size';
 
 import { useSelector, useDispatch } from 'react-redux'
 import { ActionCreators } from 'redux-undo';
@@ -224,34 +224,32 @@ const Menu = () => {
 
 
 const Dump = ({value}) =>
-    <Code readOnly>
-        {JSON.stringify(value, null, 2)}
-    </Code>
+    <Code readOnly value={JSON.stringify(value, null, 2)}/>
 
-const viewboxString = (screen, camera) =>
+const viewboxString = (bounds, screen, camera) =>
   (camera.center.x - screen.width / 2 / camera.zoom) + " " +
   (camera.center.y - screen.height / 2 / camera.zoom) + " " +
   (screen.width / camera.zoom) + " " +
   (screen.height / camera.zoom)
 
 const useSVGPosition = (ref) => {
-    const svgPoint = useMemo(() => ref.current ? ref.current.parentNode.createSVGPoint() : null, [ref.current]);
+    return useMemo(() => {
+        if(ref.current) {
+            const point = ref.current.parentNode.createSVGPoint();
+            return ({x,y}) => {
+                point.x = x
+                point.y = y
+                var result = point.matrixTransform(ref.current.getScreenCTM().inverse());
 
-    const svgEventPosition = ({x,y}) => {
-        if(!svgPoint) {
-            return;
+                return {
+                    x: result.x,
+                    y: result.y,
+                };
+            }
+        } else {
+            return (id) => id
         }
-        svgPoint.x = x
-        svgPoint.y = y
-        var result = svgPoint.matrixTransform(ref.current.getScreenCTM().inverse());
-
-        return {
-            x: result.x,
-            y: result.y,
-        };
-    }
-
-    return svgEventPosition;
+    }, [ref.current]);
 }
 
 const wheelFactor = (evt) => {
@@ -262,16 +260,27 @@ const wheelFactor = (evt) => {
   )
 }
 
-const Canvas = ({bounds = {
-	minX: -400,
-	minY: -400,
-	maxX: +400,
-	maxY: +400,
-	minZoom: 0.5,
-	maxZoom: 10,
-    defaultZoom: 1,
-}, onMouseMove, onClick, onMouseDown, onMouseUp, children}) => {
-	const [camera, setCamera] = useState({
+const CanvasContext = React.createContext(({x,y}) => ({x,y}));
+const useCanvasPos = () => {
+    return useContext(CanvasContext);
+}
+
+const Canvas = ({children}) => {
+	const [bounds, setBounds] = useState({
+        x: -400,
+        y: -400,
+        width: 800,
+        height: 800,
+        minX: -400,
+        minY: -400,
+        maxX: +400,
+        maxY: +400,
+        minZoom: 0.5,
+        maxZoom: 10,
+        defaultZoom: 1,
+    });
+
+    const [camera, setCamera] = useState({
         center: {x: 0, y:0},
         rotation: 0,
         zoom: 2,
@@ -344,16 +353,42 @@ const Canvas = ({bounds = {
         })
     }
 
-    const ref = useRef();
+    const screenRef = useRef();
     const posRef = useRef();
-    const screen = useSize(ref);
+    const boundingRef = useRef();
+    const screen = useSize(screenRef);
     const svgPos = useSVGPosition(posRef);
 
-    const box = {
-    	width: bounds.maxX - bounds.minX,
-    	height: bounds.maxY - bounds.minY,
-    }
-    const viewBox = viewboxString(box, camera);
+    useEffect(() => {
+        const currentBB = boundingRef.current;
+        if(currentBB) {
+            const bbox = currentBB.getBBox();
+
+            setBounds({
+                x: bbox.x,
+                y: bbox.y,
+                width: bbox.width,
+                height: bbox.height,
+                minX: bbox.x,
+                maxX: bbox.x + bbox.width,
+                minY: bbox.y,
+                maxY: bbox.y + bbox.height,
+                defaultZoom: Math.min(
+                  screen.width/bbox.width,
+                  screen.height/bbox.height,
+                  20
+                ),
+                minZoom: Math.min(
+                  screen.width / (bbox.width),
+                  screen.height / (bbox.height),
+                  0.8
+                ),
+                maxZoom: 6,
+            });
+        }
+    }, [children, boundingRef, screen]);
+
+    const viewBox = viewboxString(bounds, screen, camera);
 
     const onMouseMoveHandler = (e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
@@ -361,19 +396,12 @@ const Canvas = ({bounds = {
 
         if(dragState.startX || dragState.startY) {
             pan(pos.x - dragState.startX, pos.y - dragState.startY)
-        } else {
-            if(pos && onMouseMove) {
-                onMouseMove(e, pos)
-            }
         }
     }
 
     const onClickHandler = (e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
-        if(pos && onClick) {
-            onClick(e, pos)
-        }
     }
 
      const onDoubleClickHandler = (e) => {
@@ -391,9 +419,6 @@ const Canvas = ({bounds = {
 
     const onMouseDownHandler = (e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
-        if(pos && onMouseDown) {
-            onMouseDown(e, pos)
-        }
 
         e.preventDefault();
         e.stopPropagation();
@@ -405,9 +430,6 @@ const Canvas = ({bounds = {
 
     const onMouseUpHandler = (e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
-        if(pos && onMouseUp) {
-            onMouseUp(e, pos)
-        }
 
         e.preventDefault();
 
@@ -432,30 +454,41 @@ const Canvas = ({bounds = {
 
     const [left,top,width,height] = viewBox.split(' ');
 
+    useEffect(() => {
+        window.addEventListener('mouseup', onMouseUpHandler);
+
+        return () => {
+            window.removeEventListener('mouseup', onMouseUpHandler);
+        }
+    }, [])
+
 	return <Svg
-        ref={ref}
+        ref={screenRef}
         onMouseMove={onMouseMoveHandler}
         onMouseDown={onMouseDownHandler}
-        onMouseUp={onMouseUpHandler}
         onClick={onClickHandler}
         onDoubleClick={onDoubleClickHandler}
         onWheel={onWheelHandler}
         viewBox={viewBox}
         preserveAspectRatio="xMidYMid slice">
         <rect
-                x={left}
-                y={top}
-                width={width}
-                height={height}
-                fill="#ccc" />
+            x={left}
+            y={top}
+            width={width}
+            height={height}
+            fill="#ccc" />
 		<g ref={posRef} transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
+            <CanvasContext.Provider value={svgPos}>
             <rect
                 x={bounds.minX}
                 y={bounds.minY}
                 width={bounds.maxX - bounds.minX}
                 height={bounds.maxY - bounds.minY}
                 fill="#fff" />
+            <g ref={boundingRef}>
 			{children}
+            </g>
+            </CanvasContext.Provider>
 		</g>
 	</Svg>;
 }
@@ -703,6 +736,7 @@ const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDo
 
 const Graph = ({onNodePress}) => {
     const dispatch = useDispatch()
+    const canvasPos = useCanvasPos();
 
     const flags = useSelector(state => state.present.graph.flags)
     const selectedNodes = useSelector(state => state.present.selection.nodes)
@@ -830,9 +864,7 @@ const GraphEditor = () => {
             <Title>Graph</Title>
             <Menu />
             <Dump value={present} />
-            <Canvas
-                onClick={(e,{x,y}) => {if(e.metaKey) { dispatch(actions.createNode(x,y)) } else if(!e.shiftKey) { dispatch(actions.clearSelection()) } }}
-                onMouseMove={(e, {x,y}) => pressedNode!==null && dispatch(actions.setPosition(pressedNode, x, y))}>
+            <Canvas>
                 <Graph
                     onNodePress={(e, nodeId) => (e.stopPropagation(), e.preventDefault(), setPressedNode(nodeId))}
                 />
