@@ -1,5 +1,5 @@
 import React from 'react';
-import {useState, useRef, useMemo, useEffect, useContext} from 'react';
+import {useState, useRef, useMemo, useEffect, useContext, useCallback} from 'react';
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
@@ -87,16 +87,18 @@ const NodeDetails = ({nodeId}) => {
 
     const neighbours = useSelector(state => state.present.graph.nodes[nodeId])
     const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label[nodeId])
-    const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label[nodeId])
+    const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label)
     const attributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes))
 
+
+    const onClick = useCallback(() => dispatch(actions.deleteNode(nodeId)), [nodeId]);
 
     return <div>
         <h3>Node (#{nodeId})</h3>
         {attributes.map((attrKey) =>
             <NodeAttribute key={attrKey} nodeId={nodeId} attrKey={attrKey} />
         )}
-        <button onClick={() => dispatch(actions.deleteNode(nodeId))}>Delete</button>
+        <button onClick={onClick}>Delete</button>
         <h4>Neighbours</h4>
         <LinkList>
             {neighbours.map((neighbour, idx) =>
@@ -207,7 +209,7 @@ const Menu = () => {
                 {Object.keys(algorithms).map((alg) =>
                     <React.Fragment key={alg}>
                     <dt>{alg}</dt>
-                    <dd><Link onClick={() => dispatch(actions.runAlgorithm(alg))}>🔄</Link>{algorithms[alg].result !== null ? "✅":null}</dd>
+                    <dd><Link onClick={() => dispatch(actions.runAlgorithm(alg))}>🔄</Link>{algorithms[alg].result === null ? null:algorithms[alg].result?"✅":"❌"}</dd>
                     </React.Fragment>
                 )}
             </dl>
@@ -239,7 +241,11 @@ const useSVGPosition = (ref) => {
             return ({x,y}) => {
                 point.x = x
                 point.y = y
-                var result = point.matrixTransform(ref.current.getScreenCTM().inverse());
+                const ctm = ref.current.getScreenCTM();
+                if(!ctm) {
+                    return {x,y};
+                }
+                const result = point.matrixTransform(ctm.inverse());
 
                 return {
                     x: result.x,
@@ -253,7 +259,7 @@ const useSVGPosition = (ref) => {
 }
 
 const wheelFactor = (evt) => {
-  var wheel = evt.deltaY / -40
+  const wheel = evt.deltaY / -40
   return Math.pow(
     1 + Math.abs(wheel) / 2,
     wheel > 0 ? 1 : -1
@@ -265,20 +271,35 @@ const useCanvasPos = () => {
     return useContext(CanvasContext);
 }
 
-const Canvas = ({children}) => {
-	const [bounds, setBounds] = useState({
-        x: -400,
-        y: -400,
-        width: 800,
-        height: 800,
-        minX: -400,
-        minY: -400,
-        maxX: +400,
-        maxY: +400,
-        minZoom: 0.5,
-        maxZoom: 10,
-        defaultZoom: 1,
-    });
+const Canvas = ({children, box}) => {
+    const screenRef = useRef();
+    const screen = useSize(screenRef, 100, 100);
+    const posRef = useRef();
+    const svgPos = useSVGPosition(posRef);
+
+
+    const bounds = useMemo(() => ({
+        x: box.minX,
+        y: box.minY,
+        width: box.maxX - box.minX,
+        height: box.maxY - box.minY,
+        minX: box.minX,
+        maxX: box.maxX,
+        minY: box.minY,
+        maxY: box.maxY,
+        defaultZoom: Math.min(
+          screen.width/(box.maxX - box.minX),
+          screen.height/(box.maxY - box.minY),
+          20
+        ),
+        minZoom: Math.min(
+          screen.width / (box.maxX - box.minX),
+          screen.height / (box.maxY - box.minY),
+          0.8
+        ),
+        maxZoom: 6,
+    }), [box, screen]);
+
 
     const [camera, setCamera] = useState({
         center: {x: 0, y:0},
@@ -311,11 +332,11 @@ const Canvas = ({children}) => {
     }
 
     const rotate = (pivot, deltaAngle) => {
-      var dx = camera.center.x - pivot.x;
-      var dy = camera.center.y - pivot.y;
-      var rad = Math.PI * deltaAngle / 180;
-      var sin = Math.sin(-rad)
-      var cos = Math.cos(-rad)
+      const dx = camera.center.x - pivot.x;
+      const dy = camera.center.y - pivot.y;
+      const rad = Math.PI * deltaAngle / 180;
+      const sin = Math.sin(-rad)
+      const cos = Math.cos(-rad)
 
 
       setCamera({
@@ -345,48 +366,13 @@ const Canvas = ({children}) => {
           ...camera,
             center: {
                 ...camera.center,
-                x: 0,
-                y: 0
+                x: (bounds.minX + bounds.maxX) / 2,
+                y: (bounds.minY + bounds.maxY) / 2,
             },
             rotation: 0,
             zoom: bounds.defaultZoom,
         })
     }
-
-    const screenRef = useRef();
-    const posRef = useRef();
-    const boundingRef = useRef();
-    const screen = useSize(screenRef);
-    const svgPos = useSVGPosition(posRef);
-
-    useEffect(() => {
-        const currentBB = boundingRef.current;
-        if(currentBB) {
-            const bbox = currentBB.getBBox();
-
-            setBounds({
-                x: bbox.x,
-                y: bbox.y,
-                width: bbox.width,
-                height: bbox.height,
-                minX: bbox.x,
-                maxX: bbox.x + bbox.width,
-                minY: bbox.y,
-                maxY: bbox.y + bbox.height,
-                defaultZoom: Math.min(
-                  screen.width/bbox.width,
-                  screen.height/bbox.height,
-                  20
-                ),
-                minZoom: Math.min(
-                  screen.width / (bbox.width),
-                  screen.height / (bbox.height),
-                  0.8
-                ),
-                maxZoom: 6,
-            });
-        }
-    }, [children, boundingRef, screen]);
 
     const viewBox = viewboxString(bounds, screen, camera);
 
@@ -408,12 +394,14 @@ const Canvas = ({children}) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
 
+        //resetCamera()
         if(camera.rotation != 0) {
             resetCamera()
         } else if(Math.abs(camera.zoom / bounds.defaultZoom) < 1.05) {
             zoom(pos, bounds.maxZoom / 2);
         } else {
-            zoom(pos, bounds.defaultZoom / camera.zoom);
+            resetCamera()
+            //zoom(pos, bounds.defaultZoom / camera.zoom);
         }
     }
 
@@ -460,7 +448,7 @@ const Canvas = ({children}) => {
         return () => {
             window.removeEventListener('mouseup', onMouseUpHandler);
         }
-    }, [])
+    },[])
 
 	return <Svg
         ref={screenRef}
@@ -485,9 +473,7 @@ const Canvas = ({children}) => {
                 width={bounds.maxX - bounds.minX}
                 height={bounds.maxY - bounds.minY}
                 fill="#fff" />
-            <g ref={boundingRef}>
 			{children}
-            </g>
             </CanvasContext.Provider>
 		</g>
 	</Svg>;
@@ -615,8 +601,16 @@ const EdgeHead = ({x,y, angle, selected = false}) => {
 	</>
 }
 
-const Node = ({children, x, y, nodeType = 'circle', id, label, selected = false, style = {}, labelStyle = {}, onClick}) =>
-	<g onClick={onClick}>
+const Node = ({children, x, y, nodeType = 'circle', nodeId, label, selected = false, style = {}, labelStyle = {}, onClick = null, onDoubleClick = null}) => {
+    const onClickCallback = useCallback(onClick ? (evt) => {
+        onClick(evt, nodeId)
+    } : null, [nodeId, onClick]);
+
+    const onDoubleClickCallback = useCallback(onDoubleClick ? (evt) => {
+        onDoubleClick(evt, nodeId)
+    } : null, [nodeId, onDoubleClick]);
+
+    return <g onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
 		{nodeType === 'circle' ?
 			<NodeCircleSelection selected={selected} cx={x} cy={y} r={20} /> :
 			<NodeBoxSelection selected={selected} x={x - 17} y={y - 17} width={34} height={34} />
@@ -626,14 +620,15 @@ const Node = ({children, x, y, nodeType = 'circle', id, label, selected = false,
 			<NodeCircle cx={x} cy={y} r={20} /> :
 			<NodeBox x={x - 17} y={y - 17} width={34} height={34} />
 		}
-        <NodeId x={x} y={y}>#{id}</NodeId>
+        <NodeId x={x} y={y}>#{nodeId}</NodeId>
 		</g>
 		<NodeLabelSelection selected={selected} x={x} y={y+20} dy="0.6em">{label}</NodeLabelSelection>
 		<NodeLabel x={x} y={y+20} dy="0.6em" style={labelStyle}>{label}</NodeLabel>
         {children}
 	</g>
+}
 
-const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClick = null, style, labelStyle, directed = true}) => {
+const Edge = ({nodeId, edgeIndex, x0,y0,x1,y1,label=null, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true}) => {
 	const midX = (x0 + x1) / 2
 	const midY = (y0 + y1) / 2
 	let dirX = x1 - x0
@@ -662,7 +657,15 @@ const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClic
 
 	const headAngle = Math.atan2(y1 - cbY + bendB*normY/2, x1 - cbX + bendB*normX/2);
 
-	return <g onClick={onClick} onDoubleClick={onDoubleClick}>
+    const onClickCallback = useCallback(onClick ? (evt) => {
+        onClick(evt, nodeId, edgeIndex)
+    } : null, [nodeId, edgeIndex, onClick])
+
+    const onDoubleClickCallback = useCallback(onDoubleClick ? (evt) => {
+        onDoubleClick(evt, nodeId, edgeIndex)
+    } : null, [nodeId, edgeIndex, onDoubleClick])
+
+	return <g onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
 		<EdgeSelection selected={selected} d={`M${x1},${y1} C${cbX},${cbY} ${caX},${caY} ${x0},${y0}`} />
 		<g style={style}>
         {directed ?
@@ -671,13 +674,17 @@ const Edge = ({x0,y0,x1,y1,label, selected = false, onClick = null, onDoubleClic
         }
         <EdgeLine d={`M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`} />
         </g>
+		{!label ? null : <>
 		<EdgeLabelSelection selected={selected} orientation={orientation} x={textX} y={textY}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabelSelection>
-		<EdgeLabel orientation={orientation} x={textX} y={textY} labelStyle={labelStyle}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabel>
+        <EdgeLabel orientation={orientation} x={textX} y={textY} labelStyle={labelStyle}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabel>
+        </>}
 	</g>
 }
 
-const ReflexiveEdge = ({x, y, label, angle = 0, selected = false, onClick = null, onDoubleClick = null, style}) =>
+const ReflexiveEdge = ({nodeId, edgeIndex, x, y, label, angle = 0, selected = false, onClick = null, onDoubleClick = null, style = null}) =>
 	<Edge
+        nodeId={nodeId}
+        edgeIndex={edgeIndex}
 		x0={x + Math.cos(angle - Math.PI / 8) * 20}
 		y0={y + Math.sin(angle - Math.PI / 8) * 20}
 		x1={x + Math.cos(angle + Math.PI / 8) * 20}
@@ -690,7 +697,7 @@ const ReflexiveEdge = ({x, y, label, angle = 0, selected = false, onClick = null
         directed={true}
 	/>
 
-const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDoubleClick = null, style, directed = true}) => {
+const NodeEdge = ({nodeId, edgeIndex, x0, y0, x1, y1, label, selected = false, onClick = null, onDoubleClick = null, style = null, directed = true}) => {
 	let dirX = x1 - x0
 	let dirY = y1 - y0
     if(!dirX && !dirY) {
@@ -721,6 +728,8 @@ const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDo
 	const cDirYNormr = cDirYr / cDirLengthr
 
 	return <Edge
+        nodeId={nodeId}
+        edgeIndex={edgeIndex}
 		x0={x0 + 20 * cDirXNorm}
 		y0={y0 + 20 * cDirYNorm}
 		x1={x1 + 20 * cDirXNormr}
@@ -734,9 +743,54 @@ const NodeEdge = ({x0, y0, x1, y1, label, selected = false, onClick = null, onDo
 	/>
 }
 
-const Graph = ({onNodePress}) => {
+const NodeManipulator = ({x,y,nodeId,mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
+    const mouseDownConnectCallback = useCallback(mouseDownConnect ? (evt) => {
+        mouseDownConnect(evt, nodeId)
+    } : null, [nodeId, mouseDownConnect])
+
+    const mouseDownMoveCallback = useCallback(mouseDownMove ? (evt) => {
+        mouseDownMove(evt, nodeId)
+    } : null, [nodeId, mouseDownMove])
+
+    const mouseMoveCallback = useCallback(mouseMove ? (evt) => {
+        mouseMove(evt, nodeId)
+    } : null, [nodeId, mouseMove])
+
+    const mouseLeaveCallback = useCallback(mouseLeave ? (evt) => {
+        mouseLeave(evt, nodeId)
+    } : null, [nodeId, mouseLeave])
+
+    return <g
+            onMouseMove={mouseMoveCallback}
+            onMouseLeave={mouseLeaveCallback}>
+        <NodeConnector d="M 0, 0
+            m 0, -40
+            a 40, 40, 0, 1, 0, 0, 80
+            a 40, 40, 0, 1, 0, 0, -80
+            Z
+            m 0 20
+            a 20, 20, 0, 1, 1, 0, 40
+            a 20, 20, 0, 1, 1, 0, -40
+            Z"
+            transform={`translate(${x} ${y})`}
+            onMouseDown={mouseDownConnectCallback}
+            fillRule="evenodd"
+            />
+         <NodeDragger d="M 0, 0
+            m 0, -15
+            a 15, 15, 0, 1, 0, 0, 30
+            a 15, 15, 0, 1, 0, 0, -30"
+            transform={`translate(${x} ${y})`}
+            onMouseDown={mouseDownMoveCallback}
+            fillRule="evenodd"
+            fill="#111"
+            />
+    </g>
+}
+
+const Graph = ({onNodePress, box}) => {
     const dispatch = useDispatch()
-    const canvasPos = useCanvasPos();
+    const canvasPos = useCanvasPos()
 
     const flags = useSelector(state => state.present.graph.flags)
     const selectedNodes = useSelector(state => state.present.selection.nodes)
@@ -748,12 +802,26 @@ const Graph = ({onNodePress}) => {
     const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label)
     const edgeWeights = useSelector(state => state.present.graph.attributes.edges.weight)
 
-    const [connection, setConnection] = useState(null);
+    const [connecting, setConnecting] = useState({
+        start: null,
+        snap: null,
+        x: null,
+        y: null
+    });
+    const [moving, setMoving] = useState(null);
 
     useEffect(() => {
         const onMouseUp = (evt) => {
-
-            setConnection(null)
+            if(connecting.start !== null && connecting.snap !== null) {
+                dispatch(actions.addEdge(connecting, connecting.snap))
+            }
+            setConnecting({
+                start: null,
+                snap: null,
+                x: null,
+                y: null
+            });
+            setMoving(null);
         }
 
         window.addEventListener('mouseup', onMouseUp)
@@ -761,23 +829,98 @@ const Graph = ({onNodePress}) => {
         return () => {
             window.removeEventListener('mouseup', onMouseUp)
         }
+    }, [connecting]);
+
+    const onMouseMove =  useCallback((evt) => {
+        if(moving !== null && canvasPos) {
+            const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+            dispatch(actions.setNodeAttribute(moving, 'position', pos))
+        } else if(connecting.start !== null && connecting.snap === null) {
+            const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+            setConnecting({x:pos.x,y:pos.y,start:connecting.start,snap:connecting.snap})
+        }
+    }, [canvasPos, moving, connecting])
+
+
+    useEffect(() => {
+        window.addEventListener('mousemove', onMouseMove)
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove)
+        }
+    }, [onMouseMove]);
+
+    const onClick = useCallback((evt) => {
+        if(evt.metaKey || evt.ctrlKey) {
+            const {x,y} = canvasPos({x: evt.clientX, y: evt.clientY});
+            dispatch(actions.createNode(x,y));
+        }
+    }, [canvasPos])
+
+    const connectStart = useCallback((evt, nodeId) => {
+        evt.stopPropagation();
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+        setConnecting({start: nodeId, x: pos.x, y:pos.y,snap:null});
+    }, [canvasPos]);
+
+    const snap = useCallback((evt, nodeId) => {
+        if(connecting.start !== null) {
+            setConnecting({start: connecting.start,snap:nodeId,x:null,y:null})
+        }
+    }, [connecting]);
+
+    const unsnap = useCallback((evt) => {
+        if(connecting.start !== null) {
+            const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+            setConnecting({start: connecting.start,x:pos.x,y:pos.y,snap:null})
+        }
+    }, [connecting]);
+
+    const moveStart = useCallback((evt, nodeId) => {
+        evt.stopPropagation();
+        setMoving(nodeId);
     }, []);
 
-    return <>
+    const selectNode = useCallback((evt, nodeId) => {
+        evt.stopPropagation();
+        dispatch(actions.selectNode(nodeId, evt.shiftKey));
+    }, [])
+
+    const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
+        evt.stopPropagation();
+        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.shiftKey));
+    }, [])
+
+    const deleteEdge = useCallback((evt, nodeId, edgeIndex) => {
+        evt.stopPropagation();
+        dispatch(actions.deleteEdge(nodeId, edgeIndex));
+    }, [])
+
+    const deleteNode = useCallback((evt, nodeId) => {
+        evt.stopPropagation();
+        dispatch(actions.deleteNode(nodeId));
+    }, [])
+
+    return <g onClick={onClick}>
+        <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) =>
                 nodeId===neighbourId ?
                 <ReflexiveEdge
+                    nodeId={nodeId}
+                    edgeIndex={edgeIdx}
                     key={`${nodeId}-${edgeIdx}`}
                     angle={Math.PI/1}
                     x={positions[nodeId].x}
                     y={positions[nodeId].y}
                     label={`${edgeLabels[nodeId][edgeIdx]}<br>(${edgeWeights[nodeId][edgeIdx]})`}
                     selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
-                    onClick={(e) => {e.stopPropagation(); dispatch(actions.selectEdge(nodeId,edgeIdx,e.shiftKey))}}
-                    onDoubleClick={(e) => {e.stopPropagation(); dispatch(actions.deleteEdge(nodeId, edgeIdx))}}
+                    onClick={selectEdge}
+                    onDoubleClick={deleteEdge}
                 /> :
                 <NodeEdge
+                    nodeId={nodeId}
+                    edgeIndex={edgeIdx}
                     key={`${nodeId}-${edgeIdx}`}
                     x0={positions[nodeId].x}
                     y0={positions[nodeId].y}
@@ -785,8 +928,8 @@ const Graph = ({onNodePress}) => {
                     y1={positions[neighbourId].y}
                     label={`${edgeLabels[nodeId][edgeIdx]}<br>(${edgeWeights[nodeId][edgeIdx]})`}
                     selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
-                    onClick={(e) => {e.stopPropagation(); dispatch(actions.selectEdge(nodeId,edgeIdx,e.shiftKey))}}
-                    onDoubleClick={(e) => {e.stopPropagation(); dispatch(actions.deleteEdge(nodeId, edgeIdx))}}
+                    onClick={selectEdge}
+                    onDoubleClick={deleteEdge}
                     directed={flags.directed}
                 />
             )
@@ -794,58 +937,39 @@ const Graph = ({onNodePress}) => {
         {nodes.map((neighbors, nodeId) =>
             <Node
                 key={nodeId}
-                id={nodeId}
+                nodeId={nodeId}
                 selected={selectedNodes.includes(nodeId)}
                 x={positions[nodeId].x}
                 y={positions[nodeId].y}
                 label={nodeLabels[nodeId]}
                 style={{color: null && nodeColors[nodeId]}}
-                onClick={(e) => {e.stopPropagation(); dispatch(actions.selectNode(nodeId, e.shiftKey))}}
+                onClick={selectNode}
+                onDoubleClick={deleteNode}
             >
-                {selectedNodes.includes(nodeId) ?
-                <>
-                <NodeConnector d="M 0, 0
-                    m 0, -40
-                    a 40, 40, 0, 1, 0, 0, 80
-                    a 40, 40, 0, 1, 0, 0, -80
-                    Z
-                    m 0 20
-                    a 20, 20, 0, 1, 1, 0, 40
-                    a 20, 20, 0, 1, 1, 0, -40
-                    Z"
-                    transform={`translate(${positions[nodeId].x} ${positions[nodeId].y})`}
-                    onClick={(e) => {e.stopPropagation(); e.metaKey && (selectedNodes.length === 1) && dispatch(actions.addEdge(selectedNodes[0], nodeId))}}
-                    onMouseDown={(e) => (e.stopPropagation(), setConnection(nodeId))}
-                    fillRule="evenodd"
-                    />
-                 <NodeDragger d="M 0, 0
-                    m 0, -15
-                    a 15, 15, 0, 1, 0, 0, 30
-                    a 15, 15, 0, 1, 0, 0, -30"
-                    transform={`translate(${positions[nodeId].x} ${positions[nodeId].y})`}
-                    onMouseDown={(e) => onNodePress && onNodePress(e, nodeId)}
-                    onDoubleClick={(e) => (e.stopPropasgation(), dispatch(actions.deleteNode(nodeId)))}
-                    fillRule="evenodd"
-                    fill="#111"
-                    />
-                 </> : null}
-                 {
-                   (connection !== null ?
-                    <NodeConnectorTarget d="M 0, 0
-                    m 0, -40
-                    a 40, 40, 0, 1, 0, 0, 80
-                    a 40, 40, 0, 1, 0, 0, -80
-                    Z"
-                    transform={`translate(${positions[nodeId].x} ${positions[nodeId].y})`}
-                    onMouseUp={(e) => dispatch(actions.addEdge(connection, nodeId))}
-                    fillRule="evenodd"
-                    fill="#111"
-                    />
-                    : null)
-                }
+                <NodeManipulator
+                    nodeId={nodeId}
+                    x={positions[nodeId].x}
+                    y={positions[nodeId].y}
+                    mouseDownConnect={connectStart}
+                    mouseDownMove={moveStart}
+                    mouseMove={snap}
+                    mouseLeave={unsnap} />
             </Node>
         )}
-    </>
+        {connecting.start === null || connecting.snap !== null ? <rect /> :
+            <NodeEdge
+                    nodeId={connecting}
+                    edgeIndex={-1}
+                    key={`newEdge`}
+                    x0={positions[connecting.start].x}
+                    y0={positions[connecting.start].y}
+                    x1={connecting.x}
+                    y1={connecting.y}
+                    label={null}
+                    directed={flags.directed}
+                />
+        }
+    </g>
 }
 
 
@@ -857,16 +981,29 @@ const GraphEditor = () => {
     const dispatch = useDispatch()
     const present = useSelector((state) => state.present)
 
-    const [pressedNode, setPressedNode] = useState(null);
+    const margin = 100;
+    const box = useMemo(() =>
+        present.graph.attributes.nodes.position.reduce((acc, p) => ({
+            minX: Math.min(acc.minX + margin, p.x) - margin,
+            maxX: Math.max(acc.maxX - margin, p.x) + margin,
+            minY: Math.min(acc.minY + margin, p.y) - margin,
+            maxY: Math.max(acc.maxY - margin, p.y) + margin,
+        }), ({
+            minX: Infinity,
+            maxX: -Infinity,
+            minY: Infinity,
+            maxY: -Infinity,
+        }))
+    , [present.graph]);
 
-    return <Container onMouseUp={() => setPressedNode(null)}>
+    return <Container>
             <History />
             <Title>Graph</Title>
             <Menu />
             <Dump value={present} />
-            <Canvas>
+            <Canvas box={box}>
                 <Graph
-                    onNodePress={(e, nodeId) => (e.stopPropagation(), e.preventDefault(), setPressedNode(nodeId))}
+                    box={box}
                 />
             </Canvas>
         </Container>;

@@ -40,7 +40,9 @@ export default (state = initialState, graph, action) => {
         if(action.type === 'RUN_ALGORITHM') {
             return {
                 ...state,
-                [action.algorithm]: true,
+                [action.algorithm]: {
+                    result: algorithms[action.algorithm](graph),
+                },
             };
         } else {
             return state;
