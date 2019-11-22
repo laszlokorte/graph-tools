@@ -876,7 +876,7 @@ const manipulationReducer = (state, action) => {
                 movingNode: null,
             };
         case 'move':
-            if(state.movingNode) {
+            if(state.movingNode !== null) {
                 action.dispatch(actions.setNodeAttribute(state.movingNode, 'position', {x:action.x, y:action.y}))
             }
 
@@ -905,7 +905,6 @@ const manipulationReducer = (state, action) => {
                 connectionSnap:action.nodeId,
             }
         case 'unsnapConnect':
-        console.log("x")
             return {
                 ...state,
                 x: action.x,
