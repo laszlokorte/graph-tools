@@ -23,7 +23,7 @@ export default (graphState, selectionState, action) => {
                     .filter(([nodeId,edgeIndex]) => nodeId!==action.nodeId && graphState.nodes[nodeId][edgeIndex] !== action.nodeId)
                     .map(([nodeId,edgeIndex]) => [
                         nodeId > action.nodeId ? nodeId - 1 : nodeId,
-                        edgeIndex - graphState.nodes[nodeId > action.nodeId ? nodeId - 1 : nodeId].slice(0, edgeIndex).filter((n) => n === action.nodeId).length
+                        edgeIndex - graphState.nodes[nodeId >= action.nodeId ? nodeId - 1 : nodeId].slice(0, edgeIndex).filter((n) => n === action.nodeId).length
                     ]),
             })
         default:

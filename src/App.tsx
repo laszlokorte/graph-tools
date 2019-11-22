@@ -531,15 +531,14 @@ const EdgeLine = styled.path`
 	fill: none;
 	stroke:currentColor;
 	stroke-width: 1;
-	pointer-events: stroke;
+	pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
 `
 
 const EdgeSelection = styled.path`
 	fill: none;
-    pointer-events: stroke;
+    pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
     stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
 	stroke-width: 6;
-	pointer-events: stroke;
 `
 
 const EdgeLabel = styled.text`
@@ -550,7 +549,7 @@ const EdgeLabel = styled.text`
 
 const EdgeLabelSelection = styled.text`
 	cursor: default;
-    pointer-events: stroke;
+    pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
     stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
 	stroke-width: 4;
 	text-anchor: ${({orientation: o}) => o===2 ? 'end' : (o===0 ? 'start' : 'middle')};
@@ -559,10 +558,11 @@ const EdgeLabelSelection = styled.text`
 
 const ArrowHead = styled.polygon`
 	fill: currentColor;
+    pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
 `
 
 const ArrowHeadSelection = styled.polygon`
-    pointer-events: stroke;
+    pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
     stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
 	stroke-width: 6;
     stroke-dasharray: none;
@@ -576,7 +576,7 @@ const NodeDragger = styled.path`
 
 const NodeConnector = styled.path`
     cursor: alias;
-    fill: #3290E8;
+    fill: #84DBDB;
     opacity: 0.5;
 `;
 
@@ -589,15 +589,15 @@ const NodeConnectorTarget = styled.path`
     }
 `;
 
-const EdgeHead = ({x,y, angle, selected = false}) => {
+const EdgeHead = ({x,y, angle, selected = false, disabled = false}) => {
 	const size = 12
 	const spike = 0.25 * Math.PI / 2;
 	const a = `${x},${y}`;
 	const b = `${x+size*Math.sin(angle-spike-Math.PI/2)},${y-size*Math.cos(angle-spike-Math.PI/2)}`;
 	const c = `${x+size*Math.sin(angle+spike-Math.PI/2)},${y-size*Math.cos(angle+spike-Math.PI/2)}`;
 	return <>
-        <ArrowHeadSelection selected={selected} points={`${a} ${b} ${c}`} />
-		<ArrowHead points={`${a} ${b} ${c}`} />
+        <ArrowHeadSelection disabled={disabled} selected={selected} points={`${a} ${b} ${c}`} />
+		<ArrowHead disabled={disabled} points={`${a} ${b} ${c}`} />
 	</>
 }
 
@@ -628,7 +628,7 @@ const Node = ({children, x, y, nodeType = 'circle', nodeId, label, selected = fa
 	</g>
 }
 
-const Edge = ({nodeId, edgeIndex, x0,y0,x1,y1,label=null, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true}) => {
+const Edge = ({nodeId, edgeIndex = null, x0,y0,x1,y1,label=null, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true, disabled=false}) => {
 	const midX = (x0 + x1) / 2
 	const midY = (y0 + y1) / 2
 	let dirX = x1 - x0
@@ -666,17 +666,17 @@ const Edge = ({nodeId, edgeIndex, x0,y0,x1,y1,label=null, selected = false, onCl
     } : null, [nodeId, edgeIndex, onDoubleClick])
 
 	return <g onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
-		<EdgeSelection selected={selected} d={`M${x1},${y1} C${cbX},${cbY} ${caX},${caY} ${x0},${y0}`} />
+		<EdgeSelection disabled={disabled} selected={selected} d={`M${x1},${y1} C${cbX},${cbY} ${caX},${caY} ${x0},${y0}`} />
 		<g style={style}>
         {directed ?
-            <EdgeHead x={x1} y={y1} angle={headAngle} selected={selected} />
+            <EdgeHead disabled={disabled} x={x1} y={y1} angle={headAngle} selected={selected} />
             :null
         }
-        <EdgeLine d={`M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`} />
+        <EdgeLine disabled={disabled} d={`M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`} />
         </g>
 		{!label ? null : <>
-		<EdgeLabelSelection selected={selected} orientation={orientation} x={textX} y={textY}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabelSelection>
-        <EdgeLabel orientation={orientation} x={textX} y={textY} labelStyle={labelStyle}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabel>
+		<EdgeLabelSelection disabled={disabled} selected={selected} orientation={orientation} x={textX} y={textY}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabelSelection>
+        <EdgeLabel disabled={disabled} orientation={orientation} x={textX} y={textY} labelStyle={labelStyle}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabel>
         </>}
 	</g>
 }
@@ -698,49 +698,91 @@ const ReflexiveEdge = ({nodeId, edgeIndex, x, y, label, angle = 0, selected = fa
 	/>
 
 const NodeEdge = ({nodeId, edgeIndex, x0, y0, x1, y1, label, selected = false, onClick = null, onDoubleClick = null, style = null, directed = true}) => {
-	let dirX = x1 - x0
-	let dirY = y1 - y0
+    let dirX = x1 - x0
+    let dirY = y1 - y0
     if(!dirX && !dirY) {
         dirX = 1
         dirY = 0
     }
-	const length2 = dirX*dirX + dirY*dirY
-	const length = Math.sqrt(length2)
-	const normX = dirX/length
-	const normY = dirY/length
-	const midX = (x0 + x1) / 2
-	const midY = (y0 + y1) / 2
-	const bend = directed ? 30 : 0
+    const length2 = dirX*dirX + dirY*dirY
+    const length = Math.sqrt(length2)
+    const normX = dirX/length
+    const normY = dirY/length
+    const midX = (x0 + x1) / 2
+    const midY = (y0 + y1) / 2
+    const bend = directed ? 30 : 0
 
-	const cX = midX + bend * normY
-	const cY = midY - bend * normX
+    const cX = midX + bend * normY
+    const cY = midY - bend * normX
 
-	const cDirX = cX - x0
-	const cDirY = cY - y0
-	const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
-	const cDirXNorm = cDirX / cDirLength
-	const cDirYNorm = cDirY / cDirLength
+    const cDirX = cX - x0
+    const cDirY = cY - y0
+    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
+    const cDirXNorm = cDirX / cDirLength
+    const cDirYNorm = cDirY / cDirLength
 
-	const cDirXr = cX - x1
-	const cDirYr = cY - y1
-	const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
-	const cDirXNormr = cDirXr / cDirLengthr
-	const cDirYNormr = cDirYr / cDirLengthr
+    const cDirXr = cX - x1
+    const cDirYr = cY - y1
+    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
+    const cDirXNormr = cDirXr / cDirLengthr
+    const cDirYNormr = cDirYr / cDirLengthr
 
-	return <Edge
+    return <Edge
         nodeId={nodeId}
         edgeIndex={edgeIndex}
-		x0={x0 + 20 * cDirXNorm}
-		y0={y0 + 20 * cDirYNorm}
-		x1={x1 + 20 * cDirXNormr}
-		y1={y1 + 20 * cDirYNormr}
-		label={label}
-		selected={selected}
-		onClick={onClick}
+        x0={x0 + 20 * cDirXNorm}
+        y0={y0 + 20 * cDirYNorm}
+        x1={x1 + 20 * cDirXNormr}
+        y1={y1 + 20 * cDirYNormr}
+        label={label}
+        selected={selected}
+        onClick={onClick}
         onDoubleClick={onDoubleClick}
-		style={style}
+        style={style}
         directed={directed}
-	/>
+    />
+}
+
+const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false}) => {
+    let dirX = x1 - x0
+    let dirY = y1 - y0
+    if(!dirX && !dirY) {
+        dirX = 1
+        dirY = 0
+    }
+    const length2 = dirX*dirX + dirY*dirY
+    const length = Math.sqrt(length2)
+    const normX = dirX/length
+    const normY = dirY/length
+    const midX = (x0 + x1) / 2
+    const midY = (y0 + y1) / 2
+    const bend = directed ? 30 : 0
+
+    const cX = midX + bend * normY
+    const cY = midY - bend * normX
+
+    const cDirX = cX - x0
+    const cDirY = cY - y0
+    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
+    const cDirXNorm = cDirX / cDirLength
+    const cDirYNorm = cDirY / cDirLength
+
+    const cDirXr = cX - x1
+    const cDirYr = cY - y1
+    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
+    const cDirXNormr = cDirXr / cDirLengthr
+    const cDirYNormr = cDirYr / cDirLengthr
+
+    return <Edge
+        nodeId={nodeId}
+        x0={x0 + 20 * cDirXNorm}
+        y0={y0 + 20 * cDirYNorm}
+        x1={x1 + (offset ? 20 * cDirXNormr : 0)}
+        y1={y1 + (offset ? 20 * cDirYNormr : 0)}
+        style={{strokeDasharray: "10 10"}}
+        disabled={true}
+        directed={directed}
+    />
 }
 
 const NodeManipulator = ({x,y,nodeId,mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
@@ -767,10 +809,6 @@ const NodeManipulator = ({x,y,nodeId,mouseDownConnect=null,mouseDownMove = null,
             m 0, -40
             a 40, 40, 0, 1, 0, 0, 80
             a 40, 40, 0, 1, 0, 0, -80
-            Z
-            m 0 20
-            a 20, 20, 0, 1, 1, 0, 40
-            a 20, 20, 0, 1, 1, 0, -40
             Z"
             transform={`translate(${x} ${y})`}
             onMouseDown={mouseDownConnectCallback}
@@ -810,35 +848,53 @@ const Graph = ({onNodePress, box}) => {
     });
     const [moving, setMoving] = useState(null);
 
-    useEffect(() => {
-        const onMouseUp = (evt) => {
-            if(connecting.start !== null && connecting.snap !== null) {
-                dispatch(actions.addEdge(connecting, connecting.snap))
+    const onMouseUp = useCallback((evt) => {
+        setConnecting((c) => {
+            if(c.start !== null) {
+                if(c.snap !== null) {
+                    dispatch(actions.addEdge(c.start, c.snap))
+                }
+                return ({
+                    start: null,
+                    snap: null,
+                    x: null,
+                    y: null
+                });
             }
-            setConnecting({
-                start: null,
-                snap: null,
-                x: null,
-                y: null
-            });
-            setMoving(null);
-        }
 
-        window.addEventListener('mouseup', onMouseUp)
+            return c
+        })
+
+        setMoving(null);
+    }, []);
+
+
+    useEffect(() => {
+        const prevMouseUp = onMouseUp
+        window.addEventListener('mouseup', prevMouseUp)
 
         return () => {
-            window.removeEventListener('mouseup', onMouseUp)
+            window.removeEventListener('mouseup', prevMouseUp)
         }
-    }, [connecting]);
+    }, [onMouseUp]);
 
     const onMouseMove =  useCallback((evt) => {
-        if(moving !== null && canvasPos) {
-            const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-            dispatch(actions.setNodeAttribute(moving, 'position', pos))
-        } else if(connecting.start !== null && connecting.snap === null) {
-            const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-            setConnecting({x:pos.x,y:pos.y,start:connecting.start,snap:connecting.snap})
-        }
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        setMoving((m) => {
+            if(m!== null) {
+                dispatch(actions.setNodeAttribute(moving, 'position', pos))
+
+            }
+            return m;
+        })
+
+        setConnecting((c) => c.start === null || c.snap !== null ? c : ({
+                x:pos.x,
+                y:pos.y,
+                start:c.start,
+                snap:c.snap
+            }))
     }, [canvasPos, moving, connecting])
 
 
@@ -860,21 +916,32 @@ const Graph = ({onNodePress, box}) => {
     const connectStart = useCallback((evt, nodeId) => {
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        setConnecting({start: nodeId, x: pos.x, y:pos.y,snap:null});
+        setConnecting({
+            start: nodeId,
+            x: pos.x,
+            y:pos.y,
+            snap:null
+        });
     }, [canvasPos]);
 
     const snap = useCallback((evt, nodeId) => {
-        if(connecting.start !== null) {
-            setConnecting({start: connecting.start,snap:nodeId,x:null,y:null})
-        }
-    }, [connecting]);
+        setConnecting((c) => c.start === null ? c : {
+            start: c.start,
+            snap:nodeId,
+            x:null,
+            y:null
+        })
+    }, []);
 
     const unsnap = useCallback((evt) => {
-        if(connecting.start !== null) {
-            const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-            setConnecting({start: connecting.start,x:pos.x,y:pos.y,snap:null})
-        }
-    }, [connecting]);
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+        setConnecting((c) => c.start === null ? c : {
+            start: c.start,
+            x:pos.x,
+            y:pos.y,
+            snap:null
+        })
+    }, [canvasPos]);
 
     const moveStart = useCallback((evt, nodeId) => {
         evt.stopPropagation();
@@ -956,16 +1023,24 @@ const Graph = ({onNodePress, box}) => {
                     mouseLeave={unsnap} />
             </Node>
         )}
-        {connecting.start === null || connecting.snap !== null ? <rect /> :
-            <NodeEdge
+        {connecting.start === null ? null : connecting.snap !== null ?
+
+            <NewEdge
+                    nodeId={0}
+                    x0={positions[connecting.start].x}
+                    y0={positions[connecting.start].y}
+                    x1={positions[connecting.snap].x}
+                    y1={positions[connecting.snap].y}
+                    directed={flags.directed}
+                    offset={true}
+                />
+         :
+            <NewEdge
                     nodeId={connecting}
-                    edgeIndex={-1}
-                    key={`newEdge`}
                     x0={positions[connecting.start].x}
                     y0={positions[connecting.start].y}
                     x1={connecting.x}
                     y1={connecting.y}
-                    label={null}
                     directed={flags.directed}
                 />
         }
