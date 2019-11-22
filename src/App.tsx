@@ -458,6 +458,7 @@ const Canvas = ({children, box}) => {
 
     const onWheelHandler = useCallback((e) => {
         e.preventDefault();
+        e.stopPropagation();
 
         const pivot = svgPos({x: e.clientX, y: e.clientY})
         const factor = wheelFactor(e);
@@ -486,6 +487,16 @@ const Canvas = ({children, box}) => {
             window.removeEventListener('mousemove', onMouseMoveHandler);
         }
     },[onMouseMoveHandler])
+
+    useEffect(() => {
+        const c = screenRef.current;
+
+        c.addEventListener('wheel', onWheelHandler, { passive: false });
+
+        return () => {
+            c.removeEventListener('wheel', onWheelHandler, { passive: false });
+        }
+    },[onWheelHandler, screenRef])
 
 	return <Svg
         ref={screenRef}
@@ -920,7 +931,7 @@ const manipulationReducer = (state, action) => {
     return state;
 }
 
-const Graph = ({onNodePress, box}) => {
+const Graph = ({box}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -978,6 +989,7 @@ const Graph = ({onNodePress, box}) => {
 
     const connectStart = useCallback((evt, nodeId) => {
         evt.stopPropagation();
+        evt.preventDefault();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
         dispatchManipulation({type: 'startConnect', ...pos, nodeId})
@@ -993,6 +1005,7 @@ const Graph = ({onNodePress, box}) => {
     }, [canvasPos,dispatchManipulation]);
 
     const moveStart = useCallback((evt, nodeId) => {
+        evt.preventDefault();
         evt.stopPropagation();
         dispatchManipulation({type: 'startMove', nodeId})
     }, [dispatchManipulation]);
