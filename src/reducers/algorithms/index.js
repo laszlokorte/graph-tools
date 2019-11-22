@@ -1,9 +1,12 @@
+import art_pts from './articulation_pts' 
 import bfs from './bfs'
 import dfs from './dfs'
 import dijkstra from './dijkstra'
-import belman_ford from './belman_ford'
+import belman_ford from './belman_ford' 
+import articulation_pts from './articulation_pts'
 
 const algorithms = {
+    art_pts,
     bfs,
     dfs,
     dijkstra,
@@ -11,6 +14,9 @@ const algorithms = {
 };
 
 const initialState = {
+    art_pts: {
+        result: null,
+    },
     bfs: {
         result: null,
     },
