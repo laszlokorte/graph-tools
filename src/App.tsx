@@ -313,6 +313,16 @@ const cameraReducer = (camera, action) => {
                   y: newY,
               },
             };
+        case 'jumpZoom': {
+            if(camera.rotation != 0) {
+                return cameraReducer(camera, {type: 'reset'})
+            } else if(Math.abs(camera.zoom / camera.bounds.defaultZoom) < 1.05) {
+                return cameraReducer(camera, {type:'zoom', pivot: action.pivot, factor: camera.bounds.maxZoom / 2})
+            } else {
+                return cameraReducer(camera, {type: 'reset'})
+                //cameraReducer(camera, {typ:'zoom', pivot:action.pivot,factor:bounds.defaultZoom / camera.zoom})
+            }
+        }
         case 'rotate':
             const pivot = action.pivot;
             const deltaAngle = action.deltaAngle;
@@ -427,15 +437,7 @@ const Canvas = ({children, box}) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
 
-        //resetCamera()
-        if(camera.rotation != 0) {
-            dispatchCamera({type: 'reset'})
-        } else if(Math.abs(camera.zoom / camera.bounds.defaultZoom) < 1.05) {
-            //zoom(pos, camera.bounds.maxZoom / 2);
-        } else {
-            dispatchCamera({type: 'reset'})
-            //zoom(pos, bounds.defaultZoom / camera.zoom);
-        }
+        dispatchCamera({type: 'jumpZoom', pivot: pos})
     }, [svgPos])
 
     const onMouseDownHandler = useCallback((e) => {
