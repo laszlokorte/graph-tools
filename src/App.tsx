@@ -1,5 +1,5 @@
 import React from 'react';
-import {useState, useRef, useMemo, useEffect, useContext, useCallback} from 'react';
+import {useReducer, useRef, useMemo, useEffect, useContext, useCallback} from 'react';
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
@@ -271,174 +271,201 @@ const useCanvasPos = () => {
     return useContext(CanvasContext);
 }
 
+const cameraReducer = (camera, action) => {
+    const bounds = camera.bounds;
+
+    switch(action.type) {
+        case 'clamp':
+            return {
+                ...camera,
+                bounds: {
+                    minX: action.box.minX,
+                    maxX: action.box.maxX,
+                    minY: action.box.minY,
+                    maxY: action.box.maxY,
+                    defaultZoom: Math.min(
+                      action.screen.width/(action.box.maxX - action.box.minX),
+                      action.screen.height/(action.box.maxY - action.box.minY),
+                      20
+                    ),
+                    minZoom: Math.min(
+                      action.screen.width / (action.box.maxX - action.box.minX),
+                      action.screen.height / (action.box.maxY - action.box.minY),
+                      0.8
+                    ),
+                    maxZoom: 6,
+                },
+            };
+        case 'zoom':
+            const newZoom = Math.max(bounds.minZoom, Math.min(bounds.maxZoom, camera.zoom * action.factor))
+            const realFactor = newZoom / camera.zoom;
+            const panFactor = 1 - 1 / realFactor;
+
+            const newX = Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x + (action.pivot.x - camera.center.x) * panFactor))
+            const newY = Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y + (action.pivot.y - camera.center.y) * panFactor))
+
+            return {
+              ...camera,
+              zoom: newZoom,
+              center: {
+                  ...camera.center,
+                  x: newX,
+                  y: newY,
+              },
+            };
+        case 'rotate':
+            const pivot = action.pivot;
+            const deltaAngle = action.deltaAngle;
+            const dx = camera.center.x - pivot.x;
+            const dy = camera.center.y - pivot.y;
+            const rad = Math.PI * deltaAngle / 180;
+            const sin = Math.sin(-rad)
+            const cos = Math.cos(-rad)
+
+            return {
+              ...camera,
+              center: {
+                  ...camera.center,
+                  x: Math.max(bounds.minX, Math.min(bounds.maxX, pivot.x + cos * dx - sin * dy)),
+                  y: Math.max(bounds.minY, Math.min(bounds.maxY, pivot.y + sin * dx + cos * dy)),
+              },
+              rotation: (camera.rotation + deltaAngle) % 360,
+            };
+        case 'pan':
+            return {
+              ...camera,
+                center: {
+                    ...camera.center,
+                    x: Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x - action.deltaX)),
+                    y: Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y - action.deltaY))
+                },
+            }
+        case 'reset':
+            return {
+                ...camera,
+                center: {
+                    ...camera.center,
+                    x: (bounds.minX + bounds.maxX) / 2,
+                    y: (bounds.minY + bounds.maxY) / 2,
+                },
+                rotation: 0,
+                zoom: bounds.defaultZoom,
+            }
+        case 'startPan':
+            return {
+                ...camera,
+                panX: action.x,
+                panY: action.y,
+            }
+        case 'stopPan':
+            return {
+                ...camera,
+                panX: null,
+                panY: null,
+            }
+        case 'movePan':
+            if(camera.panX === null || camera.panY === null) {
+                return camera;
+            }
+            const deltaX = action.x - camera.panX;
+            const deltaY = action.y - camera.panY;
+            return {
+              ...camera,
+                center: {
+                    ...camera.center,
+                    x: Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x - deltaX)),
+                    y: Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y - deltaY))
+                },
+            }
+
+    }
+    return camera;
+}
+
 const Canvas = ({children, box}) => {
     const screenRef = useRef();
     const screen = useSize(screenRef, 100, 100);
     const posRef = useRef();
     const svgPos = useSVGPosition(posRef);
 
-
-    const bounds = useMemo(() => ({
-        x: box.minX,
-        y: box.minY,
-        width: box.maxX - box.minX,
-        height: box.maxY - box.minY,
-        minX: box.minX,
-        maxX: box.maxX,
-        minY: box.minY,
-        maxY: box.maxY,
-        defaultZoom: Math.min(
-          screen.width/(box.maxX - box.minX),
-          screen.height/(box.maxY - box.minY),
-          20
-        ),
-        minZoom: Math.min(
-          screen.width / (box.maxX - box.minX),
-          screen.height / (box.maxY - box.minY),
-          0.8
-        ),
-        maxZoom: 6,
-    }), [box, screen]);
-
-
-    const [camera, setCamera] = useState({
+    const [camera, dispatchCamera] = useReducer(cameraReducer, {
         center: {x: 0, y:0},
         rotation: 0,
-        zoom: 2,
+        zoom: 1,
+        bounds: {
+            minX: 0,
+            maxX: 0,
+            minY: 0,
+            maxY: 0,
+            defaultZoom: 1,
+            minZoom: 1,
+            maxZoom: 1,
+        },
+        panX: null,
+        panY: null,
     })
 
-    const [dragState, setDragState] = useState({
-        startX: null,
-        startY: null,
-    })
-
-    const zoom = (pivot, factor) => {
-      const newZoom = Math.max(bounds.minZoom, Math.min(bounds.maxZoom, camera.zoom * factor))
-      const realFactor = newZoom / camera.zoom;
-      const panFactor = 1 - 1 / realFactor;
-
-      const newX = Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x + (pivot.x - camera.center.x) * panFactor))
-      const newY = Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y + (pivot.y - camera.center.y) * panFactor))
-
-      setCamera({
-          ...camera,
-          zoom: newZoom,
-          center: {
-              ...camera.center,
-              x: newX,
-              y: newY,
-          },
-      })
-    }
-
-    const rotate = (pivot, deltaAngle) => {
-      const dx = camera.center.x - pivot.x;
-      const dy = camera.center.y - pivot.y;
-      const rad = Math.PI * deltaAngle / 180;
-      const sin = Math.sin(-rad)
-      const cos = Math.cos(-rad)
-
-
-      setCamera({
-          ...camera,
-          center: {
-              ...camera.center,
-              x: Math.max(bounds.minX, Math.min(bounds.maxX, pivot.x + cos * dx - sin * dy)),
-              y: Math.max(bounds.minY, Math.min(bounds.maxY, pivot.y + sin * dx + cos * dy)),
-          },
-          rotation: (camera.rotation + deltaAngle) % 360,
-      })
-    }
-
-    const pan = (deltaX, deltaY) => {
-        setCamera({
-          ...camera,
-            center: {
-                ...camera.center,
-                x: Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x - deltaX)),
-                y: Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y - deltaY))
-            },
-        })
-    }
-
-    const resetCamera = () => {
-        setCamera({
-          ...camera,
-            center: {
-                ...camera.center,
-                x: (bounds.minX + bounds.maxX) / 2,
-                y: (bounds.minY + bounds.maxY) / 2,
-            },
-            rotation: 0,
-            zoom: bounds.defaultZoom,
-        })
-    }
+    const bounds = useEffect(() => dispatchCamera({
+        type: 'clamp',
+        box, screen,
+    }), [box, screen]);
 
     const viewBox = viewboxString(bounds, screen, camera);
 
-    const onMouseMoveHandler = (e) => {
+    const onMouseMoveHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
+        dispatchCamera({type: 'movePan', ...pos})
+    }, [svgPos])
 
-        if(dragState.startX || dragState.startY) {
-            pan(pos.x - dragState.startX, pos.y - dragState.startY)
-        }
-    }
-
-    const onClickHandler = (e) => {
+    const onClickHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
-    }
+    }, [svgPos])
 
-     const onDoubleClickHandler = (e) => {
+     const onDoubleClickHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
 
         //resetCamera()
         if(camera.rotation != 0) {
-            resetCamera()
-        } else if(Math.abs(camera.zoom / bounds.defaultZoom) < 1.05) {
-            zoom(pos, bounds.maxZoom / 2);
+            dispatchCamera({type: 'reset'})
+        } else if(Math.abs(camera.zoom / camera.bounds.defaultZoom) < 1.05) {
+            //zoom(pos, camera.bounds.maxZoom / 2);
         } else {
-            resetCamera()
+            dispatchCamera({type: 'reset'})
             //zoom(pos, bounds.defaultZoom / camera.zoom);
         }
-    }
+    }, [svgPos])
 
-    const onMouseDownHandler = (e) => {
+    const onMouseDownHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
         e.preventDefault();
         e.stopPropagation();
-        setDragState({
-            startX: pos.x,
-            startY: pos.y,
-        })
-    }
+        dispatchCamera({type: 'startPan', ...pos})
+    }, [svgPos])
 
-    const onMouseUpHandler = (e) => {
+    const onMouseUpHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
         e.preventDefault();
 
-        setDragState({
-            startX: null,
-            startY: null,
-        })
-    }
+        dispatchCamera({type: 'stopPan'})
+    }, [svgPos])
 
-    const onWheelHandler = (e) => {
+    const onWheelHandler = useCallback((e) => {
         e.preventDefault();
 
         const pivot = svgPos({x: e.clientX, y: e.clientY})
         const factor = wheelFactor(e);
 
         if(e.altKey) {
-            rotate(pivot, 10 * Math.log2(factor))
+            dispatchCamera({type: 'rotate', pivot, deltaAngle: 10 * Math.log2(factor)})
         } else {
-            zoom(pivot, factor)
+            dispatchCamera({type: 'zoom', pivot, factor})
         }
-    }
+    }, [svgPos])
 
     const [left,top,width,height] = viewBox.split(' ');
 
@@ -448,11 +475,18 @@ const Canvas = ({children, box}) => {
         return () => {
             window.removeEventListener('mouseup', onMouseUpHandler);
         }
-    },[])
+    },[onMouseUpHandler])
+
+    useEffect(() => {
+        window.addEventListener('mousemove', onMouseMoveHandler);
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMoveHandler);
+        }
+    },[onMouseMoveHandler])
 
 	return <Svg
         ref={screenRef}
-        onMouseMove={onMouseMoveHandler}
         onMouseDown={onMouseDownHandler}
         onClick={onClickHandler}
         onDoubleClick={onDoubleClickHandler}
@@ -468,10 +502,10 @@ const Canvas = ({children, box}) => {
 		<g ref={posRef} transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
             <CanvasContext.Provider value={svgPos}>
             <rect
-                x={bounds.minX}
-                y={bounds.minY}
-                width={bounds.maxX - bounds.minX}
-                height={bounds.maxY - bounds.minY}
+                x={camera.bounds.minX}
+                y={camera.bounds.minY}
+                width={camera.bounds.maxX - camera.bounds.minX}
+                height={camera.bounds.maxY - camera.bounds.minY}
                 fill="#fff" />
 			{children}
             </CanvasContext.Provider>
@@ -826,6 +860,10 @@ const NodeManipulator = ({x,y,nodeId,mouseDownConnect=null,mouseDownMove = null,
     </g>
 }
 
+const manipulationReducer = (state, action) => {
+    return state;
+}
+
 const Graph = ({onNodePress, box}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
@@ -840,32 +878,33 @@ const Graph = ({onNodePress, box}) => {
     const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label)
     const edgeWeights = useSelector(state => state.present.graph.attributes.edges.weight)
 
-    const [connecting, setConnecting] = useState({
-        start: null,
-        snap: null,
+    const [manipulation, dispatchManipulation] = useReducer(manipulationReducer, {
+        connectionStart: null,
+        connectionSnap: null,
         x: null,
-        y: null
+        y: null,
+        movingNode: null,
     });
-    const [moving, setMoving] = useState(null);
 
     const onMouseUp = useCallback((evt) => {
-        setConnecting((c) => {
-            if(c.start !== null) {
-                if(c.snap !== null) {
-                    dispatch(actions.addEdge(c.start, c.snap))
-                }
-                return ({
-                    start: null,
-                    snap: null,
-                    x: null,
-                    y: null
-                });
-            }
+        dispatchManipulation({type: 'stop'})
+        // setConnecting((c) => {
+        //     if(c.start !== null) {
+        //         if(c.snap !== null) {
+        //             dispatch(actions.addEdge(c.start, c.snap))
+        //         }
+        //         return ({
+        //             start: null,
+        //             snap: null,
+        //             x: null,
+        //             y: null
+        //         });
+        //     }
 
-            return c
-        })
+        //     return c
+        // })
 
-        setMoving(null);
+        // setMoving(null);
     }, []);
 
 
@@ -880,22 +919,23 @@ const Graph = ({onNodePress, box}) => {
 
     const onMouseMove =  useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+        dispatchManipulation({type: 'move', ...pos})
 
-        setMoving((m) => {
-            if(m!== null) {
-                dispatch(actions.setNodeAttribute(moving, 'position', pos))
+        // setMoving((m) => {
+        //     if(m!== null) {
+        //         dispatch(actions.setNodeAttribute(moving, 'position', pos))
 
-            }
-            return m;
-        })
+        //     }
+        //     return m;
+        // })
 
-        setConnecting((c) => c.start === null || c.snap !== null ? c : ({
-                x:pos.x,
-                y:pos.y,
-                start:c.start,
-                snap:c.snap
-            }))
-    }, [canvasPos, moving, connecting])
+        // setConnecting((c) => c.start === null || c.snap !== null ? c : ({
+        //         x:pos.x,
+        //         y:pos.y,
+        //         start:c.start,
+        //         snap:c.snap
+        //     }))
+    }, [canvasPos])
 
 
     useEffect(() => {
@@ -916,36 +956,44 @@ const Graph = ({onNodePress, box}) => {
     const connectStart = useCallback((evt, nodeId) => {
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        setConnecting({
-            start: nodeId,
-            x: pos.x,
-            y:pos.y,
-            snap:null
-        });
+
+        dispatchManipulation({type: 'startConnect', ...pos, nodeId})
+        // setConnecting({
+        //     start: nodeId,
+        //     x: pos.x,
+        //     y:pos.y,
+        //     snap:null
+        // });
     }, [canvasPos]);
 
     const snap = useCallback((evt, nodeId) => {
-        setConnecting((c) => c.start === null ? c : {
-            start: c.start,
-            snap:nodeId,
-            x:null,
-            y:null
-        })
+        dispatchManipulation({type: 'snapConnect', nodeId})
+
+        // setConnecting((c) => c.start === null ? c : {
+        //     start: c.start,
+        //     snap:nodeId,
+        //     x:null,
+        //     y:null
+        // })
     }, []);
 
     const unsnap = useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        setConnecting((c) => c.start === null ? c : {
-            start: c.start,
-            x:pos.x,
-            y:pos.y,
-            snap:null
-        })
+        dispatchManipulation({type: 'unsnapConnect', ...pos})
+
+        // setConnecting((c) => c.start === null ? c : {
+        //     start: c.start,
+        //     x:pos.x,
+        //     y:pos.y,
+        //     snap:null
+        // })
     }, [canvasPos]);
 
     const moveStart = useCallback((evt, nodeId) => {
         evt.stopPropagation();
-        setMoving(nodeId);
+        // setMoving(nodeId);
+        dispatchManipulation({type: 'startMove', nodeId})
+
     }, []);
 
     const selectNode = useCallback((evt, nodeId) => {
@@ -1023,24 +1071,24 @@ const Graph = ({onNodePress, box}) => {
                     mouseLeave={unsnap} />
             </Node>
         )}
-        {connecting.start === null ? null : connecting.snap !== null ?
+        {manipulation.connectionStart === null ? null : manipulation.connectionSnap !== null ?
 
             <NewEdge
                     nodeId={0}
-                    x0={positions[connecting.start].x}
-                    y0={positions[connecting.start].y}
-                    x1={positions[connecting.snap].x}
-                    y1={positions[connecting.snap].y}
+                    x0={positions[manipulation.connectionStart].x}
+                    y0={positions[manipulation.connectionStart].y}
+                    x1={positions[manipulation.connectionSnap].x}
+                    y1={positions[manipulation.connectionSnap].y}
                     directed={flags.directed}
                     offset={true}
                 />
          :
             <NewEdge
-                    nodeId={connecting}
-                    x0={positions[connecting.start].x}
-                    y0={positions[connecting.start].y}
-                    x1={connecting.x}
-                    y1={connecting.y}
+                    nodeId={manipulation.connectionStart}
+                    x0={positions[manipulation.connectionStart].x}
+                    y0={positions[manipulation.connectionStart].y}
+                    x1={manipulation.x}
+                    y1={manipulation.y}
                     directed={flags.directed}
                 />
         }
