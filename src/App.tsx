@@ -863,6 +863,61 @@ const NodeManipulator = ({x,y,nodeId,mouseDownConnect=null,mouseDownMove = null,
 }
 
 const manipulationReducer = (state, action) => {
+    switch(action.type) {
+        case 'stop':
+            if(state.connectionStart !== null && state.connectionSnap !== null) {
+                action.dispatch(actions.addEdge(state.connectionStart, state.connectionSnap))
+            }
+            return {
+                connectionStart: null,
+                connectionSnap: null,
+                x: null,
+                y: null,
+                movingNode: null,
+            };
+        case 'move':
+            if(state.movingNode) {
+                action.dispatch(actions.setNodeAttribute(state.movingNode, 'position', {x:action.x, y:action.y}))
+            }
+
+            if(state.connectionStart!==null || state.movingNode !== null) {
+                return {
+                    ...state,
+                    x: action.x,
+                    y: action.y,
+                }
+            } else {
+                return state;
+            }
+        case 'startConnect':
+            return {
+                ...state,
+                connectionStart: action.nodeId,
+                x: action.x,
+                y: action.y,
+                connectionSnap:null,
+            }
+        case 'snapConnect':
+            return {
+                ...state,
+                x: null,
+                y: null,
+                connectionSnap:action.nodeId,
+            }
+        case 'unsnapConnect':
+        console.log("x")
+            return {
+                ...state,
+                x: action.x,
+                y: action.y,
+                connectionSnap:null,
+            }
+        case 'startMove':
+            return {
+                ...state,
+                movingNode: action.nodeId,
+            }
+    }
     return state;
 }
 
@@ -889,26 +944,8 @@ const Graph = ({onNodePress, box}) => {
     });
 
     const onMouseUp = useCallback((evt) => {
-        dispatchManipulation({type: 'stop'})
-        // setConnecting((c) => {
-        //     if(c.start !== null) {
-        //         if(c.snap !== null) {
-        //             dispatch(actions.addEdge(c.start, c.snap))
-        //         }
-        //         return ({
-        //             start: null,
-        //             snap: null,
-        //             x: null,
-        //             y: null
-        //         });
-        //     }
-
-        //     return c
-        // })
-
-        // setMoving(null);
-    }, []);
-
+        dispatchManipulation({type: 'stop', dispatch})
+    }, [dispatchManipulation]);
 
     useEffect(() => {
         const prevMouseUp = onMouseUp
@@ -921,23 +958,8 @@ const Graph = ({onNodePress, box}) => {
 
     const onMouseMove =  useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        dispatchManipulation({type: 'move', ...pos})
-
-        // setMoving((m) => {
-        //     if(m!== null) {
-        //         dispatch(actions.setNodeAttribute(moving, 'position', pos))
-
-        //     }
-        //     return m;
-        // })
-
-        // setConnecting((c) => c.start === null || c.snap !== null ? c : ({
-        //         x:pos.x,
-        //         y:pos.y,
-        //         start:c.start,
-        //         snap:c.snap
-        //     }))
-    }, [canvasPos])
+        dispatchManipulation({type: 'move', ...pos, dispatch})
+    }, [canvasPos, dispatch])
 
 
     useEffect(() => {
@@ -953,70 +975,48 @@ const Graph = ({onNodePress, box}) => {
             const {x,y} = canvasPos({x: evt.clientX, y: evt.clientY});
             dispatch(actions.createNode(x,y));
         }
-    }, [canvasPos])
+    }, [canvasPos, dispatch])
 
     const connectStart = useCallback((evt, nodeId) => {
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
         dispatchManipulation({type: 'startConnect', ...pos, nodeId})
-        // setConnecting({
-        //     start: nodeId,
-        //     x: pos.x,
-        //     y:pos.y,
-        //     snap:null
-        // });
-    }, [canvasPos]);
+    }, [dispatchManipulation, canvasPos]);
 
     const snap = useCallback((evt, nodeId) => {
         dispatchManipulation({type: 'snapConnect', nodeId})
-
-        // setConnecting((c) => c.start === null ? c : {
-        //     start: c.start,
-        //     snap:nodeId,
-        //     x:null,
-        //     y:null
-        // })
-    }, []);
+    }, [dispatchManipulation]);
 
     const unsnap = useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
         dispatchManipulation({type: 'unsnapConnect', ...pos})
-
-        // setConnecting((c) => c.start === null ? c : {
-        //     start: c.start,
-        //     x:pos.x,
-        //     y:pos.y,
-        //     snap:null
-        // })
-    }, [canvasPos]);
+    }, [canvasPos,dispatchManipulation]);
 
     const moveStart = useCallback((evt, nodeId) => {
         evt.stopPropagation();
-        // setMoving(nodeId);
         dispatchManipulation({type: 'startMove', nodeId})
-
-    }, []);
+    }, [dispatchManipulation]);
 
     const selectNode = useCallback((evt, nodeId) => {
         evt.stopPropagation();
         dispatch(actions.selectNode(nodeId, evt.shiftKey));
-    }, [])
+    }, [dispatch])
 
     const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
         evt.stopPropagation();
         dispatch(actions.selectEdge(nodeId, edgeIndex, evt.shiftKey));
-    }, [])
+    }, [dispatch])
 
     const deleteEdge = useCallback((evt, nodeId, edgeIndex) => {
         evt.stopPropagation();
         dispatch(actions.deleteEdge(nodeId, edgeIndex));
-    }, [])
+    }, [dispatch])
 
     const deleteNode = useCallback((evt, nodeId) => {
         evt.stopPropagation();
         dispatch(actions.deleteNode(nodeId));
-    }, [])
+    }, [dispatch])
 
     return <g onClick={onClick}>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
