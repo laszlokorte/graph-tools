@@ -1,3 +1,3 @@
 export default (graph) => {
-    return null;
+    return true;
 }
