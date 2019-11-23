@@ -341,15 +341,20 @@ const cameraReducer = (camera, action) => {
               },
               rotation: (camera.rotation + deltaAngle) % 360,
             };
-        case 'pan':
+        case 'pan': {
+            const sin = Math.sin(camera.rotation * Math.PI / 180)
+            const cos = Math.cos(camera.rotation * Math.PI / 180)
+            const dx = (cos * action.deltaX + sin * action.deltaY)  / camera.zoom
+            const dy = (-sin * action.deltaX + cos * action.deltaY) / camera.zoom
             return {
               ...camera,
                 center: {
                     ...camera.center,
-                    x: Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x - action.deltaX)),
-                    y: Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y - action.deltaY))
+                    x: Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x + dx)),
+                    y: Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y + dy))
                 },
             }
+        }
         case 'reset':
             return {
                 ...camera,
@@ -463,7 +468,9 @@ const Canvas = ({children, box}) => {
         const pivot = svgPos({x: e.clientX, y: e.clientY})
         const factor = wheelFactor(e);
 
-        if(e.altKey) {
+        if(e.shiftKey) {
+            dispatchCamera({type: 'pan', deltaX: e.deltaX, deltaY: e.deltaY})
+        } else if(e.altKey) {
             dispatchCamera({type: 'rotate', pivot, deltaAngle: 10 * Math.log2(factor)})
         } else {
             dispatchCamera({type: 'zoom', pivot, factor})
@@ -832,7 +839,7 @@ const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false}) => {
     />
 }
 
-const NodeManipulator = ({x,y,nodeId,mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
+const NodeManipulator = ({x,y,nodeId,onClick, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
     const mouseDownConnectCallback = useCallback(mouseDownConnect ? (evt) => {
         mouseDownConnect(evt, nodeId)
     } : null, [nodeId, mouseDownConnect])
@@ -848,6 +855,11 @@ const NodeManipulator = ({x,y,nodeId,mouseDownConnect=null,mouseDownMove = null,
     const mouseLeaveCallback = useCallback(mouseLeave ? (evt) => {
         mouseLeave(evt, nodeId)
     } : null, [nodeId, mouseLeave])
+
+
+    const onClickCallback = useCallback(onClick ? (evt) => {
+        onClick(evt, nodeId)
+    } : null, [nodeId, onClick])
 
     return <g
             onMouseMove={mouseMoveCallback}
@@ -867,6 +879,7 @@ const NodeManipulator = ({x,y,nodeId,mouseDownConnect=null,mouseDownMove = null,
             a 15, 15, 0, 1, 0, 0, -30"
             transform={`translate(${x} ${y})`}
             onMouseDown={mouseDownMoveCallback}
+            onClick={onClickCallback}
             fillRule="evenodd"
             fill="#111"
             />
@@ -879,6 +892,10 @@ const manipulationReducer = (state, action) => {
             if(state.connectionStart !== null && state.connectionSnap !== null) {
                 action.dispatch(actions.addEdge(state.connectionStart, state.connectionSnap))
             }
+            if(state.movingNode !== null) {
+                action.dispatch(actions.setNodeAttribute(state.movingNode, 'position', {x:state.x, y:state.y}))
+            }
+
             return {
                 connectionStart: null,
                 connectionSnap: null,
@@ -887,10 +904,6 @@ const manipulationReducer = (state, action) => {
                 movingNode: null,
             };
         case 'move':
-            if(state.movingNode !== null) {
-                action.dispatch(actions.setNodeAttribute(state.movingNode, 'position', {x:action.x, y:action.y}))
-            }
-
             if(state.connectionStart!==null || state.movingNode !== null) {
                 return {
                     ...state,
@@ -925,6 +938,8 @@ const manipulationReducer = (state, action) => {
         case 'startMove':
             return {
                 ...state,
+                x: action.x,
+                y: action.y,
                 movingNode: action.nodeId,
             }
     }
@@ -1007,8 +1022,10 @@ const Graph = ({box}) => {
     const moveStart = useCallback((evt, nodeId) => {
         evt.preventDefault();
         evt.stopPropagation();
-        dispatchManipulation({type: 'startMove', nodeId})
-    }, [dispatchManipulation]);
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        dispatchManipulation({type: 'startMove', nodeId, ...pos})
+    }, [canvasPos, dispatchManipulation]);
 
     const selectNode = useCallback((evt, nodeId) => {
         evt.stopPropagation();
@@ -1031,7 +1048,92 @@ const Graph = ({box}) => {
     }, [dispatch])
 
     return <g onClick={onClick}>
+        <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        {nodes.map((neighbors, nodeId) =>
+            <NodeManipulator
+                key={nodeId}
+                nodeId={nodeId}
+                x={manipulation.movingNode === nodeId ? manipulation.x : positions[nodeId].x}
+                y={manipulation.movingNode === nodeId ? manipulation.y : positions[nodeId].y}
+                mouseDownConnect={connectStart}
+                mouseDownMove={moveStart}
+                mouseMove={snap}
+                mouseLeave={unsnap}
+                onClick={selectNode} />
+        )}
+        {manipulation.connectionStart === null ? null : manipulation.connectionSnap !== null ?
+
+            <NewEdge
+                    nodeId={0}
+                    x0={positions[manipulation.connectionStart].x}
+                    y0={positions[manipulation.connectionStart].y}
+                    x1={positions[manipulation.connectionSnap].x}
+                    y1={positions[manipulation.connectionSnap].y}
+                    directed={flags.directed}
+                    offset={true}
+                />
+         :
+            <NewEdge
+                    nodeId={manipulation.connectionStart}
+                    x0={positions[manipulation.connectionStart].x}
+                    y0={positions[manipulation.connectionStart].y}
+                    x1={manipulation.x}
+                    y1={manipulation.y}
+                    directed={flags.directed}
+                />
+        }
+    </g>
+}
+
+const ReadonlyGraph = ({box}) => {
+    const dispatch = useDispatch()
+
+    const flags = useSelector(state => state.present.graph.flags)
+    const selectedNodes = useSelector(state => state.present.selection.nodes)
+    const selectedEdges = useSelector(state => state.present.selection.edges)
+    const nodes = useSelector(state => state.present.graph.nodes)
+    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+    const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label)
+    const nodeColors = useSelector(state => state.present.graph.attributes.nodes.color)
+    const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label)
+    const edgeWeights = useSelector(state => state.present.graph.attributes.edges.weight)
+
+    const selectNode = useCallback((evt, nodeId) => {
+        evt.stopPropagation();
+        dispatch(actions.selectNode(nodeId, evt.shiftKey));
+    }, [dispatch])
+
+    const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
+        evt.stopPropagation();
+        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.shiftKey));
+    }, [dispatch])
+
+    const deleteEdge = useCallback((evt, nodeId, edgeIndex) => {
+        evt.stopPropagation();
+        dispatch(actions.deleteEdge(nodeId, edgeIndex));
+    }, [dispatch])
+
+    const deleteNode = useCallback((evt, nodeId) => {
+        evt.stopPropagation();
+        dispatch(actions.deleteNode(nodeId));
+    }, [dispatch])
+
+    return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
+        {nodes.map((neighbors, nodeId) =>
+            <Node
+                key={nodeId}
+                nodeId={nodeId}
+                selected={selectedNodes.includes(nodeId)}
+                x={positions[nodeId].x}
+                y={positions[nodeId].y}
+                label={nodeLabels[nodeId]}
+                style={{color: null && nodeColors[nodeId]}}
+                onClick={selectNode}
+                onDoubleClick={deleteNode}
+            >
+            </Node>
+        )}
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) =>
                 nodeId===neighbourId ?
@@ -1063,49 +1165,6 @@ const Graph = ({box}) => {
                 />
             )
         )}
-        {nodes.map((neighbors, nodeId) =>
-            <Node
-                key={nodeId}
-                nodeId={nodeId}
-                selected={selectedNodes.includes(nodeId)}
-                x={positions[nodeId].x}
-                y={positions[nodeId].y}
-                label={nodeLabels[nodeId]}
-                style={{color: null && nodeColors[nodeId]}}
-                onClick={selectNode}
-                onDoubleClick={deleteNode}
-            >
-                <NodeManipulator
-                    nodeId={nodeId}
-                    x={positions[nodeId].x}
-                    y={positions[nodeId].y}
-                    mouseDownConnect={connectStart}
-                    mouseDownMove={moveStart}
-                    mouseMove={snap}
-                    mouseLeave={unsnap} />
-            </Node>
-        )}
-        {manipulation.connectionStart === null ? null : manipulation.connectionSnap !== null ?
-
-            <NewEdge
-                    nodeId={0}
-                    x0={positions[manipulation.connectionStart].x}
-                    y0={positions[manipulation.connectionStart].y}
-                    x1={positions[manipulation.connectionSnap].x}
-                    y1={positions[manipulation.connectionSnap].y}
-                    directed={flags.directed}
-                    offset={true}
-                />
-         :
-            <NewEdge
-                    nodeId={manipulation.connectionStart}
-                    x0={positions[manipulation.connectionStart].x}
-                    y0={positions[manipulation.connectionStart].y}
-                    x1={manipulation.x}
-                    y1={manipulation.y}
-                    directed={flags.directed}
-                />
-        }
     </g>
 }
 
@@ -1139,6 +1198,9 @@ const GraphEditor = () => {
             <Menu />
             <Dump value={present} />
             <Canvas box={box}>
+                <ReadonlyGraph
+                    box={box}
+                />
                 <Graph
                     box={box}
                 />
