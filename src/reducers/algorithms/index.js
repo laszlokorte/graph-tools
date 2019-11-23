@@ -2,8 +2,7 @@ import art_pts from './articulation_pts'
 import bfs from './bfs'
 import dfs from './dfs'
 import dijkstra from './dijkstra'
-import belman_ford from './belman_ford' 
-import articulation_pts from './articulation_pts'
+import belman_ford from './belman_ford'  
 
 const algorithms = {
     art_pts,
