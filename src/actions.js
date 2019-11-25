@@ -33,10 +33,11 @@ export const deleteNode = (nodeId) => ({
     nodeId,
 })
 
-export const createNode = (x, y) => ({
+export const createNode = (x, y, connectTo = null) => ({
     type: 'CREATE_NODE',
     attributes: {
         position: {x, y},
+        connectTo
     },
 })
 
@@ -63,6 +64,12 @@ export const setFlag = (flag, set) => ({
     type: 'SET_GRAPH_FLAG',
     flag,
     set,
+})
+
+export const setEdgeAttributeVisible = (attribute, visible) => ({
+    type: 'SET_EDGE_ATTRIBUTE_VISIBLE',
+    attribute,
+    visible,
 })
 
 export const runAlgorithm = (algorithm, options) => ({

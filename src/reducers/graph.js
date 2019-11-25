@@ -20,10 +20,12 @@ const initialState = {
             label: {
                 default: '',
                 type: 'text',
+                visible: true,
             },
             weight: {
                 default: 1,
                 type: 'numeric',
+                visible: false,
             },
         },
         nodes: {
@@ -202,11 +204,13 @@ const example = {
       "edges": {
         "label": {
           "default": "",
-          "type": "text"
+          "type": "text",
+          "visible": false,
         },
         "weight": {
           "default": 1,
-          "type": "numeric"
+          "type": "numeric",
+          "visible": true,
         }
       },
       "nodes": {
@@ -251,7 +255,7 @@ const objectMap = (obj, fn) => {
 
 const thisReducer = (state = /*initialState*/example, action) => {
     switch(action.type) {
-        case 'ADD_EDGE':
+        case 'ADD_EDGE': {
             if(!state.flags.multiGraph && state.nodes[action.fromNodeId].includes(action.toNodeId)) {
                 return state;
             }
@@ -283,7 +287,8 @@ const thisReducer = (state = /*initialState*/example, action) => {
                     )
                 },
             });
-        case 'DELETE_EDGE':
+        }
+        case 'DELETE_EDGE': {
             return ({
                 ...state,
                 nodes: [
@@ -308,8 +313,9 @@ const thisReducer = (state = /*initialState*/example, action) => {
                     )
                 },
             });
-        case 'CREATE_NODE':
-            return ({
+        }
+        case 'CREATE_NODE': {
+            const nodeAdded = ({
                 ...state,
                 nodes: [
                     ...state.nodes,
@@ -327,8 +333,19 @@ const thisReducer = (state = /*initialState*/example, action) => {
                         (key, value) => [...value, []]
                     )
                 },
-            })
-        case 'DELETE_NODE':
+            });
+
+            if(action.attributes.connectTo !== null) {
+                return thisReducer(nodeAdded, {
+                    type: 'ADD_EDGE',
+                    fromNodeId: action.attributes.connectTo,
+                    toNodeId: nodeAdded.nodes.length - 1,
+                })
+            } else {
+                return nodeAdded;
+            }
+        }
+        case 'DELETE_NODE': {
             return ({
                 ...state,
                 nodes: [
@@ -355,7 +372,8 @@ const thisReducer = (state = /*initialState*/example, action) => {
                     )
                 },
             });
-        case 'SET_EDGE_ATTRIBUTE':
+        }
+        case 'SET_EDGE_ATTRIBUTE': {
             return ({
                 ...state,
                 nodes: state.nodes,
@@ -375,7 +393,8 @@ const thisReducer = (state = /*initialState*/example, action) => {
                     }
                 },
             });
-        case 'SET_NODE_ATTRIBUTE':
+        }
+        case 'SET_NODE_ATTRIBUTE': {
             return ({
                 ...state,
                 nodes: state.nodes,
@@ -391,7 +410,8 @@ const thisReducer = (state = /*initialState*/example, action) => {
                     }
                 },
             });
-        case 'SET_GRAPH_FLAG':
+        }
+        case 'SET_GRAPH_FLAG': {
             const conversion = flagConversions[action.flag];
             return {
                 ...conversion(state, action.set),
@@ -400,6 +420,22 @@ const thisReducer = (state = /*initialState*/example, action) => {
                     [action.flag]: action.set,
                 }
             };
+        }
+        case 'SET_EDGE_ATTRIBUTE_VISIBLE': {
+            return {
+                ...state,
+                attributeTypes: {
+                    ...state.attributeTypes,
+                    edges: {
+                        ...state.attributeTypes.edges,
+                        [action.attribute]: {
+                            ...state.attributeTypes[action.attribute],
+                            visible: action.visible,
+                        }
+                    }
+                }
+            };
+        }
         default:
             return state;
     }

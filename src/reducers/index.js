@@ -30,10 +30,13 @@ export default undoable((state, action) => {
     ignoreInitialState: true,
     groupBy: (action, currentState, previousHistory) => {
         if(action.type === 'SET_NODE_ATTRIBUTE') {
-            return action.nodeId + '-' + action.attribute;
+            return 'node-attr' + action.nodeId + '-' + action.attribute;
         }
         if(action.type === 'SET_EDGE_ATTRIBUTE') {
-            return action.nodeId + '-' + action.edgeIndex + '-' + action.attribute;
+            return 'edge-attr' + action.nodeId + '-' + action.edgeIndex + '-' + action.attribute;
+        }
+        if(action.type === 'SET_EDGE_ATTRIBUTE_VISIBLE') {
+            return 'edge-visible' + action.attribute;
         }
 
         return null;

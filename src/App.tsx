@@ -168,6 +168,20 @@ const GraphOptions = () => {
     </div>
 }
 
+const ViewOptions = () => {
+    const dispatch = useDispatch()
+
+    const edgeAttributes = useSelector(state => state.present.graph.attributeTypes.edges)
+
+    return <div>
+        {Object.keys(edgeAttributes).map((attrKey) =>
+            <label key={attrKey}>
+                <input type="checkbox" onChange={(e) => dispatch(actions.setEdgeAttributeVisible(attrKey, e.target.checked))} checked={edgeAttributes[attrKey].visible === true} /> {attrKey}
+            </label>
+        )}
+    </div>
+}
+
 const History = () => {
     const dispatch = useDispatch();
     const canUndo = useSelector(state => state.past.length > 0)
@@ -195,6 +209,9 @@ const Menu = () => {
         <Padding>
             <h3>Graph Options</h3>
                 <GraphOptions/>
+
+            <h3>View Options</h3>
+                <ViewOptions/>
             <h3>Properties</h3>
             <dl>
                 {Object.keys(properties).map((prop) =>
@@ -271,6 +288,20 @@ const useCanvasPos = () => {
     return useContext(CanvasContext);
 }
 
+const softClamp = (val, newVal, min, max) => {
+    if(newVal > max && val > max) {
+        return Math.min(newVal, val);
+    } else if(newVal < min && val < min) {
+        return Math.max(newVal, val);
+    } else {
+        return Math.min(Math.max(min, newVal), max);
+    }
+}
+
+const clamp = (val, min, max) => {
+    return Math.min(Math.max(min, val), max);
+}
+
 const cameraReducer = (camera, action) => {
     const bounds = camera.bounds;
 
@@ -297,12 +328,12 @@ const cameraReducer = (camera, action) => {
                 },
             };
         case 'zoom':
-            const newZoom = Math.max(bounds.minZoom, Math.min(bounds.maxZoom, camera.zoom * action.factor))
+            const newZoom = softClamp(camera.zoom, camera.zoom * action.factor, bounds.minZoom, bounds.maxZoom)
             const realFactor = newZoom / camera.zoom;
             const panFactor = 1 - 1 / realFactor;
 
-            const newX = Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x + (action.pivot.x - camera.center.x) * panFactor))
-            const newY = Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y + (action.pivot.y - camera.center.y) * panFactor))
+            const newX = softClamp(camera.center.x, camera.center.x + (action.pivot.x - camera.center.x) * panFactor, bounds.minX, bounds.maxX)
+            const newY = softClamp(camera.center.y, camera.center.y + (action.pivot.y - camera.center.y) * panFactor, bounds.minY, bounds.maxY)
 
             return {
               ...camera,
@@ -336,8 +367,8 @@ const cameraReducer = (camera, action) => {
               ...camera,
               center: {
                   ...camera.center,
-                  x: Math.max(bounds.minX, Math.min(bounds.maxX, pivot.x + cos * dx - sin * dy)),
-                  y: Math.max(bounds.minY, Math.min(bounds.maxY, pivot.y + sin * dx + cos * dy)),
+                  x: pivot.x + cos * dx - sin * dy, //softClamp(camera.center.x, , bounds.minX, bounds.maxX),
+                  y: pivot.y + sin * dx + cos * dy, //softClamp(camera.center.y, , bounds.minY, bounds.maxY),
               },
               rotation: (camera.rotation + deltaAngle) % 360,
             };
@@ -350,8 +381,8 @@ const cameraReducer = (camera, action) => {
               ...camera,
                 center: {
                     ...camera.center,
-                    x: Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x + dx)),
-                    y: Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y + dy))
+                    x: softClamp(camera.center.x, camera.center.x + dx, bounds.minX, bounds.maxX),
+                    y: softClamp(camera.center.y, camera.center.y + dy, bounds.minY, bounds.maxY),
                 },
             }
         }
@@ -388,8 +419,8 @@ const cameraReducer = (camera, action) => {
               ...camera,
                 center: {
                     ...camera.center,
-                    x: Math.max(bounds.minX, Math.min(bounds.maxX, camera.center.x - deltaX)),
-                    y: Math.max(bounds.minY, Math.min(bounds.maxY, camera.center.y - deltaY))
+                    x: softClamp(camera.center.x, camera.center.x - deltaX, bounds.minX, bounds.maxX),
+                    y: softClamp(camera.center.y, camera.center.y - deltaY, bounds.minY, bounds.maxY),
                 },
             }
 
@@ -839,14 +870,14 @@ const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false}) => {
     />
 }
 
-const NodeManipulator = ({x,y,nodeId,onClick, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
+const NodeManipulator = ({x,y,nodeId,onClick,onDoubleClick, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
     const mouseDownConnectCallback = useCallback(mouseDownConnect ? (evt) => {
-        mouseDownConnect(evt, nodeId)
-    } : null, [nodeId, mouseDownConnect])
+        mouseDownConnect(evt, nodeId, x, y)
+    } : null, [nodeId, mouseDownConnect, x, y])
 
     const mouseDownMoveCallback = useCallback(mouseDownMove ? (evt) => {
-        mouseDownMove(evt, nodeId)
-    } : null, [nodeId, mouseDownMove])
+        mouseDownMove(evt, nodeId, x, y)
+    } : null, [nodeId, mouseDownMove, x, y])
 
     const mouseMoveCallback = useCallback(mouseMove ? (evt) => {
         mouseMove(evt, nodeId)
@@ -860,6 +891,10 @@ const NodeManipulator = ({x,y,nodeId,onClick, mouseDownConnect=null,mouseDownMov
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId)
     } : null, [nodeId, onClick])
+
+    const onDoubleClickCallback = useCallback(onDoubleClick ? (evt) => {
+        onDoubleClick(evt, nodeId)
+    } : null, [nodeId, onDoubleClick])
 
     return <g
             onMouseMove={mouseMoveCallback}
@@ -880,6 +915,7 @@ const NodeManipulator = ({x,y,nodeId,onClick, mouseDownConnect=null,mouseDownMov
             transform={`translate(${x} ${y})`}
             onMouseDown={mouseDownMoveCallback}
             onClick={onClickCallback}
+            onDoubleClick={onDoubleClickCallback}
             fillRule="evenodd"
             fill="#111"
             />
@@ -891,9 +927,11 @@ const manipulationReducer = (state, action) => {
         case 'stop':
             if(state.connectionStart !== null && state.connectionSnap !== null) {
                 action.dispatch(actions.addEdge(state.connectionStart, state.connectionSnap))
+            } else if(state.connectionStart !== null) {
+                action.dispatch(actions.createNode(state.x+state.offsetX, state.y+state.offsetY, state.connectionStart))
             }
             if(state.movingNode !== null) {
-                action.dispatch(actions.setNodeAttribute(state.movingNode, 'position', {x:state.x, y:state.y}))
+                action.dispatch(actions.setNodeAttribute(state.movingNode, 'position', {x:state.x+state.offsetX, y:state.y+state.offsetY}))
             }
 
             return {
@@ -901,6 +939,8 @@ const manipulationReducer = (state, action) => {
                 connectionSnap: null,
                 x: null,
                 y: null,
+                offsetX: 0,
+                offsetY: 0,
                 movingNode: null,
             };
         case 'move':
@@ -919,9 +959,14 @@ const manipulationReducer = (state, action) => {
                 connectionStart: action.nodeId,
                 x: action.x,
                 y: action.y,
+                offsetX: action.offsetX,
+                offsetY: action.offsetY,
                 connectionSnap:null,
             }
         case 'snapConnect':
+            if(state.connectionStart === null) {
+                return state;
+            }
             return {
                 ...state,
                 x: null,
@@ -929,6 +974,9 @@ const manipulationReducer = (state, action) => {
                 connectionSnap:action.nodeId,
             }
         case 'unsnapConnect':
+            if(state.connectionStart === null) {
+                return state;
+            }
             return {
                 ...state,
                 x: action.x,
@@ -940,13 +988,15 @@ const manipulationReducer = (state, action) => {
                 ...state,
                 x: action.x,
                 y: action.y,
+                offsetX: action.offsetX,
+                offsetY: action.offsetY,
                 movingNode: action.nodeId,
             }
     }
     return state;
 }
 
-const Graph = ({box}) => {
+const GraphManipulator = ({box}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -966,6 +1016,8 @@ const Graph = ({box}) => {
         x: null,
         y: null,
         movingNode: null,
+        offsetX: 0,
+        offsetY: 0,
     });
 
     const onMouseUp = useCallback((evt) => {
@@ -995,19 +1047,12 @@ const Graph = ({box}) => {
         }
     }, [onMouseMove]);
 
-    const onClick = useCallback((evt) => {
-        if(evt.metaKey || evt.ctrlKey) {
-            const {x,y} = canvasPos({x: evt.clientX, y: evt.clientY});
-            dispatch(actions.createNode(x,y));
-        }
-    }, [canvasPos, dispatch])
-
-    const connectStart = useCallback((evt, nodeId) => {
+    const connectStart = useCallback((evt, nodeId, cx, cy) => {
         evt.stopPropagation();
         evt.preventDefault();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchManipulation({type: 'startConnect', ...pos, nodeId})
+        dispatchManipulation({type: 'startConnect', ...pos, nodeId, offsetX: cx - pos.x, offsetY: cy - pos.y,})
     }, [dispatchManipulation, canvasPos]);
 
     const snap = useCallback((evt, nodeId) => {
@@ -1019,12 +1064,12 @@ const Graph = ({box}) => {
         dispatchManipulation({type: 'unsnapConnect', ...pos})
     }, [canvasPos,dispatchManipulation]);
 
-    const moveStart = useCallback((evt, nodeId) => {
+    const moveStart = useCallback((evt, nodeId, cx, cy) => {
         evt.preventDefault();
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchManipulation({type: 'startMove', nodeId, ...pos})
+        dispatchManipulation({type: 'startMove', nodeId, ...pos, offsetX: cx - pos.x, offsetY: cy - pos.y,})
     }, [canvasPos, dispatchManipulation]);
 
     const selectNode = useCallback((evt, nodeId) => {
@@ -1046,20 +1091,20 @@ const Graph = ({box}) => {
         evt.stopPropagation();
         dispatch(actions.deleteNode(nodeId));
     }, [dispatch])
-
-    return <g onClick={onClick}>
+    return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {nodes.map((neighbors, nodeId) =>
             <NodeManipulator
                 key={nodeId}
                 nodeId={nodeId}
-                x={manipulation.movingNode === nodeId ? manipulation.x : positions[nodeId].x}
-                y={manipulation.movingNode === nodeId ? manipulation.y : positions[nodeId].y}
+                x={manipulation.movingNode === nodeId ? (manipulation.x + manipulation.offsetX) : positions[nodeId].x}
+                y={manipulation.movingNode === nodeId ? (manipulation.y + manipulation.offsetY) : positions[nodeId].y}
                 mouseDownConnect={connectStart}
                 mouseDownMove={moveStart}
                 mouseMove={snap}
                 mouseLeave={unsnap}
-                onClick={selectNode} />
+                onClick={selectNode}
+                onDoubleClick={deleteNode} />
         )}
         {manipulation.connectionStart === null ? null : manipulation.connectionSnap !== null ?
 
@@ -1085,8 +1130,9 @@ const Graph = ({box}) => {
     </g>
 }
 
-const ReadonlyGraph = ({box}) => {
+const Graph = ({box}) => {
     const dispatch = useDispatch()
+    const canvasPos = useCanvasPos()
 
     const flags = useSelector(state => state.present.graph.flags)
     const selectedNodes = useSelector(state => state.present.selection.nodes)
@@ -1095,8 +1141,9 @@ const ReadonlyGraph = ({box}) => {
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
     const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label)
     const nodeColors = useSelector(state => state.present.graph.attributes.nodes.color)
-    const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label)
-    const edgeWeights = useSelector(state => state.present.graph.attributes.edges.weight)
+    const visibleEdgeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => state.present.graph.attributeTypes.edges[e].visible))
+
+    const edgeAttributes = useSelector(state => state.present.graph.attributes.edges)
 
     const selectNode = useCallback((evt, nodeId) => {
         evt.stopPropagation();
@@ -1118,7 +1165,17 @@ const ReadonlyGraph = ({box}) => {
         dispatch(actions.deleteNode(nodeId));
     }, [dispatch])
 
-    return <g>
+
+
+    const onClick = useCallback((evt) => {
+        if(evt.metaKey || evt.ctrlKey) {
+            const {x,y} = canvasPos({x: evt.clientX, y: evt.clientY});
+            dispatch(actions.createNode(x,y));
+        }
+    }, [canvasPos, dispatch])
+
+
+    return <g onClick={onClick}>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
         {nodes.map((neighbors, nodeId) =>
             <Node
@@ -1135,35 +1192,37 @@ const ReadonlyGraph = ({box}) => {
             </Node>
         )}
         {nodes.map((neighbors, nodeId) =>
-            neighbors.map((neighbourId, edgeIdx) =>
-                nodeId===neighbourId ?
-                <ReflexiveEdge
-                    nodeId={nodeId}
-                    edgeIndex={edgeIdx}
-                    key={`${nodeId}-${edgeIdx}`}
-                    angle={Math.PI/1}
-                    x={positions[nodeId].x}
-                    y={positions[nodeId].y}
-                    label={`${edgeLabels[nodeId][edgeIdx]}<br>(${edgeWeights[nodeId][edgeIdx]})`}
-                    selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
-                    onClick={selectEdge}
-                    onDoubleClick={deleteEdge}
-                /> :
-                <NodeEdge
-                    nodeId={nodeId}
-                    edgeIndex={edgeIdx}
-                    key={`${nodeId}-${edgeIdx}`}
-                    x0={positions[nodeId].x}
-                    y0={positions[nodeId].y}
-                    x1={positions[neighbourId].x}
-                    y1={positions[neighbourId].y}
-                    label={`${edgeLabels[nodeId][edgeIdx]}<br>(${edgeWeights[nodeId][edgeIdx]})`}
-                    selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
-                    onClick={selectEdge}
-                    onDoubleClick={deleteEdge}
-                    directed={flags.directed}
-                />
-            )
+            neighbors.map((neighbourId, edgeIdx) => {
+                const edgeLabel = visibleEdgeAttributes.map((attr) => edgeAttributes[attr][nodeId][edgeIdx]).filter(x=>x).join(', ');
+
+                return nodeId===neighbourId ?
+                    <ReflexiveEdge
+                        nodeId={nodeId}
+                        edgeIndex={edgeIdx}
+                        key={`${nodeId}-${edgeIdx}`}
+                        angle={Math.PI/1}
+                        x={positions[nodeId].x}
+                        y={positions[nodeId].y}
+                        label={edgeLabel}
+                        selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
+                        onClick={selectEdge}
+                        onDoubleClick={deleteEdge}
+                    /> :
+                    <NodeEdge
+                        nodeId={nodeId}
+                        edgeIndex={edgeIdx}
+                        key={`${nodeId}-${edgeIdx}`}
+                        x0={positions[nodeId].x}
+                        y0={positions[nodeId].y}
+                        x1={positions[neighbourId].x}
+                        y1={positions[neighbourId].y}
+                        label={edgeLabel}
+                        selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
+                        onClick={selectEdge}
+                        onDoubleClick={deleteEdge}
+                        directed={flags.directed}
+                    />;
+            })
         )}
     </g>
 }
@@ -1198,10 +1257,10 @@ const GraphEditor = () => {
             <Menu />
             <Dump value={present} />
             <Canvas box={box}>
-                <ReadonlyGraph
+                <Graph
                     box={box}
                 />
-                <Graph
+                <GraphManipulator
                     box={box}
                 />
             </Canvas>
