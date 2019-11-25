@@ -32,14 +32,17 @@ const initialState = {
             position: {
                 default: {x:0,y:0},
                 type: 'object',
+                visible: false,
             },
             label: {
                 default: 'new',
                 type: 'text',
+                visible: true,
             },
             color: {
                 default: null,
                 type: 'color',
+                visible: false,
             },
         }
     }
@@ -219,15 +222,18 @@ const example = {
             "x": 0,
             "y": 0
           },
-          "type": "object"
+          "type": "object",
+          visible: false,
         },
         "label": {
           "default": "new",
-          "type": "text"
+          "type": "text",
+          visible: true,
         },
         "color": {
           "default": null,
-          "type": "color"
+          "type": "color",
+          visible: false,
         }
       }
     }
@@ -429,7 +435,22 @@ const thisReducer = (state = /*initialState*/example, action) => {
                     edges: {
                         ...state.attributeTypes.edges,
                         [action.attribute]: {
-                            ...state.attributeTypes[action.attribute],
+                            ...state.attributeTypes.edges[action.attribute],
+                            visible: action.visible,
+                        }
+                    }
+                }
+            };
+        }
+        case 'SET_NODE_ATTRIBUTE_VISIBLE': {
+            return {
+                ...state,
+                attributeTypes: {
+                    ...state.attributeTypes,
+                    nodes: {
+                        ...state.attributeTypes.nodes,
+                        [action.attribute]: {
+                            ...state.attributeTypes.nodes[action.attribute],
                             visible: action.visible,
                         }
                     }

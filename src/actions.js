@@ -71,6 +71,11 @@ export const setEdgeAttributeVisible = (attribute, visible) => ({
     attribute,
     visible,
 })
+export const setNodeAttributeVisible = (attribute, visible) => ({
+    type: 'SET_NODE_ATTRIBUTE_VISIBLE',
+    attribute,
+    visible,
+})
 
 export const runAlgorithm = (algorithm, options) => ({
     type: 'RUN_ALGORITHM',

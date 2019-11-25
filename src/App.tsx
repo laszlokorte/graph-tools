@@ -74,7 +74,7 @@ const NodeAttribute = ({nodeId, attrKey}) => {
 
     if(['text','color','numeric'].includes(type)) {
         return <div>
-            {attrKey}:
+            {attrKey}*:
             <input type="text" value={value || ''} onChange={(evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))} />
         </div>
     } else {
@@ -172,11 +172,19 @@ const ViewOptions = () => {
     const dispatch = useDispatch()
 
     const edgeAttributes = useSelector(state => state.present.graph.attributeTypes.edges)
+    const nodeAttributes = useSelector(state => state.present.graph.attributeTypes.nodes)
 
     return <div>
+        <h4>Visible Edge Attributes</h4>
         {Object.keys(edgeAttributes).map((attrKey) =>
             <label key={attrKey}>
                 <input type="checkbox" onChange={(e) => dispatch(actions.setEdgeAttributeVisible(attrKey, e.target.checked))} checked={edgeAttributes[attrKey].visible === true} /> {attrKey}
+            </label>
+        )}
+        <h4>Visible Node Attributes</h4>
+        {Object.keys(nodeAttributes).map((attrKey) =>
+            <label key={attrKey}>
+                <input type="checkbox" onChange={(e) => dispatch(actions.setNodeAttributeVisible(attrKey, e.target.checked))} checked={nodeAttributes[attrKey].visible === true} /> {attrKey}
             </label>
         )}
     </div>
@@ -686,7 +694,7 @@ const EdgeHead = ({x,y, angle, selected = false, disabled = false}) => {
 	</>
 }
 
-const Node = ({children, x, y, nodeType = 'circle', nodeId, label, selected = false, style = {}, labelStyle = {}, onClick = null, onDoubleClick = null}) => {
+const Node = ({x, y, nodeType = 'circle', nodeId, label, selected = false, style = {}, labelStyle = {}, onClick = null, onDoubleClick = null}) => {
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId)
     } : null, [nodeId, onClick]);
@@ -709,7 +717,6 @@ const Node = ({children, x, y, nodeType = 'circle', nodeId, label, selected = fa
 		</g>
 		<NodeLabelSelection selected={selected} x={x} y={y+20} dy="0.6em">{label}</NodeLabelSelection>
 		<NodeLabel x={x} y={y+20} dy="0.6em" style={labelStyle}>{label}</NodeLabel>
-        {children}
 	</g>
 }
 
@@ -1005,10 +1012,6 @@ const GraphManipulator = ({box}) => {
     const selectedEdges = useSelector(state => state.present.selection.edges)
     const nodes = useSelector(state => state.present.graph.nodes)
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
-    const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label)
-    const nodeColors = useSelector(state => state.present.graph.attributes.nodes.color)
-    const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label)
-    const edgeWeights = useSelector(state => state.present.graph.attributes.edges.weight)
 
     const [manipulation, dispatchManipulation] = useReducer(manipulationReducer, {
         connectionStart: null,
@@ -1142,8 +1145,10 @@ const Graph = ({box}) => {
     const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label)
     const nodeColors = useSelector(state => state.present.graph.attributes.nodes.color)
     const visibleEdgeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => state.present.graph.attributeTypes.edges[e].visible))
+    const visibleNodeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes).filter((n) => state.present.graph.attributeTypes.nodes[n].visible))
 
     const edgeAttributes = useSelector(state => state.present.graph.attributes.edges)
+    const nodeAttributes = useSelector(state => state.present.graph.attributes.nodes)
 
     const selectNode = useCallback((evt, nodeId) => {
         evt.stopPropagation();
@@ -1177,19 +1182,22 @@ const Graph = ({box}) => {
 
     return <g onClick={onClick}>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
-        {nodes.map((neighbors, nodeId) =>
-            <Node
+        {nodes.map((neighbors, nodeId) => {
+            const nodeLabel = visibleNodeAttributes.map((attr) => nodeAttributes[attr][nodeId]).filter(x=>x).join(', ');
+
+            return <Node
                 key={nodeId}
                 nodeId={nodeId}
                 selected={selectedNodes.includes(nodeId)}
                 x={positions[nodeId].x}
                 y={positions[nodeId].y}
-                label={nodeLabels[nodeId]}
+                label={nodeLabel}
                 style={{color: null && nodeColors[nodeId]}}
                 onClick={selectNode}
                 onDoubleClick={deleteNode}
-            >
-            </Node>
+            />
+        }
+
         )}
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) => {

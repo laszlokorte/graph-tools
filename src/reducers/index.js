@@ -38,6 +38,9 @@ export default undoable((state, action) => {
         if(action.type === 'SET_EDGE_ATTRIBUTE_VISIBLE') {
             return 'edge-visible' + action.attribute;
         }
+        if(action.type === 'SET_NODE_ATTRIBUTE_VISIBLE') {
+            return 'node-visible' + action.attribute;
+        }
 
         return null;
     }
