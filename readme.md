@@ -25,14 +25,27 @@ I would like to implement:
 * finite state automata simulation
 * petri net simulation
 
+## Prerequisites
+
+In order to work with this project you need to have NodeJS and the Yarn package manager installed.
+
 ## Usage
 
-Run
+1. First run
 
 ```sh
-$ yarn parcel index.html
+$ yarn install
 ```
 
-Then open http://localhost:1234
+to install javascript dependencies.
+
+2. then in order to start the development web server run
+
+```sh
+$ yarn dev
+```
+
+
+3. Then open [http://localhost:1234](http://localhost:1234)
 
 [screenshot]:screenshot.png

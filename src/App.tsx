@@ -22,12 +22,13 @@ const Svg = styled.svg`
 `;
 
 const Container = styled.div`
+    font-family: sans-serif;
 	height: 100vh;
 	width: 100vw;
 	display: grid;
 	grid-template-columns: 1fr 3fr;
 	grid-template-rows: 3em 3fr 1fr;
-	grid-template-areas: "a b" "c d" "e d";
+	grid-template-areas: "a b" "c d" "c d";
 	justify-items: stretch;
 	align-items: stretch;
 `;
@@ -44,11 +45,15 @@ const Code = styled.textarea`
     background: #333;
     color: #fff;
     font-size: 1.2em;
+    min-height: 10em;
+    resize: none;
+    overflow: hidden;
 `
 
 
 const Scroller = styled.div`
     overflow:scroll;
+    grid-area: c;
 `
 
 const Padding = styled.div`
@@ -57,13 +62,107 @@ const Padding = styled.div`
 
 const LinkList = styled.ul`
     margin: 0;
-    padding:0;
+    padding: 0;
     list-style: none;
+    &>li {
+        padding: 1px 0;
+    }
 `
 
 const Link = styled.span`
     text-decoration: underline;
     cursor: pointer;
+`
+const BadgeLink = styled.span`
+    text-decoration: none;
+    cursor: pointer;
+    background-color: #555;
+    color: #fff;
+    display: inline-block;
+    padding: 0 5px;
+    border-radius: 3px;
+    line-height: 1.5;
+    vertical-align: baseline;
+    margin: 0 5px;
+`
+
+const Section = styled.div`
+`;
+
+const SectionTitle = styled.h2`
+    padding: 6px;
+    margin: 0;
+    font-size: 1em;
+    font-weight: normal;
+    background: #444;
+    color: #fff;
+    position: sticky;
+    top: 0;
+`
+
+const SubSectionTitle = styled.h3`
+    padding: 6px 1px;
+    margin: 0;
+    font-size: 1em;
+    font-weight: 600;
+    color: #000;
+`
+
+const SubSubSectionTitle = styled.h4`
+    padding: 1px;
+    margin: 0.5em 0;
+    font-size: 1em;
+    font-weight: 400;
+    border-bottom: 1px solid gray;
+    color: #000;
+`
+
+const SectionBody = styled.div`
+    padding: 0.5em;
+`
+
+const Toolbar = styled.div`
+    display: flex;
+    padding: 1px;
+`
+const ToolButton = styled.button`
+    background: #333;
+    color: #fff;
+    font: inherit;
+    margin: 1px;
+    padding: 4px 10px;
+    cursor: pointer;
+    display: flex;
+    align-content: center;
+    align-items: center;
+    border: none;
+
+    :hover {
+        background: #3f3f3f;
+    }
+    :disabled, [disabled],
+    :disabled:active, [disabled]:active {
+        background: #999;
+        cursor: default;
+    }
+    :active {
+        background: #222;
+    }
+`
+
+const CheckboxList = styled.ul`
+    padding: 0;
+    margin: 0;
+    list-style: none;
+`
+
+const DefinitionList = styled.ul`
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 4fr;
+    grid-gap: 4px;
 `
 
 const NodeAttribute = ({nodeId, attrKey}) => {
@@ -73,12 +172,15 @@ const NodeAttribute = ({nodeId, attrKey}) => {
 
 
     if(['text','color','numeric'].includes(type)) {
-        return <div>
-            {attrKey}*:
-            <input type="text" value={value || ''} onChange={(evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))} />
-        </div>
+        return (<>
+            <dt>{attrKey}*:</dt>
+            <dd><input type="text" value={value || ''} onChange={(evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))} /></dd>
+        </>);
     } else {
-        return <div>{attrKey}: <input type={type} value={JSON.stringify(value)} readOnly /></div>
+        return (<>
+            <dt>{attrKey}:</dt>
+            <dd><input type={type} value={JSON.stringify(value)} readOnly /></dd>
+        </>);
     }
 }
 
@@ -86,25 +188,26 @@ const NodeDetails = ({nodeId}) => {
     const dispatch = useDispatch()
 
     const neighbours = useSelector(state => state.present.graph.nodes[nodeId])
-    const edgeLabels = useSelector(state => state.present.graph.attributes.edges.label[nodeId])
-    const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label)
     const attributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes))
 
 
     const onClick = useCallback(() => dispatch(actions.deleteNode(nodeId)), [nodeId]);
 
     return <div>
-        <h3>Node (#{nodeId})</h3>
-        {attributes.map((attrKey) =>
-            <NodeAttribute key={attrKey} nodeId={nodeId} attrKey={attrKey} />
-        )}
+        <SubSectionTitle>Node (#{nodeId})</SubSectionTitle>
         <button onClick={onClick}>Delete</button>
-        <h4>Neighbours</h4>
+        <SubSubSectionTitle>Attributes</SubSubSectionTitle>
+        <DefinitionList>
+            {attributes.map((attrKey) =>
+                <NodeAttribute key={attrKey} nodeId={nodeId} attrKey={attrKey} />
+            )}
+        </DefinitionList>
+        <SubSubSectionTitle>Neighbourhood</SubSubSectionTitle>
         <LinkList>
             {neighbours.map((neighbour, idx) =>
                neighbour === nodeId ?
-                <li key={idx}><Link onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>{ edgeLabels[idx] } ↩ </Link>&nbsp;(self)</li> :
-                <li key={idx}><Link onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>{ edgeLabels[idx] } → </Link>&nbsp;<Link onClick={() => dispatch(actions.selectNode(neighbour))}>Node #{neighbour} ({nodeLabels[neighbour]})</Link></li>
+                <li key={idx}><BadgeLink onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>↩</BadgeLink> self</li> :
+                <li key={idx}><BadgeLink onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>→</BadgeLink><Link onClick={() => dispatch(actions.selectNode(neighbour))}>Node #{neighbour}</Link></li>
             )}
         </LinkList>
     </div>
@@ -116,12 +219,15 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     const type = useSelector(state => state.present.graph.attributeTypes.edges[attrKey].type)
 
     if(['text','color','numeric'].includes(type)) {
-        return <div>
-            {attrKey}:
-            <input type={type} value={value||''} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value))} />
-        </div>
+        return <>
+            <dt>{attrKey}:</dt>
+            <dd><input type={type} value={value||''} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value))} /></dd>
+        </>
     } else {
-        return <div>{attrKey}: <input type={type} value={JSON.stringify(value)} readOnly /></div>
+        return <>
+            <dt>{attrKey}:</dt>
+            <dd><input type={type} value={JSON.stringify(value)} readOnly /></dd>
+        </>
     }
 }
 
@@ -135,16 +241,22 @@ const EdgeDetails = ({nodeId, edgeIndex}) => {
     const next = useSelector(state => edgeIndex < state.present.graph.nodes[nodeId].length && state.present.graph.nodes[nodeId][edgeIndex + 1] === target ? edgeIndex + 1 : null)
 
     return <div>
-        {target === nodeId ?
-            <h3>Edge (<Link onClick={() => dispatch(actions.selectNode(nodeId))}>#{nodeId}</Link> ↩)</h3> :
-            <h3>Edge (<Link onClick={() => dispatch(actions.selectNode(nodeId))}>#{nodeId}</Link> → <Link onClick={() => dispatch(actions.selectNode(target))}>#{target}</Link>)</h3>}
+        <SubSectionTitle>Edge</SubSectionTitle>
+        <DefinitionList>
+        <dt>From</dt>
+        <dd><Link onClick={() => dispatch(actions.selectNode(nodeId))}>Node #{nodeId}</Link></dd>
+        <dt>To</dt>
+        <dd><Link onClick={() => dispatch(actions.selectNode(target))}>Node #{target}</Link></dd>
+        </DefinitionList>
         <button onClick={() => dispatch(actions.deleteEdge(nodeId, edgeIndex))}>Delete</button>
-        <h4>Attributes</h4>
+        <SubSubSectionTitle>Attributes</SubSubSectionTitle>
+        <DefinitionList>
         {attributes.map((attrKey) =>
             <EdgeAttribute key={attrKey} nodeId={nodeId} edgeIndex={edgeIndex} attrKey={attrKey} />
         )}
+        </DefinitionList>
         {!flags.multiGraph ? null : <div>
-            <h4>Partner Edges</h4>
+            <SubSubSectionTitle>Partner Edges</SubSubSectionTitle>
             {prev === null ? 'Prev' :
             <Link onClick={() => dispatch(actions.selectEdge(nodeId, prev))}>Prev</Link>}
             &nbsp;|&nbsp;
@@ -159,13 +271,15 @@ const GraphOptions = () => {
 
     const flags = useSelector(state => state.present.graph.flags)
 
-    return <div>
+    return <CheckboxList>
         {Object.keys(flags).map((flagKey) =>
-            <label key={flagKey}>
-                <input type="checkbox" onChange={(e) => dispatch(actions.setFlag(flagKey, e.target.checked))} checked={flags[flagKey]} /> {flagKey}
-            </label>
+            <li key={flagKey}>
+                <label>
+                    <input type="checkbox" onChange={(e) => dispatch(actions.setFlag(flagKey, e.target.checked))} checked={flags[flagKey]} /> {flagKey}
+                </label>
+            </li>
         )}
-    </div>
+    </CheckboxList>
 }
 
 const ViewOptions = () => {
@@ -175,18 +289,26 @@ const ViewOptions = () => {
     const nodeAttributes = useSelector(state => state.present.graph.attributeTypes.nodes)
 
     return <div>
-        <h4>Visible Edge Attributes</h4>
-        {Object.keys(edgeAttributes).map((attrKey) =>
-            <label key={attrKey}>
-                <input type="checkbox" onChange={(e) => dispatch(actions.setEdgeAttributeVisible(attrKey, e.target.checked))} checked={edgeAttributes[attrKey].visible === true} /> {attrKey}
-            </label>
-        )}
-        <h4>Visible Node Attributes</h4>
+        <SubSectionTitle>Visible Edge Attributes</SubSectionTitle>
+        <CheckboxList>
+            {Object.keys(edgeAttributes).map((attrKey) =>
+                <li key={attrKey}>
+                    <label>
+                    <input type="checkbox" onChange={(e) => dispatch(actions.setEdgeAttributeVisible(attrKey, e.target.checked))} checked={edgeAttributes[attrKey].visible === true} /> {attrKey}
+                    </label>
+                </li>
+            )}
+        </CheckboxList>
+        <SubSectionTitle>Visible Node Attributes</SubSectionTitle>
+        <CheckboxList>
         {Object.keys(nodeAttributes).map((attrKey) =>
-            <label key={attrKey}>
+            <li key={attrKey}>
+                <label>
                 <input type="checkbox" onChange={(e) => dispatch(actions.setNodeAttributeVisible(attrKey, e.target.checked))} checked={nodeAttributes[attrKey].visible === true} /> {attrKey}
-            </label>
+                </label>
+            </li>
         )}
+        </CheckboxList>
     </div>
 }
 
@@ -195,17 +317,20 @@ const History = () => {
     const canUndo = useSelector(state => state.past.length > 0)
     const canRedo = useSelector(state => state.future.length > 0)
 
-    const undo = () => dispatch(ActionCreators.undo())
-    const redo = () => dispatch(ActionCreators.redo())
+    const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
+    const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
+    const layout = useCallback(() => dispatch(actions.autoLayout()), [])
 
-    return <Padding>
-        <button disabled={!canUndo} onClick={undo}>Undo</button>
-        <button disabled={!canRedo} onClick={redo}>Redo</button>
-    </Padding>
+    return <Toolbar>
+        <ToolButton disabled={!canUndo} onClick={undo}>↶</ToolButton>
+        <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
+        <ToolButton onClick={layout}>Auto Layout</ToolButton>
+    </Toolbar>
 }
 
 const Menu = () => {
     const dispatch = useDispatch();
+    const present = useSelector((state) => state.present)
     const nodes = useSelector(state => state.present.selection.nodes)
     const edges = useSelector(state => state.present.selection.edges)
     const empty = useSelector(state => state.present.selection.edges.length < 1 && state.present.selection.nodes.length < 1)
@@ -214,38 +339,64 @@ const Menu = () => {
     const algorithms = useSelector(state => state.present.algorithms)
 
     return <Scroller>
-        <Padding>
-            <h3>Graph Options</h3>
+            <Section>
+            <SectionTitle>Graph Options</SectionTitle>
+            <SectionBody>
                 <GraphOptions/>
+            </SectionBody>
+            </Section>
 
-            <h3>View Options</h3>
+
+            <Section>
+            <SectionTitle>View Options</SectionTitle>
+            <SectionBody>
                 <ViewOptions/>
-            <h3>Properties</h3>
-            <dl>
+            </SectionBody>
+            </Section>
+
+            <Section>
+            <SectionTitle>Properties</SectionTitle>
+            <SectionBody>
+            <DefinitionList>
                 {Object.keys(properties).map((prop) =>
                     <React.Fragment key={prop}>
                     <dt>{prop}</dt>
                     <dd>{properties[prop] === true ? 'true' : properties[prop] === false ? 'false' : properties[prop]}</dd>
                     </React.Fragment>
                 )}
-            </dl>
-            <h3>Algorithms</h3>
-            <dl>
+            </DefinitionList>
+            </SectionBody>
+            </Section>
+
+            <Section>
+            <SectionTitle>Algorithms</SectionTitle>
+            <SectionBody>
+            <DefinitionList>
                 {Object.keys(algorithms).map((alg) =>
                     <React.Fragment key={alg}>
                     <dt>{alg}</dt>
-                    <dd><Link onClick={() => dispatch(actions.runAlgorithm(alg))}>🔄</Link>{algorithms[alg].result === null ? null:algorithms[alg].result?"✅":"❌"}</dd>
+                    <dd><Link onClick={() => dispatch(actions.runAlgorithm(alg))}>▶️</Link>{algorithms[alg].result === null ? null:algorithms[alg].result?"✅":"❌"}</dd>
                     </React.Fragment>
                 )}
-            </dl>
-            <h2>Selected</h2>
+            </DefinitionList>
+            </SectionBody>
+            </Section>
+
+            <Section>
+            <SectionTitle>Selected</SectionTitle>
+            <SectionBody>
             {nodes.map((nodeId) =>
                 <NodeDetails key={nodeId} nodeId={nodeId} />)}
             {edges.map(([nodeId, edgeIndex]) =>
                 <EdgeDetails key={nodeId + "-" + edgeIndex} nodeId={nodeId} edgeIndex={edgeIndex} />
             )}
             {empty ? <p>Nothing Selected</p> : null}
-        </Padding>
+            </SectionBody>
+            </Section>
+            <Section>
+                <SectionTitle>Dump</SectionTitle>
+                <Dump value={present} />
+            </Section>
     </Scroller>
 }
 
@@ -669,7 +820,7 @@ const NodeDragger = styled.path`
 
 const NodeConnector = styled.path`
     cursor: alias;
-    fill: #84DBDB;
+    fill: ${p => p.snapped ? '#FD9B1C' : p.active ? '#6EAEAE':'#84DBDB'};
     opacity: 0.5;
 `;
 
@@ -877,7 +1028,7 @@ const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false}) => {
     />
 }
 
-const NodeManipulator = ({x,y,nodeId,onClick,onDoubleClick, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
+const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick,onDoubleClick, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
     const mouseDownConnectCallback = useCallback(mouseDownConnect ? (evt) => {
         mouseDownConnect(evt, nodeId, x, y)
     } : null, [nodeId, mouseDownConnect, x, y])
@@ -914,6 +1065,8 @@ const NodeManipulator = ({x,y,nodeId,onClick,onDoubleClick, mouseDownConnect=nul
             transform={`translate(${x} ${y})`}
             onMouseDown={mouseDownConnectCallback}
             fillRule="evenodd"
+            snapped={snapped}
+            active={active}
             />
          <NodeDragger d="M 0, 0
             m 0, -15
@@ -1106,6 +1259,8 @@ const GraphManipulator = ({box}) => {
                 mouseDownMove={moveStart}
                 mouseMove={snap}
                 mouseLeave={unsnap}
+                active={nodeId === manipulation.connectionStart}
+                snapped={nodeId === manipulation.connectionSnap}
                 onClick={selectNode}
                 onDoubleClick={deleteNode} />
         )}
@@ -1263,7 +1418,6 @@ const GraphEditor = () => {
             <History />
             <Title>Graph</Title>
             <Menu />
-            <Dump value={present} />
             <Canvas box={box}>
                 <Graph
                     box={box}

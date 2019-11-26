@@ -77,6 +77,11 @@ export const setNodeAttributeVisible = (attribute, visible) => ({
     visible,
 })
 
+
+export const autoLayout = () => ({
+    type: 'NODE_AUTO_LAYOUT'
+})
+
 export const runAlgorithm = (algorithm, options) => ({
     type: 'RUN_ALGORITHM',
     algorithm,
