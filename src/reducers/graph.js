@@ -115,7 +115,39 @@ const example = {
           ],
           []
         ],
-        "weight": [
+        "cost": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ],
+          []
+        ],
+        "capacity": [
           [
             1,
             1,
@@ -210,10 +242,15 @@ const example = {
           "type": "text",
           "visible": false,
         },
-        "weight": {
+        "cost": {
           "default": 1,
           "type": "numeric",
           "visible": true,
+        },
+        "capacity": {
+          "default": 1,
+          "type": "numeric",
+          "visible": false,
         }
       },
       "nodes": {

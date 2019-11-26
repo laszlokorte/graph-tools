@@ -47,12 +47,11 @@ const Code = styled.textarea`
     font-size: 1.2em;
     min-height: 10em;
     resize: none;
-    overflow: hidden;
 `
 
 
 const Scroller = styled.div`
-    overflow:scroll;
+    overflow-y:scroll;
     grid-area: c;
 `
 
@@ -242,13 +241,13 @@ const EdgeDetails = ({nodeId, edgeIndex}) => {
 
     return <div>
         <SubSectionTitle>Edge</SubSectionTitle>
+        <button onClick={() => dispatch(actions.deleteEdge(nodeId, edgeIndex))}>Delete</button>
         <DefinitionList>
         <dt>From</dt>
         <dd><Link onClick={() => dispatch(actions.selectNode(nodeId))}>Node #{nodeId}</Link></dd>
         <dt>To</dt>
         <dd><Link onClick={() => dispatch(actions.selectNode(target))}>Node #{target}</Link></dd>
         </DefinitionList>
-        <button onClick={() => dispatch(actions.deleteEdge(nodeId, edgeIndex))}>Delete</button>
         <SubSubSectionTitle>Attributes</SubSubSectionTitle>
         <DefinitionList>
         {attributes.map((attrKey) =>
