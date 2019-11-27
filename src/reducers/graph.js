@@ -298,6 +298,9 @@ const objectMap = (obj, fn) => {
 
 const thisReducer = (state = /*initialState*/example, action) => {
     switch(action.type) {
+        case 'CLEAR_GRAPH': {
+            return initialState;
+        }
         case 'ADD_EDGE': {
             if(!state.flags.multiGraph && state.nodes[action.fromNodeId].includes(action.toNodeId)) {
                 return state;

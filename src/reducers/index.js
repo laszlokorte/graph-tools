@@ -41,6 +41,9 @@ export default undoable((state, action) => {
         if(action.type === 'SET_NODE_ATTRIBUTE_VISIBLE') {
             return 'node-visible' + action.attribute;
         }
+        if(action.type === 'CLEAR_GRAPH') {
+            return 'CLEAR_GRAPH';
+        }
 
         return null;
     }

@@ -322,10 +322,12 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
     const layout = useCallback(() => dispatch(actions.autoLayout()), [])
+    const clear = useCallback(() => dispatch(actions.clearGraph()), [])
 
     return <Toolbar>
         <ToolButton disabled={!canUndo} onClick={undo}>↶</ToolButton>
         <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
+        <ToolButton onClick={clear}>Clear</ToolButton>
         <ToolButton onClick={layout}>Auto Layout</ToolButton>
         {tools.map((t) =>
             <ToolButton key={t} disabled={t===currentTool} onClick={() => onSelectTool(t)}>{t}</ToolButton>
@@ -1609,7 +1611,8 @@ const GraphEditor = () => {
     const dispatch = useDispatch()
     const present = useSelector((state) => state.present)
 
-    const margin = 100;
+    const margin = 200;
+
     const box = useMemo(() =>
         present.graph.attributes.nodes.position.reduce((acc, p) => ({
             minX: Math.min(acc.minX + margin, p.x) - margin,
@@ -1624,6 +1627,12 @@ const GraphEditor = () => {
         }))
     , [present.graph]);
 
+    const nonInfBox = {
+        minX: box.minX===Infinity ? -1*margin : box.minX,
+        maxX: box.maxX===-Infinity ? 1*margin : box.maxX,
+        minY: box.minY===Infinity ? -1*margin : box.minY,
+        maxY: box.maxY===-Infinity ? 1*margin : box.maxY,
+    }
 
     const [currentTool, selectTool] = useState('Edit')
 
@@ -1645,15 +1654,15 @@ const GraphEditor = () => {
             </Title>
             <Tools tools={tools} currentTool={currentTool} onSelectTool={selectTool} />
             <Menu />
-            <Canvas box={box}>
+            <Canvas box={nonInfBox}>
                 <Graph
-                    box={box}
+                    box={nonInfBox}
                 />
                 <GraphSelection
-                    box={box}
+                    box={nonInfBox}
                 />
                 <ToolComponent
-                    box={box}
+                    box={nonInfBox}
                 />
             </Canvas>
         </Container>;
