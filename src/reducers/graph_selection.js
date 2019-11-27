@@ -1,5 +1,11 @@
 export default (graphState, selectionState, action) => {
     switch(action.type) {
+        case 'CLEAR_GRAPH':
+            return {
+                ...selectionState,
+                nodes: [],
+                edges: [],
+            }
         case 'DELETE_EDGE':
             return ({
                 ...selectionState,
