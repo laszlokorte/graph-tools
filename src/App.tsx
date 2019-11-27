@@ -1,5 +1,5 @@
-import React from 'react';
-import {useReducer, useRef, useMemo, useEffect, useContext, useCallback} from 'react';
+import * as React from 'react';
+import {useReducer, useRef, useMemo, useEffect, useContext, useCallback, useState} from 'react';
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
@@ -9,9 +9,10 @@ import { ActionCreators } from 'redux-undo';
 import * as actions from './actions'
 
 const Title = styled.h1`
-	margin: 0;
-	padding: 0;
-	grid-column: 2 / -1;
+    margin: 0;
+    padding: 0;
+    grid-column: 1 / 2;
+
 `;
 
 const Svg = styled.svg`
@@ -123,6 +124,8 @@ const SectionBody = styled.div`
 const Toolbar = styled.div`
     display: flex;
     padding: 1px;
+    align-items: stretch;
+    grid-column: 2 / -1;
 `
 const ToolButton = styled.button`
     background: #333;
@@ -311,7 +314,7 @@ const ViewOptions = () => {
     </div>
 }
 
-const History = () => {
+const Tools = ({tools, currentTool, onSelectTool}) => {
     const dispatch = useDispatch();
     const canUndo = useSelector(state => state.past.length > 0)
     const canRedo = useSelector(state => state.future.length > 0)
@@ -324,6 +327,9 @@ const History = () => {
         <ToolButton disabled={!canUndo} onClick={undo}>↶</ToolButton>
         <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
         <ToolButton onClick={layout}>Auto Layout</ToolButton>
+        {tools.map((t) =>
+            <ToolButton key={t} disabled={t===currentTool} onClick={() => onSelectTool(t)}>{t}</ToolButton>
+        )}
     </Toolbar>
 }
 
@@ -736,15 +742,17 @@ const NodeBox = styled.rect`
 
 const NodeCircleSelection = styled.circle`
 	fill: none;
-	pointer-events: stroke;
-    stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
+	pointer-events: none;
+    stroke: #37B1F6;
+    opacity: 0.6;
 	stroke-width: 6;
 `
 
 const NodeBoxSelection = styled.rect`
 	fill: none;
-    pointer-events: stroke;
-    stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
+    pointer-events: none;
+    stroke: #37B1F6;
+    opacity: 0.6;
 	stroke-width: 6;
 `
 
@@ -765,8 +773,9 @@ const NodeLabelSelection = styled.text`
 	cursor: default;
 	text-anchor: middle;
 	dominant-baseline: central;
-    pointer-events: stroke;
-    stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
+    pointer-events: none;
+    stroke: #37B1F6;
+    opacity: 0.6;
 	stroke-width: 4;
 `
 
@@ -777,10 +786,11 @@ const EdgeLine = styled.path`
 	pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
 `
 
-const EdgeSelection = styled.path`
+const EdgeSelectionLine = styled.path`
 	fill: none;
-    pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
-    stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
+    pointer-events: none;
+    stroke: #37B1F6;
+    opacity: 0.6;
 	stroke-width: 6;
 `
 
@@ -792,8 +802,9 @@ const EdgeLabel = styled.text`
 
 const EdgeLabelSelection = styled.text`
 	cursor: default;
-    pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
-    stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
+    pointer-events: none;
+    stroke: #37B1F6;
+    opacity: 0.6;
 	stroke-width: 4;
 	text-anchor: ${({orientation: o}) => o===2 ? 'end' : (o===0 ? 'start' : 'middle')};
 	dominant-baseline: ${({orientation: o}) => o===1 ? 'hanging' : (o===3 ? 'initial' : 'central')};
@@ -805,8 +816,9 @@ const ArrowHead = styled.polygon`
 `
 
 const ArrowHeadSelection = styled.polygon`
-    pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
-    stroke: ${({selected}) => selected ? '#1EE7E7' : 'none'};
+    pointer-events: none;
+    stroke: #37B1F6;
+    opacity: 0.6;
 	stroke-width: 6;
     stroke-dasharray: none;
 `
@@ -832,19 +844,18 @@ const NodeConnectorTarget = styled.path`
     }
 `;
 
-const EdgeHead = ({x,y, angle, selected = false, disabled = false}) => {
+const EdgeHead = ({x,y, angle, disabled = false}) => {
 	const size = 12
 	const spike = 0.25 * Math.PI / 2;
 	const a = `${x},${y}`;
 	const b = `${x+size*Math.sin(angle-spike-Math.PI/2)},${y-size*Math.cos(angle-spike-Math.PI/2)}`;
 	const c = `${x+size*Math.sin(angle+spike-Math.PI/2)},${y-size*Math.cos(angle+spike-Math.PI/2)}`;
 	return <>
-        <ArrowHeadSelection disabled={disabled} selected={selected} points={`${a} ${b} ${c}`} />
 		<ArrowHead disabled={disabled} points={`${a} ${b} ${c}`} />
 	</>
 }
 
-const Node = ({x, y, nodeType = 'circle', nodeId, label, selected = false, style = {}, labelStyle = {}, onClick = null, onDoubleClick = null}) => {
+const Node = ({x, y, nodeType = 'circle', nodeId, label = null, selected = false, style = {}, labelStyle = {}, onClick = null, onDoubleClick = null}) => {
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId)
     } : null, [nodeId, onClick]);
@@ -854,10 +865,6 @@ const Node = ({x, y, nodeType = 'circle', nodeId, label, selected = false, style
     } : null, [nodeId, onDoubleClick]);
 
     return <g onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
-		{nodeType === 'circle' ?
-			<NodeCircleSelection selected={selected} cx={x} cy={y} r={20} /> :
-			<NodeBoxSelection selected={selected} x={x - 17} y={y - 17} width={34} height={34} />
-		}
 		<g style={style}>
 		{nodeType === 'circle' ?
 			<NodeCircle cx={x} cy={y} r={20} /> :
@@ -865,39 +872,50 @@ const Node = ({x, y, nodeType = 'circle', nodeId, label, selected = false, style
 		}
         <NodeId x={x} y={y}>#{nodeId}</NodeId>
 		</g>
-		<NodeLabelSelection selected={selected} x={x} y={y+20} dy="0.6em">{label}</NodeLabelSelection>
 		<NodeLabel x={x} y={y+20} dy="0.6em" style={labelStyle}>{label}</NodeLabel>
 	</g>
 }
 
-const Edge = ({nodeId, edgeIndex = null, x0,y0,x1,y1,label=null, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true, disabled=false}) => {
-	const midX = (x0 + x1) / 2
-	const midY = (y0 + y1) / 2
-	let dirX = x1 - x0
-	let dirY = y1 - y0
+const edgePath = (directed, x0,y0,x1,y1) => {
+    const midX = (x0 + x1) / 2
+    const midY = (y0 + y1) / 2
+    let dirX = x1 - x0
+    let dirY = y1 - y0
     if(!dirX && !dirY) {
         dirX = 1
         dirY = 0
     }
-	const length2 = dirX*dirX + dirY*dirY
-	const length = Math.sqrt(length2)
-	const normX = dirX/length
-	const normY = dirY/length
-	const bendA = directed ? 80/Math.log(Math.max(3, length)) : 0
-	const bendB = directed ? 80/Math.log(Math.max(3, length)) : 0
+    const length2 = dirX*dirX + dirY*dirY
+    const length = Math.sqrt(length2)
+    const normX = dirX/length
+    const normY = dirY/length
+    const bendA = directed ? 80/Math.log(Math.max(3, length)) : 0
+    const bendB = directed ? 80/Math.log(Math.max(3, length)) : 0
 
-	const orientation = Math.round(((Math.atan2(normY, normX) + Math.PI) / Math.PI + 0.5) * 2) % 4
+    const orientation = Math.round(((Math.atan2(normY, normX) + Math.PI) / Math.PI + 0.5) * 2) % 4
 
-	const caX = midX + bendA * normY - bendB*normX
-	const caY = midY - bendA * normX - bendB*normY
+    const caX = midX + bendA * normY - bendB*normX
+    const caY = midY - bendA * normX - bendB*normY
 
-	const cbX = midX + bendA * normY + bendB*normX
-	const cbY = midY - bendA * normX + bendB*normY
+    const cbX = midX + bendA * normY + bendB*normX
+    const cbY = midY - bendA * normX + bendB*normY
 
-	const textX = midX + 0.9 * bendA * normY
-	const textY = midY - 0.9 * bendA * normX
+    const textX = midX + 0.9 * bendA * normY
+    const textY = midY - 0.9 * bendA * normX
 
-	const headAngle = Math.atan2(y1 - cbY + bendB*normY/2, x1 - cbX + bendB*normX/2);
+    const headAngle = Math.atan2(y1 - cbY + bendB*normY/2, x1 - cbX + bendB*normX/2);
+
+    return {
+        textX,
+        textY,
+        headAngle,
+        orientation,
+        curve: `M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`,
+    }
+}
+
+const Edge = ({nodeId, edgeIndex = null, x0,y0,x1,y1,label=null, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true, disabled=false}) => {
+	const path = edgePath(directed, x0, y0, x1, y1)
 
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId, edgeIndex)
@@ -908,22 +926,20 @@ const Edge = ({nodeId, edgeIndex = null, x0,y0,x1,y1,label=null, selected = fals
     } : null, [nodeId, edgeIndex, onDoubleClick])
 
 	return <g onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
-		<EdgeSelection disabled={disabled} selected={selected} d={`M${x1},${y1} C${cbX},${cbY} ${caX},${caY} ${x0},${y0}`} />
 		<g style={style}>
         {directed ?
-            <EdgeHead disabled={disabled} x={x1} y={y1} angle={headAngle} selected={selected} />
+            <EdgeHead disabled={disabled} x={x1} y={y1} angle={path.headAngle} />
             :null
         }
-        <EdgeLine disabled={disabled} d={`M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`} />
+        <EdgeLine disabled={disabled} d={path.curve} />
         </g>
 		{!label ? null : <>
-		<EdgeLabelSelection disabled={disabled} selected={selected} orientation={orientation} x={textX} y={textY}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabelSelection>
-        <EdgeLabel disabled={disabled} orientation={orientation} x={textX} y={textY} labelStyle={labelStyle}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabel>
+        <EdgeLabel disabled={disabled} orientation={path.orientation} x={path.textX} y={path.textY} labelStyle={labelStyle}>{label.split('<br>').map((l,i) => <tspan key={i} fontSize="10"> {l} </tspan>)}</EdgeLabel>
         </>}
 	</g>
 }
 
-const ReflexiveEdge = ({nodeId, edgeIndex, x, y, label, angle = 0, selected = false, onClick = null, onDoubleClick = null, style = null}) =>
+const ReflexiveEdge = ({nodeId, edgeIndex, x, y, label = null, angle = 0, onClick = null, onDoubleClick = null, style = null}) =>
 	<Edge
         nodeId={nodeId}
         edgeIndex={edgeIndex}
@@ -931,7 +947,6 @@ const ReflexiveEdge = ({nodeId, edgeIndex, x, y, label, angle = 0, selected = fa
 		y0={y + Math.sin(angle - Math.PI / 8) * 20}
 		x1={x + Math.cos(angle + Math.PI / 8) * 20}
 		y1={y + Math.sin(angle + Math.PI / 8) * 20}
-		selected={selected}
 		label={label}
 		onClick={onClick}
         onDoubleClick={onDoubleClick}
@@ -939,7 +954,7 @@ const ReflexiveEdge = ({nodeId, edgeIndex, x, y, label, angle = 0, selected = fa
         directed={true}
 	/>
 
-const NodeEdge = ({nodeId, edgeIndex, x0, y0, x1, y1, label, selected = false, onClick = null, onDoubleClick = null, style = null, directed = true}) => {
+const NodeEdge = ({nodeId, edgeIndex, x0, y0, x1, y1, label = null, onClick = null, onDoubleClick = null, style = null, directed = true}) => {
     let dirX = x1 - x0
     let dirY = y1 - y0
     if(!dirX && !dirY) {
@@ -977,7 +992,6 @@ const NodeEdge = ({nodeId, edgeIndex, x0, y0, x1, y1, label, selected = false, o
         x1={x1 + 20 * cDirXNormr}
         y1={y1 + 20 * cDirYNormr}
         label={label}
-        selected={selected}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
         style={style}
@@ -1027,7 +1041,7 @@ const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false}) => {
     />
 }
 
-const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick,onDoubleClick, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
+const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onDoubleClick=null, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
     const mouseDownConnectCallback = useCallback(mouseDownConnect ? (evt) => {
         mouseDownConnect(evt, nodeId, x, y)
     } : null, [nodeId, mouseDownConnect, x, y])
@@ -1227,16 +1241,6 @@ const GraphManipulator = ({box}) => {
         dispatchManipulation({type: 'startMove', nodeId, ...pos, offsetX: cx - pos.x, offsetY: cy - pos.y,})
     }, [canvasPos, dispatchManipulation]);
 
-    const selectNode = useCallback((evt, nodeId) => {
-        evt.stopPropagation();
-        dispatch(actions.selectNode(nodeId, evt.shiftKey));
-    }, [dispatch])
-
-    const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
-        evt.stopPropagation();
-        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.shiftKey));
-    }, [dispatch])
-
     const deleteEdge = useCallback((evt, nodeId, edgeIndex) => {
         evt.stopPropagation();
         dispatch(actions.deleteEdge(nodeId, edgeIndex));
@@ -1246,8 +1250,15 @@ const GraphManipulator = ({box}) => {
         evt.stopPropagation();
         dispatch(actions.deleteNode(nodeId));
     }, [dispatch])
+
+
+    const onClick = useCallback((evt) => {
+        const {x,y} = canvasPos({x: evt.clientX, y: evt.clientY});
+        dispatch(actions.createNode(x,y));
+    }, [canvasPos, dispatch])
+
     return <g>
-        <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        <rect style={{pointerEvents: 'all',cursor:'copy'}} onClick={onClick} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {nodes.map((neighbors, nodeId) =>
             <NodeManipulator
                 key={nodeId}
@@ -1260,7 +1271,6 @@ const GraphManipulator = ({box}) => {
                 mouseLeave={unsnap}
                 active={nodeId === manipulation.connectionStart}
                 snapped={nodeId === manipulation.connectionSnap}
-                onClick={selectNode}
                 onDoubleClick={deleteNode} />
         )}
         {manipulation.connectionStart === null ? null : manipulation.connectionSnap !== null ?
@@ -1287,6 +1297,155 @@ const GraphManipulator = ({box}) => {
     </g>
 }
 
+const NodeSelectionCircle = styled.circle`
+    fill: none;
+    stroke: none;
+    stroke-width: 0;
+    pointer-events: all;
+`
+
+const NodeSelector = ({nodeId, x, y, onClick}) => {
+    const onClickCallback = useCallback(onClick ? (evt) => {
+        onClick(evt, nodeId)
+    } : null, [nodeId, onClick]);
+
+    return <NodeSelectionCircle cx={x} cy={y} r="20" onClick={onClickCallback} />
+}
+
+const EdgeSelectorLine = styled.path`
+    fill: none;
+    stroke: none;
+    stroke-width: 8;
+    pointer-events: all;
+`
+
+const NodeEdgeSelector = ({x0,x1,y0,y1,nodeId,edgeIndex,onClick,directed}) => {
+    let dirX = x1 - x0
+    let dirY = y1 - y0
+    if(!dirX && !dirY) {
+        dirX = 1
+        dirY = 0
+    }
+    const length2 = dirX*dirX + dirY*dirY
+    const length = Math.sqrt(length2)
+    const normX = dirX/length
+    const normY = dirY/length
+    const midX = (x0 + x1) / 2
+    const midY = (y0 + y1) / 2
+    const bend = directed ? 30 : 0
+
+    const cX = midX + bend * normY
+    const cY = midY - bend * normX
+
+    const cDirX = cX - x0
+    const cDirY = cY - y0
+    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
+    const cDirXNorm = cDirX / cDirLength
+    const cDirYNorm = cDirY / cDirLength
+
+    const cDirXr = cX - x1
+    const cDirYr = cY - y1
+    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
+    const cDirXNormr = cDirXr / cDirLengthr
+    const cDirYNormr = cDirYr / cDirLengthr
+
+    const path = edgePath(directed,
+        x0 + 20 * cDirXNorm,
+        y0 + 20 * cDirYNorm,
+        x1 + 20 * cDirXNormr,
+        y1 + 20 * cDirYNormr
+    )
+
+    const onClickCallback = useCallback(onClick ? (evt) => {
+        onClick(evt, nodeId, edgeIndex)
+    } : null, [nodeId, edgeIndex, onClick])
+
+    return <EdgeSelectorLine onClick={onClickCallback} d={path.curve} />
+}
+
+const ReflexiveEdgeSelector = ({x, y, angle = 0, nodeId, edgeIndex, onClick, directed}) => {
+    const path = edgePath(directed,
+        x + Math.cos(angle - Math.PI / 8) * 20,
+        y + Math.sin(angle - Math.PI / 8) * 20,
+        x + Math.cos(angle + Math.PI / 8) * 20,
+        y + Math.sin(angle + Math.PI / 8) * 20
+    )
+
+    const onClickCallback = useCallback(onClick ? (evt) => {
+        onClick(evt, nodeId, edgeIndex)
+    } : null, [nodeId, edgeIndex, onClick])
+
+    return <EdgeSelectorLine onClick={onClickCallback} d={path.curve} />
+}
+
+const GraphSelector = ({box}) => {
+    const dispatch = useDispatch()
+    const canvasPos = useCanvasPos()
+
+    const flags = useSelector(state => state.present.graph.flags)
+    const selectedNodes = useSelector(state => state.present.selection.nodes)
+    const selectedEdges = useSelector(state => state.present.selection.edges)
+    const nodes = useSelector(state => state.present.graph.nodes)
+    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+
+    const selectNode = useCallback((evt, nodeId) => {
+        evt.stopPropagation();
+        dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey));
+    }, [dispatch])
+
+    const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
+        evt.stopPropagation();
+        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.metaKey || evt.ctrlKey || evt.shiftKey));
+    }, [dispatch])
+
+    const clearSelection = useCallback((evt) => {
+        evt.stopPropagation();
+        dispatch(actions.clearSelection());
+    }, [dispatch])
+
+    return <g>
+        <rect style={{pointerEvents:'all'}} onClick={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        {nodes.map((neighbors, nodeId) => {
+            return <NodeSelector
+                key={nodeId}
+                nodeId={nodeId}
+                x={positions[nodeId].x}
+                y={positions[nodeId].y}
+                onClick={selectNode}
+            />
+        }
+
+        )}
+        {nodes.map((neighbors, nodeId) =>
+            neighbors.map((neighbourId, edgeIdx) => {
+                return nodeId===neighbourId ?
+                    <ReflexiveEdgeSelector
+                        nodeId={nodeId}
+                        edgeIndex={edgeIdx}
+                        key={`${nodeId}-${edgeIdx}`}
+                        angle={Math.PI/1}
+                        x={positions[nodeId].x}
+                        y={positions[nodeId].y}
+                        onClick={selectEdge}
+                        directed={flags.directed}
+                    /> :
+                    <NodeEdgeSelector
+                        nodeId={nodeId}
+                        edgeIndex={edgeIdx}
+                        key={`${nodeId}-${edgeIdx}`}
+                        x0={positions[nodeId].x}
+                        y0={positions[nodeId].y}
+                        x1={positions[neighbourId].x}
+                        y1={positions[neighbourId].y}
+                        onClick={selectEdge}
+                        directed={flags.directed}
+                    />;
+            })
+        )}
+    </g>
+}
+
+
 const Graph = ({box}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
@@ -1296,45 +1455,14 @@ const Graph = ({box}) => {
     const selectedEdges = useSelector(state => state.present.selection.edges)
     const nodes = useSelector(state => state.present.graph.nodes)
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
-    const nodeLabels = useSelector(state => state.present.graph.attributes.nodes.label)
-    const nodeColors = useSelector(state => state.present.graph.attributes.nodes.color)
     const visibleEdgeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => state.present.graph.attributeTypes.edges[e].visible))
     const visibleNodeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes).filter((n) => state.present.graph.attributeTypes.nodes[n].visible))
 
     const edgeAttributes = useSelector(state => state.present.graph.attributes.edges)
     const nodeAttributes = useSelector(state => state.present.graph.attributes.nodes)
 
-    const selectNode = useCallback((evt, nodeId) => {
-        evt.stopPropagation();
-        dispatch(actions.selectNode(nodeId, evt.shiftKey));
-    }, [dispatch])
 
-    const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
-        evt.stopPropagation();
-        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.shiftKey));
-    }, [dispatch])
-
-    const deleteEdge = useCallback((evt, nodeId, edgeIndex) => {
-        evt.stopPropagation();
-        dispatch(actions.deleteEdge(nodeId, edgeIndex));
-    }, [dispatch])
-
-    const deleteNode = useCallback((evt, nodeId) => {
-        evt.stopPropagation();
-        dispatch(actions.deleteNode(nodeId));
-    }, [dispatch])
-
-
-
-    const onClick = useCallback((evt) => {
-        if(evt.metaKey || evt.ctrlKey) {
-            const {x,y} = canvasPos({x: evt.clientX, y: evt.clientY});
-            dispatch(actions.createNode(x,y));
-        }
-    }, [canvasPos, dispatch])
-
-
-    return <g onClick={onClick}>
+    return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
         {nodes.map((neighbors, nodeId) => {
             const nodeLabel = visibleNodeAttributes.map((attr) => nodeAttributes[attr][nodeId]).filter(x=>x).join(', ');
@@ -1342,13 +1470,9 @@ const Graph = ({box}) => {
             return <Node
                 key={nodeId}
                 nodeId={nodeId}
-                selected={selectedNodes.includes(nodeId)}
                 x={positions[nodeId].x}
                 y={positions[nodeId].y}
                 label={nodeLabel}
-                style={{color: null && nodeColors[nodeId]}}
-                onClick={selectNode}
-                onDoubleClick={deleteNode}
             />
         }
 
@@ -1366,9 +1490,6 @@ const Graph = ({box}) => {
                         x={positions[nodeId].x}
                         y={positions[nodeId].y}
                         label={edgeLabel}
-                        selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
-                        onClick={selectEdge}
-                        onDoubleClick={deleteEdge}
                     /> :
                     <NodeEdge
                         nodeId={nodeId}
@@ -1379,13 +1500,103 @@ const Graph = ({box}) => {
                         x1={positions[neighbourId].x}
                         y1={positions[neighbourId].y}
                         label={edgeLabel}
-                        selected={selectedEdges.some(([s,t]) => s===nodeId && t === edgeIdx)}
-                        onClick={selectEdge}
-                        onDoubleClick={deleteEdge}
                         directed={flags.directed}
                     />;
             })
         )}
+    </g>
+}
+
+const NodeSelection = ({x,y}) => {
+    return <NodeCircleSelection cx={x} cy={y} r={20} />
+}
+
+const ReflexiveEdgeSelection = ({x,y,angle}) => {
+    const path = edgePath(directed,
+        x + Math.cos(angle - Math.PI / 8) * 20,
+        y + Math.sin(angle - Math.PI / 8) * 20,
+        x + Math.cos(angle + Math.PI / 8) * 20,
+        y + Math.sin(angle + Math.PI / 8) * 20
+    )
+
+    return <EdgeSelectionLine d={path.curve} />
+}
+
+const NodeEdgeSelection = ({x0,y0,x1,y1,directed}) => {
+    let dirX = x1 - x0
+    let dirY = y1 - y0
+    if(!dirX && !dirY) {
+        dirX = 1
+        dirY = 0
+    }
+    const length2 = dirX*dirX + dirY*dirY
+    const length = Math.sqrt(length2)
+    const normX = dirX/length
+    const normY = dirY/length
+    const midX = (x0 + x1) / 2
+    const midY = (y0 + y1) / 2
+    const bend = directed ? 30 : 0
+
+    const cX = midX + bend * normY
+    const cY = midY - bend * normX
+
+    const cDirX = cX - x0
+    const cDirY = cY - y0
+    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
+    const cDirXNorm = cDirX / cDirLength
+    const cDirYNorm = cDirY / cDirLength
+
+    const cDirXr = cX - x1
+    const cDirYr = cY - y1
+    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
+    const cDirXNormr = cDirXr / cDirLengthr
+    const cDirYNormr = cDirYr / cDirLengthr
+
+    const path = edgePath(directed,
+        x0 + 20 * cDirXNorm,
+        y0 + 20 * cDirYNorm,
+        x1 + 20 * cDirXNormr,
+        y1 + 20 * cDirYNormr
+    )
+
+    return <EdgeSelectionLine d={path.curve} />
+}
+
+const GraphSelection = ({box}) => {
+    const dispatch = useDispatch()
+    const canvasPos = useCanvasPos()
+
+    const flags = useSelector(state => state.present.graph.flags)
+    const selectedNodes = useSelector(state => state.present.selection.nodes)
+    const selectedEdges = useSelector(state => state.present.selection.edges)
+    const nodes = useSelector(state => state.present.graph.nodes)
+    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+
+    return <g className="fooo">
+        {selectedNodes.map((nodeId, i) => {
+            return <NodeSelection key={i} x={positions[nodeId].x} y={positions[nodeId].y} />
+        })}
+        {selectedEdges.map((e) => {
+            const from = e[0];
+            const edgeIdx = e[1];
+            const to = nodes[from][edgeIdx];
+
+            return from===to ?
+                    <ReflexiveEdgeSelection
+                        key={`${from}-${edgeIdx}`}
+                        angle={Math.PI/1}
+                        x={positions[from].x}
+                        y={positions[from].y}
+                    /> :
+                    <NodeEdgeSelection
+                        key={`${from}-${edgeIdx}`}
+                        x0={positions[from].x}
+                        y0={positions[from].y}
+                        x1={positions[to].x}
+                        y1={positions[to].y}
+                        directed={flags.directed}
+                    />;
+        })}
     </g>
 }
 
@@ -1413,15 +1624,35 @@ const GraphEditor = () => {
         }))
     , [present.graph]);
 
+
+    const [currentTool, selectTool] = useState('Edit')
+
+    const tools = [
+        'Select',
+        'Edit',
+    ];
+
+    const toolComponents = {
+        Select: GraphSelector,
+        Edit: GraphManipulator,
+    }
+
+    const ToolComponent = toolComponents[currentTool] || toolComponents['None'];
+
     return <Container>
-            <History />
-            <Title>Graph</Title>
+            <Title>
+                Graphs
+            </Title>
+            <Tools tools={tools} currentTool={currentTool} onSelectTool={selectTool} />
             <Menu />
             <Canvas box={box}>
                 <Graph
                     box={box}
                 />
-                <GraphManipulator
+                <GraphSelection
+                    box={box}
+                />
+                <ToolComponent
                     box={box}
                 />
             </Canvas>
