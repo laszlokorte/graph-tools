@@ -1797,11 +1797,13 @@ const AlgorithmStepper = ({box}) => {
                 const color = nodeAttributes.color[nodeId];
                 const discovery = nodeAttributes.discovery && nodeAttributes.discovery[nodeId];
                 const finishing = nodeAttributes.finishing && nodeAttributes.finishing[nodeId];
+                const distance = nodeAttributes.distance && nodeAttributes.distance[nodeId];
 
                 return <g key={nodeId}>
                     <circle stroke="black" cx={positions[nodeId].x} cy={positions[nodeId].y} r={10} fill={color} />
-                    {discovery === null ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y}>D: {discovery}</text>}
-                    {finishing === null ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y + 15}>F: {finishing}</text>}
+                    {discovery === undefined ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y}>D: {discovery}</text>}
+                    {finishing === undefined ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y + 15}>F: {finishing}</text>}
+                    {distance === undefined ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y + 30}>C: {distance}</text>}
                 </g>
             })}
             {nodes.map((neighbors, nodeId) =>

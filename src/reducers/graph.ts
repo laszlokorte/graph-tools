@@ -276,6 +276,14 @@ const example = {
     }
   };
 
+const castAttributeType = (type, val) => {
+    switch(type) {
+        case 'numeric':
+            return parseFloat(val);
+    }
+    return val;
+}
+
 const flagConversions = {
     multiGraph: (state, yes) => {
         return state;
@@ -431,7 +439,7 @@ const thisReducer = (state = /*initialState*/example, action) => {
                             ...state.attributes.edges[action.attribute].slice(0, action.nodeId),
                             [
                                 ...state.attributes.edges[action.attribute][action.nodeId].slice(0, action.edgeIndex),
-                                action.value,
+                                castAttributeType(state.attributeTypes.edges[action.attribute].type, action.value),
                                 ...state.attributes.edges[action.attribute][action.nodeId].slice(action.edgeIndex + 1)
                             ],
                             ...state.attributes.edges[action.attribute].slice(action.nodeId+1)
@@ -450,7 +458,7 @@ const thisReducer = (state = /*initialState*/example, action) => {
                         ...state.attributes.nodes,
                         [action.attribute]: [
                             ...state.attributes.nodes[action.attribute].slice(0, action.nodeId),
-                            action.value,
+                            castAttributeType(state.attributeTypes.nodes[action.attribute].type, action.value),
                             ...state.attributes.nodes[action.attribute].slice(action.nodeId+1)
                         ]
                     }
