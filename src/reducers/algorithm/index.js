@@ -18,6 +18,7 @@ const initialState = {
 };
 
 const invalidatingActions = [
+    'CLEAR_GRAPH',
     'ADD_EDGE',
     'DELETE_NODE',
     'CREATE_NODE',
