@@ -3,7 +3,8 @@ const initialState = {
     attributes: {
         edges: {
             label: [],
-            weight: []
+            weight: [],
+            cost: [],
         },
         nodes: {
             position: [],
@@ -26,6 +27,11 @@ const initialState = {
                 default: 1,
                 type: 'numeric',
                 visible: false,
+            },
+            "cost": {
+              "default": 1,
+              "type": "numeric",
+              "visible": true,
             },
         },
         nodes: {
@@ -279,7 +285,7 @@ const example = {
 const castAttributeType = (type, val) => {
     switch(type) {
         case 'numeric':
-            return parseFloat(val);
+            return parseFloat(val || 0);
     }
     return val;
 }

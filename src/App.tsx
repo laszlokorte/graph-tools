@@ -238,7 +238,7 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     if(['text','color','numeric'].includes(type)) {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><input type={type} value={value||''} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value))} /></dd>
+            <dd><input type={type} value={value+''} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value))} /></dd>
         </>
     } else {
         return <>
