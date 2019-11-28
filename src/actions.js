@@ -2,17 +2,19 @@ export const clearSelection = () => ({
     type: 'CLEAR_SELECTION',
 });
 
-export const selectNode = (nodeId, add = false) => ({
+export const selectNode = (nodeId, add = false, toggle = false) => ({
     type: 'SELECT_NODE',
     nodeId,
     add,
+    toggle,
 });
 
-export const selectEdge = (nodeId, edgeIndex, add = false) => ({
+export const selectEdge = (nodeId, edgeIndex, add = false, toggle = false) => ({
     type: 'SELECT_EDGE',
     nodeId,
     edgeIndex,
     add,
+    toggle,
 });
 
 export const setPosition = (nodeId, x, y) => ({
@@ -89,4 +91,9 @@ export const runAlgorithm = (algorithm, options) => ({
     type: 'RUN_ALGORITHM',
     algorithm,
     options
+})
+
+export const stepAlgorithm = (delta) => ({
+    type: 'STEP_ALGORITHM',
+    delta,
 })

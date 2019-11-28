@@ -6,6 +6,8 @@ import { useSize } from './react-hook-size';
 import { useSelector, useDispatch } from 'react-redux'
 import { ActionCreators } from 'redux-undo';
 
+import {ALGORITHMS} from './reducers/algorithm';
+
 import * as actions from './actions'
 
 const Title = styled.h1`
@@ -127,6 +129,18 @@ const Toolbar = styled.div`
     align-items: stretch;
     grid-column: 2 / -1;
 `
+
+const ToolbarSection = styled.div`
+    display: flex;
+    padding: 1px;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 0.5em;
+    background: #333;
+    color: #fff;
+    margin: 1px;
+`
+
 const ToolButton = styled.button`
     background: #333;
     color: #fff;
@@ -137,6 +151,7 @@ const ToolButton = styled.button`
     display: flex;
     align-content: center;
     align-items: center;
+    align-self: stretch;
     border: none;
 
     :hover {
@@ -332,7 +347,64 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
         {tools.map((t) =>
             <ToolButton key={t} disabled={t===currentTool} onClick={() => onSelectTool(t)}>{t}</ToolButton>
         )}
+        <AlgorithmRunner />
     </Toolbar>
+}
+
+const AlgorithmRunner = () => {
+    const dispatch = useDispatch();
+    const selectBox = useRef();
+    const [alg, setAlg] = useState(ALGORITHMS[0]);
+    const algorithmType = useSelector(state => state.present.algorithm.type)
+
+    const run = useCallback(() => {
+        const el : HTMLSelectElement = selectBox.current
+        dispatch(actions.runAlgorithm(el.value))
+    }, [dispatch, selectBox])
+
+    const selectAlg = useCallback((evt) => {
+        setAlg(selectBox.current.value)
+    }, [setAlg])
+
+    return <ToolbarSection>
+        <div>
+            <span>Run Algorithm:</span><br/>
+            <select value={alg} onChange={selectAlg} ref={selectBox}>
+                {ALGORITHMS.map((a) =>
+                    <option key={a} value={a}>{a}</option>
+                )}
+            </select>
+        </div>
+        <ToolButton onClick={run}>▶️</ToolButton>
+        {alg !== algorithmType ? null : <AlgorithmResult />}
+    </ToolbarSection>
+}
+
+const AlgorithmResult = () => {
+    const dispatch = useDispatch();
+    const algorithm = useSelector(state => state.present.algorithm)
+
+
+    const stepFoward = useCallback(() => {
+        dispatch(actions.stepAlgorithm(1))
+    }, [dispatch]);
+
+    const stepBackward = useCallback(() => {
+        dispatch(actions.stepAlgorithm(-1))
+    }, [dispatch]);
+
+    if(algorithm.result === null) {
+        return <span>-</span>;
+    } else if (algorithm.result.steps) {
+        return <div style={{textAlign: 'center'}}>
+            {algorithm.focus + 1}/{algorithm.result.steps.length}
+            <br/>
+            <button onClick={stepBackward}>-</button>
+            <button onClick={stepFoward}>+</button>
+        </div>;
+    } else {
+        return <div>❌</div>;
+    }
 }
 
 const Menu = () => {
@@ -343,7 +415,6 @@ const Menu = () => {
     const empty = useSelector(state => state.present.selection.edges.length < 1 && state.present.selection.nodes.length < 1)
 
     const properties = useSelector(state => state.present.properties)
-    const algorithms = useSelector(state => state.present.algorithms)
 
     return <Scroller>
             <Section>
@@ -369,20 +440,6 @@ const Menu = () => {
                     <React.Fragment key={prop}>
                     <dt>{prop}</dt>
                     <dd>{properties[prop] === true ? 'true' : properties[prop] === false ? 'false' : properties[prop]}</dd>
-                    </React.Fragment>
-                )}
-            </DefinitionList>
-            </SectionBody>
-            </Section>
-
-            <Section>
-            <SectionTitle>Algorithms</SectionTitle>
-            <SectionBody>
-            <DefinitionList>
-                {Object.keys(algorithms).map((alg) =>
-                    <React.Fragment key={alg}>
-                    <dt>{alg}</dt>
-                    <dd><Link onClick={() => dispatch(actions.runAlgorithm(alg))}>▶️</Link>{algorithms[alg].result === null ? null:algorithms[alg].result?"✅":"❌"}</dd>
                     </React.Fragment>
                 )}
             </DefinitionList>
@@ -452,6 +509,11 @@ const wheelFactor = (evt) => {
 const CanvasContext = React.createContext(({x,y}) => ({x,y}));
 const useCanvasPos = () => {
     return useContext(CanvasContext);
+}
+
+const CameraContext = React.createContext(null);
+const useCamera = () => {
+    return useContext(CameraContext);
 }
 
 const softClamp = (val, newVal, min, max) => {
@@ -693,7 +755,7 @@ const Canvas = ({children, box}) => {
     },[onMouseMoveHandler])
 
     useEffect(() => {
-        const c = screenRef.current;
+        const c : HTMLElement = screenRef.current;
 
         c.addEventListener('wheel', onWheelHandler, { passive: false });
 
@@ -718,13 +780,15 @@ const Canvas = ({children, box}) => {
             fill="#ccc" />
 		<g ref={posRef} transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
             <CanvasContext.Provider value={svgPos}>
-            <rect
-                x={camera.bounds.minX}
-                y={camera.bounds.minY}
-                width={camera.bounds.maxX - camera.bounds.minX}
-                height={camera.bounds.maxY - camera.bounds.minY}
-                fill="#fff" />
-			{children}
+                <CameraContext.Provider value={camera}>
+                <rect
+                    x={camera.bounds.minX}
+                    y={camera.bounds.minY}
+                    width={camera.bounds.maxX - camera.bounds.minX}
+                    height={camera.bounds.maxY - camera.bounds.minY}
+                    fill="#fff" />
+    			{children}
+                </CameraContext.Provider>
             </CanvasContext.Provider>
 		</g>
 	</Svg>;
@@ -1255,12 +1319,23 @@ const GraphManipulator = ({box}) => {
 
 
     const onClick = useCallback((evt) => {
+        if(evt.altKey) {
+            return;
+        }
+        evt.stopPropagation();
         const {x,y} = canvasPos({x: evt.clientX, y: evt.clientY});
         dispatch(actions.createNode(x,y));
     }, [canvasPos, dispatch])
 
+    const onMouseDown = useCallback((evt) => {
+        if(evt.altKey) {
+            return;
+        }
+        evt.stopPropagation();
+    }, [])
+
     return <g>
-        <rect style={{pointerEvents: 'all',cursor:'copy'}} onClick={onClick} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} onClick={onClick} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {nodes.map((neighbors, nodeId) =>
             <NodeManipulator
                 key={nodeId}
@@ -1306,12 +1381,12 @@ const NodeSelectionCircle = styled.circle`
     pointer-events: all;
 `
 
-const NodeSelector = ({nodeId, x, y, onClick}) => {
-    const onClickCallback = useCallback(onClick ? (evt) => {
-        onClick(evt, nodeId)
-    } : null, [nodeId, onClick]);
+const NodeSelector = ({nodeId, x, y, onMouseDown}) => {
+    const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
+        onMouseDown(evt, nodeId)
+    } : null, [nodeId, onMouseDown]);
 
-    return <NodeSelectionCircle cx={x} cy={y} r="20" onClick={onClickCallback} />
+    return <NodeSelectionCircle cx={x} cy={y} r="20" onMouseDown={onMouseDownCallback} />
 }
 
 const EdgeSelectorLine = styled.path`
@@ -1321,7 +1396,7 @@ const EdgeSelectorLine = styled.path`
     pointer-events: all;
 `
 
-const NodeEdgeSelector = ({x0,x1,y0,y1,nodeId,edgeIndex,onClick,directed}) => {
+const NodeEdgeSelector = ({x0,x1,y0,y1,nodeId,edgeIndex,onMouseDown,directed}) => {
     let dirX = x1 - x0
     let dirY = y1 - y0
     if(!dirX && !dirY) {
@@ -1358,14 +1433,14 @@ const NodeEdgeSelector = ({x0,x1,y0,y1,nodeId,edgeIndex,onClick,directed}) => {
         y1 + 20 * cDirYNormr
     )
 
-    const onClickCallback = useCallback(onClick ? (evt) => {
-        onClick(evt, nodeId, edgeIndex)
-    } : null, [nodeId, edgeIndex, onClick])
+    const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
+        onMouseDown(evt, nodeId, edgeIndex)
+    } : null, [nodeId, edgeIndex, onMouseDown])
 
-    return <EdgeSelectorLine onClick={onClickCallback} d={path.curve} />
+    return <EdgeSelectorLine onMouseDown={onMouseDownCallback} d={path.curve} />
 }
 
-const ReflexiveEdgeSelector = ({x, y, angle = 0, nodeId, edgeIndex, onClick, directed}) => {
+const ReflexiveEdgeSelector = ({x, y, angle = 0, nodeId, edgeIndex, onMouseDown, directed}) => {
     const path = edgePath(directed,
         x + Math.cos(angle - Math.PI / 8) * 20,
         y + Math.sin(angle - Math.PI / 8) * 20,
@@ -1373,16 +1448,66 @@ const ReflexiveEdgeSelector = ({x, y, angle = 0, nodeId, edgeIndex, onClick, dir
         y + Math.sin(angle + Math.PI / 8) * 20
     )
 
-    const onClickCallback = useCallback(onClick ? (evt) => {
-        onClick(evt, nodeId, edgeIndex)
-    } : null, [nodeId, edgeIndex, onClick])
+    const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
+        onMouseDown(evt, nodeId, edgeIndex)
+    } : null, [nodeId, edgeIndex, onMouseDown])
 
-    return <EdgeSelectorLine onClick={onClickCallback} d={path.curve} />
+    return <EdgeSelectorLine onMouseDown={onMouseDownCallback} d={path.curve} />
 }
+
+const selectionReducer = function(state, action) {
+    switch(action.type) {
+        case 'start': {
+            return {
+                ...state,
+                x0:action.x,
+                y0:action.y,
+                x1:action.x,
+                y1:action.y,
+            }
+        }
+        case 'move': {
+            if(state.x0 === null) {
+                return state;
+            }
+            return {
+                ...state,
+                x1:action.x,
+                y1:action.y,
+            }
+        }
+        case 'rotate': {
+            return {
+                ...state,
+                rotation: action.rotation,
+            }
+        }
+        case 'end': {
+            return {
+                ...state,
+                x0:null,
+                y0:null,
+                x1:null,
+                y1:null,
+            }
+        }
+    }
+    return state;
+}
+
+const SelectionBox = styled.polygon`
+    fill: none;
+    stroke-width: 1;
+    stroke: rgba(135, 208, 249, 1.0);
+    stroke-dasharray: 3 3;
+    fill: rgba(135, 208, 249, 0.4);
+    vector-effect: non-scaling-stroke;
+`
 
 const GraphSelector = ({box}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
+    const camera = useCamera();
 
     const flags = useSelector(state => state.present.graph.flags)
     const selectedNodes = useSelector(state => state.present.selection.nodes)
@@ -1391,29 +1516,105 @@ const GraphSelector = ({box}) => {
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
 
     const selectNode = useCallback((evt, nodeId) => {
-        evt.stopPropagation();
-        dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey));
+        dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
     }, [dispatch])
 
     const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
-        evt.stopPropagation();
-        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.metaKey || evt.ctrlKey || evt.shiftKey));
+        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
     }, [dispatch])
 
     const clearSelection = useCallback((evt) => {
-        evt.stopPropagation();
-        dispatch(actions.clearSelection());
+        if(!evt.metaKey && !evt.ctrlKey && !evt.shiftKey) {
+            dispatch(actions.clearSelection());
+        }
     }, [dispatch])
 
-    return <g>
-        <rect style={{pointerEvents:'all'}} onClick={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+
+    const [range, dispatchRange] = useReducer(selectionReducer, {
+        x0:null,
+        y0:null,
+        x1:null,
+        y1:null,
+        rotation: 0,
+    });
+
+    useEffect(() => {
+        dispatchRange({type:'rotate', rotation: camera.rotation})
+    }, [camera.rotation])
+
+    const mouseDown = useCallback((evt) => {
+        if(evt.altKey) {
+            return;
+        }
+        evt.stopPropagation();
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        dispatchRange({type:'start',...pos})
+    }, [dispatchRange, canvasPos]);
+
+    const mouseMove = useCallback((evt) => {
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        dispatchRange({type:'move',...pos})
+    }, [dispatchRange, canvasPos]);
+
+    const mouseUp = useCallback((evt) => {
+        dispatchRange({type:'end'})
+    }, [dispatchRange]);
+
+    useEffect(() => {
+        window.addEventListener('mouseup', mouseUp);
+
+        return () => {
+            window.removeEventListener('mouseup', mouseUp);
+        }
+    },[mouseUp])
+
+    useEffect(() => {
+        window.addEventListener('mousemove', mouseMove);
+
+        return () => {
+            window.removeEventListener('mousemove', mouseMove);
+        }
+    },[mouseMove])
+
+    // TODO rotate selection rect
+    const selectionPath = `${range.x0} ${range.y0}
+    ${range.x0} ${range.y1}
+    ${range.x1} ${range.y1}
+    ${range.x1} ${range.y0}`;
+
+    const sin = Math.sin(range.rotation * Math.PI / 180)
+    const cos = Math.cos(range.rotation * Math.PI / 180)
+    const sinN = Math.sin(-range.rotation * Math.PI / 180)
+    const cosN = Math.cos(-range.rotation * Math.PI / 180)
+
+    const dx = range.x1 - range.x0
+    const dy = range.y1 - range.y0
+    const ax = cosN
+    const ay = sinN
+    const bx = -sinN
+    const by = cosN
+    const boxWidth = ax * dx + ay * dy
+    const boxHeight = bx * dx + by * dy
+
+    const ps = `${range.x0 + 0} ${range.y0 + 0}
+    ${range.x0 + cos * 0 + sin * boxHeight} ${range.y0 -sin * 0 + cos * boxHeight}
+     ${range.x0 + cos * boxWidth + sin * boxHeight} ${range.y0 -sin * boxWidth + cos * boxHeight}
+     ${range.x0 + cos * boxWidth + sin * 0} ${range.y0 -sin * boxWidth + cos * 0}`;
+
+    return <g onMouseDown={mouseDown}>
+        <rect style={{pointerEvents:'all'}} onMouseDown={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        {range.x0 === null ? null :
+            <SelectionBox points={ps} />
+        }
         {nodes.map((neighbors, nodeId) => {
             return <NodeSelector
                 key={nodeId}
                 nodeId={nodeId}
                 x={positions[nodeId].x}
                 y={positions[nodeId].y}
-                onClick={selectNode}
+                onMouseDown={selectNode}
             />
         }
 
@@ -1428,7 +1629,7 @@ const GraphSelector = ({box}) => {
                         angle={Math.PI/1}
                         x={positions[nodeId].x}
                         y={positions[nodeId].y}
-                        onClick={selectEdge}
+                        onMouseDown={selectEdge}
                         directed={flags.directed}
                     /> :
                     <NodeEdgeSelector
@@ -1439,7 +1640,7 @@ const GraphSelector = ({box}) => {
                         y0={positions[nodeId].y}
                         x1={positions[neighbourId].x}
                         y1={positions[neighbourId].y}
-                        onClick={selectEdge}
+                        onMouseDown={selectEdge}
                         directed={flags.directed}
                     />;
             })
@@ -1509,11 +1710,140 @@ const Graph = ({box}) => {
     </g>
 }
 
+
+const EdgeStepperLine = styled.path`
+    fill: none;
+    pointer-events: none;
+    opacity: 0.6;
+    stroke-width: 6;
+`
+
+const ReflexiveEdgeStepper = ({x,y,angle, directed, color}) => {
+    const path = edgePath(directed,
+        x + Math.cos(angle - Math.PI / 8) * 20,
+        y + Math.sin(angle - Math.PI / 8) * 20,
+        x + Math.cos(angle + Math.PI / 8) * 20,
+        y + Math.sin(angle + Math.PI / 8) * 20
+    )
+
+    return <EdgeStepperLine stroke={color} d={path.curve} />
+}
+
+const NodeEdgeStepper = ({x0,y0,x1,y1,directed, color}) => {
+    let dirX = x1 - x0
+    let dirY = y1 - y0
+    if(!dirX && !dirY) {
+        dirX = 1
+        dirY = 0
+    }
+    const length2 = dirX*dirX + dirY*dirY
+    const length = Math.sqrt(length2)
+    const normX = dirX/length
+    const normY = dirY/length
+    const midX = (x0 + x1) / 2
+    const midY = (y0 + y1) / 2
+    const bend = directed ? 30 : 0
+
+    const cX = midX + bend * normY
+    const cY = midY - bend * normX
+
+    const cDirX = cX - x0
+    const cDirY = cY - y0
+    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
+    const cDirXNorm = cDirX / cDirLength
+    const cDirYNorm = cDirY / cDirLength
+
+    const cDirXr = cX - x1
+    const cDirYr = cY - y1
+    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
+    const cDirXNormr = cDirXr / cDirLengthr
+    const cDirYNormr = cDirYr / cDirLengthr
+
+    const path = edgePath(directed,
+        x0 + 20 * cDirXNorm,
+        y0 + 20 * cDirYNorm,
+        x1 + 20 * cDirXNormr,
+        y1 + 20 * cDirYNormr
+    )
+
+    return <EdgeStepperLine stroke={color} d={path.curve} />
+}
+
+
+const AlgorithmStepper = ({box}) => {
+    const dispatch = useDispatch()
+    const canvasPos = useCanvasPos()
+
+    const flags = useSelector(state => state.present.graph.flags)
+    const selectedNodes = useSelector(state => state.present.selection.nodes)
+    const selectedEdges = useSelector(state => state.present.selection.edges)
+    const nodes = useSelector(state => state.present.graph.nodes)
+    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+    const visibleEdgeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => state.present.graph.attributeTypes.edges[e].visible))
+    const visibleNodeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes).filter((n) => state.present.graph.attributeTypes.nodes[n].visible))
+
+    const algorithm = useSelector(state => state.present.algorithm)
+
+    if(!algorithm.result || !algorithm.result.steps) {
+        return <></>;
+    } else {
+        const step = algorithm.result.steps[algorithm.focus];
+        const edgeAttributes = step.edges
+        const nodeAttributes = step.nodes
+
+
+        return <g style={{pointerEvents: 'none'}}>
+            {nodes.map((neighbors, nodeId) => {
+                const color = nodeAttributes.color[nodeId];
+                const discovery = nodeAttributes.discovery && nodeAttributes.discovery[nodeId];
+                const finishing = nodeAttributes.finishing && nodeAttributes.finishing[nodeId];
+
+                return <g key={nodeId}>
+                    <circle stroke="black" cx={positions[nodeId].x} cy={positions[nodeId].y} r={10} fill={color} />
+                    {discovery === null ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y}>D: {discovery}</text>}
+                    {finishing === null ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y + 15}>F: {finishing}</text>}
+                </g>
+            })}
+            {nodes.map((neighbors, nodeId) =>
+                neighbors.map((neighbourId, edgeIdx) => {
+                    const edgeType = edgeAttributes.type[nodeId][edgeIdx]
+
+                    const color = edgeType === null ? 'none' : {
+                        'forward': 'green',
+                        'cross': 'red',
+                        'back': 'blue',
+                    }[edgeType];
+
+                    return nodeId===neighbourId ?
+                        <ReflexiveEdgeStepper
+                            key={`${nodeId}-${edgeIdx}`}
+                            angle={Math.PI/1}
+                            x={positions[nodeId].x}
+                            y={positions[nodeId].y}
+                            directed={flags.directed}
+                            color={color}
+                        /> :
+                        <NodeEdgeStepper
+                            key={`${nodeId}-${edgeIdx}`}
+                            x0={positions[nodeId].x}
+                            y0={positions[nodeId].y}
+                            x1={positions[neighbourId].x}
+                            y1={positions[neighbourId].y}
+                            directed={flags.directed}
+                            color={color}
+                        />;
+                })
+            )}
+        </g>
+    }
+}
+
+
 const NodeSelection = ({x,y}) => {
     return <NodeCircleSelection cx={x} cy={y} r={20} />
 }
 
-const ReflexiveEdgeSelection = ({x,y,angle}) => {
+const ReflexiveEdgeSelection = ({x,y,angle, directed}) => {
     const path = edgePath(directed,
         x + Math.cos(angle - Math.PI / 8) * 20,
         y + Math.sin(angle - Math.PI / 8) * 20,
@@ -1574,7 +1904,7 @@ const GraphSelection = ({box}) => {
     const nodes = useSelector(state => state.present.graph.nodes)
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
 
-    return <g className="fooo">
+    return <g>
         {selectedNodes.map((nodeId, i) => {
             return <NodeSelection key={i} x={positions[nodeId].x} y={positions[nodeId].y} />
         })}
@@ -1589,6 +1919,7 @@ const GraphSelection = ({box}) => {
                         angle={Math.PI/1}
                         x={positions[from].x}
                         y={positions[from].y}
+                        directed={flags.directed}
                     /> :
                     <NodeEdgeSelection
                         key={`${from}-${edgeIdx}`}
@@ -1662,6 +1993,9 @@ const GraphEditor = () => {
                     box={nonInfBox}
                 />
                 <ToolComponent
+                    box={nonInfBox}
+                />
+                <AlgorithmStepper
                     box={nonInfBox}
                 />
             </Canvas>

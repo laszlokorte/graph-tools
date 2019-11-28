@@ -2,7 +2,7 @@ import { combineReducers } from 'redux'
 import undoable, { includeAction, excludeAction } from 'redux-undo';import selection from './selection'
 import graph from './graph'
 import graphSelection from './graph_selection'
-import algorithms from './algorithms'
+import algorithm from './algorithm'
 import properties from './properties'
 
 export default undoable((state, action) => {
@@ -19,13 +19,13 @@ export default undoable((state, action) => {
     return {
         ...intermediateState,
         selection: graphSelection(intermediateState.graph, intermediateState.selection, action),
-        algorithms: algorithms(state ? state.algorithms : undefined, intermediateState.graph, action),
+        algorithm: algorithm(state ? state.algorithm : undefined, intermediateState.graph, action),
         properties: properties(state ? state.properties : undefined, intermediateState.graph, action),
     };
 }, {
     limit: 10,
     filter: excludeAction([
-        'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE',
+        'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE','STEP_ALGORITHM',
     ]),
     ignoreInitialState: true,
     groupBy: (action, currentState, previousHistory) => {

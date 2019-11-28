@@ -5,12 +5,17 @@ const initialState = {
 
 export default (state = initialState, action) => {
     switch(action.type) {
-        case 'CLEAR_SELECTION':
+        case 'CLEAR_SELECTION': {
             return initialState;
-        case 'SELECT_NODE':
+        }
+        case 'SELECT_NODE': {
+            const alreadySelected = state.nodes.includes(action.nodeId)
             return ({
                 ...state,
-                nodes: action.add ?
+                nodes:
+                    alreadySelected && action.toggle ?
+                    state.nodes.filter(x=>x!==action.nodeId) :
+                    action.add ?
                     [...state.nodes.filter(x=>x!==action.nodeId), action.nodeId] :
                     [action.nodeId],
                 edges: action.add ?
@@ -18,17 +23,27 @@ export default (state = initialState, action) => {
                     []
                 ,
             })
-        case 'SELECT_EDGE':
+        }
+        case 'SELECT_EDGE': {
+            const alreadySelected = state.edges.findIndex(
+                ([n,i]) => (n===action.nodeId && i===action.edgeIndex)
+            ) >= 0
+
             return ({
                 ...state,
                 nodes: action.add ?
                     state.nodes : [],
-                edges: action.add ?
+                edges:
+                    alreadySelected && action.toggle ?
+                    state.edges.filter(([n,i]) => (n!==action.nodeId || i!==action.edgeIndex)) :
+                    action.add ?
                     [...state.edges.filter(([n,i]) => (n!==action.nodeId || i!==action.edgeIndex)), [action.nodeId, action.edgeIndex]] :
                     [[action.nodeId, action.edgeIndex]]
                 ,
             })
-        default:
+        }
+        default: {
             return state;
+        }
     }
 }
