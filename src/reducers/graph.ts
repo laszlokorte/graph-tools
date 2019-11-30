@@ -3,13 +3,17 @@ const initialState = {
     attributes: {
         edges: {
             label: [],
-            weight: [],
             cost: [],
+            capacity: [],
         },
         nodes: {
             position: [],
             label: [],
             color: [],
+            initial: [],
+            final: [],
+            source: [],
+            sink: [],
         }
     },
     flags: {
@@ -23,15 +27,15 @@ const initialState = {
                 type: 'text',
                 visible: true,
             },
-            weight: {
+            cost: {
                 default: 1,
                 type: 'numeric',
                 visible: false,
             },
-            "cost": {
-              "default": 1,
-              "type": "numeric",
-              "visible": true,
+            capacity: {
+              default: 1,
+              type: 'numeric',
+              visible: true,
             },
         },
         nodes: {
@@ -48,6 +52,26 @@ const initialState = {
             color: {
                 default: null,
                 type: 'color',
+                visible: false,
+            },
+            initial: {
+                default: false,
+                type: 'boolean',
+                visible: false,
+            },
+            final: {
+                default: false,
+                type: 'boolean',
+                visible: false,
+            },
+            source: {
+                default: false,
+                type: 'boolean',
+                visible: false,
+            },
+            sink: {
+                default: false,
+                type: 'boolean',
                 visible: false,
             },
         }
@@ -234,6 +258,42 @@ const example = {
           null,
           null,
           null
+        ],
+        "initial": [
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+        ],
+        "final": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+        ],
+        "source": [
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+        ],
+        "sink": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
         ]
       }
     },
@@ -277,7 +337,27 @@ const example = {
           "default": null,
           "type": "color",
           visible: false,
-        }
+        },
+        "initial": {
+          "default": false,
+          "type": "boolean",
+          visible: false,
+        },
+        "final": {
+          "default": false,
+          "type": "boolean",
+          visible: false,
+        },
+        "source": {
+          "default": false,
+          "type": "boolean",
+          visible: false,
+        },
+        "sink": {
+          "default": false,
+          "type": "boolean",
+          visible: false,
+        },
       }
     }
   };
@@ -286,16 +366,48 @@ const castAttributeType = (type, val) => {
     switch(type) {
         case 'numeric':
             return parseFloat(val || 0);
+        case 'boolean':
+            return !!val;
     }
     return val;
 }
 
 const flagConversions = {
     multiGraph: (state, yes) => {
-        return state;
+        if(yes) {
+            return state;
+        }
+        return {
+            ...state,
+            nodes: state.nodes.map((neighbours, nodeId) => {
+                return neighbours.filter((n, i, s) => s.indexOf(n) === i)
+            }),
+            attributes: {
+                ...state.attributes,
+                edges: objectMap(state.attributes.edges,
+                    (key, value) =>
+                        value.map((vs, node) => vs.filter((v, i) => state.nodes[node].indexOf(state.nodes[node][i]) === i))
+                )
+            },
+        }
     },
     directed: (state, yes) => {
-        return state;
+        if(yes) {
+            return state;
+        }
+        return {
+            ...state,
+            nodes: state.nodes.map((neighbours, nodeId) => {
+                return neighbours.filter((n) => n > nodeId)
+            }),
+            attributes: {
+                ...state.attributes,
+                edges: objectMap(state.attributes.edges,
+                    (key, value) =>
+                        value.map((vs, node) => vs.filter((v, i) => state.nodes[node][i] > node))
+                )
+            },
+        };
     }
 }
 
@@ -434,6 +546,11 @@ const thisReducer = (state = /*initialState*/example, action) => {
             });
         }
         case 'SET_EDGE_ATTRIBUTE': {
+            const newAttr = castAttributeType(state.attributeTypes.edges[action.attribute].type, action.value);
+            const oldAttr = state.attributes.edges[action.attribute][action.nodeId][action.edgeIndex];
+            if(newAttr == oldAttr) {
+                return state;
+            }
             return ({
                 ...state,
                 nodes: state.nodes,
@@ -445,7 +562,7 @@ const thisReducer = (state = /*initialState*/example, action) => {
                             ...state.attributes.edges[action.attribute].slice(0, action.nodeId),
                             [
                                 ...state.attributes.edges[action.attribute][action.nodeId].slice(0, action.edgeIndex),
-                                castAttributeType(state.attributeTypes.edges[action.attribute].type, action.value),
+                                newAttr,
                                 ...state.attributes.edges[action.attribute][action.nodeId].slice(action.edgeIndex + 1)
                             ],
                             ...state.attributes.edges[action.attribute].slice(action.nodeId+1)
@@ -455,6 +572,11 @@ const thisReducer = (state = /*initialState*/example, action) => {
             });
         }
         case 'SET_NODE_ATTRIBUTE': {
+            const newAttr = castAttributeType(state.attributeTypes.nodes[action.attribute].type, action.value);
+            const oldAttr = state.attributes.nodes[action.attribute][action.nodeId];
+            if(newAttr == oldAttr) {
+                return state;
+            }
             return ({
                 ...state,
                 nodes: state.nodes,
@@ -464,7 +586,7 @@ const thisReducer = (state = /*initialState*/example, action) => {
                         ...state.attributes.nodes,
                         [action.attribute]: [
                             ...state.attributes.nodes[action.attribute].slice(0, action.nodeId),
-                            castAttributeType(state.attributeTypes.nodes[action.attribute].type, action.value),
+                            newAttr,
                             ...state.attributes.nodes[action.attribute].slice(action.nodeId+1)
                         ]
                     }

@@ -1,9 +1,39 @@
 export default (graphState, selectionState, action) => {
     switch(action.type) {
+        case 'SET_GRAPH_FLAG':
         case 'CLEAR_GRAPH':
             return {
                 ...selectionState,
                 nodes: [],
+                edges: [],
+            }
+        case 'SET_NODE_ATTRIBUTE':
+            return {
+                ...selectionState,
+                nodes: [action.nodeId],
+                edges: [],
+            }
+        case 'SET_EDGE_ATTRIBUTE':
+            return {
+                ...selectionState,
+                nodes: [],
+                edges: [[action.nodeId, action.edgeIndex]],
+            }
+        case 'ADD_EDGE': {
+            const edgeIndex = graphState.nodes[action.fromNodeId].indexOf(action.toNodeId);
+            if(edgeIndex < 0) {
+                return selectionState;
+            }
+            return {
+                ...selectionState,
+                nodes: [],
+                edges: [[action.fromNodeId, edgeIndex]],
+            };
+        }
+        case 'CREATE_NODE':
+            return {
+                ...selectionState,
+                nodes: [graphState.nodes.length - 1],
                 edges: [],
             }
         case 'DELETE_EDGE':

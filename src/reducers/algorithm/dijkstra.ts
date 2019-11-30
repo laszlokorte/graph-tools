@@ -8,7 +8,7 @@ const EDGE_FORWARD = 'forward';
 const EDGE_CROSS = 'cross';
 const EDGE_BACK = 'back';
 
-export default (graph) => {
+const run = (graph) => {
     const state = init(graph);
     const steps = [];
     const track = (s) => {
@@ -76,4 +76,18 @@ const bfs = (state, graph, nodeId, track) => {
 
 const copy = (object) => {
     return JSON.parse(JSON.stringify(object))
+}
+
+export default {
+    run,
+    name: "Dijkstra",
+    parameters: {
+
+    },
+    dependencies: {
+        edges: ['cost']
+    },
+    requirements: {
+        multiGraph: false,
+    },
 }

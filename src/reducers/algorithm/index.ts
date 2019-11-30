@@ -10,9 +10,16 @@ const algorithms = {
     belman_ford,
 };
 
-export const ALGORITHMS = ['bfs','dfs','dijkstra','belman_ford',];
+export const ALGORITHMS = Object.keys(algorithms).map((a) => ({
+    key: a,
+    name: algorithms[a].name,
+    parameters: algorithms[a].parameters,
+    requirements: algorithms[a].requirements,
+    dependencies: algorithms[a].dependencies,
+}));
 
 const initialState = {
+    type: null,
     focus: 0,
     result: null,
 };
@@ -29,6 +36,18 @@ const invalidatingActions = [
 export default (state = initialState, graph, action) => {
     if(invalidatingActions.includes(action.type)) {
         return initialState;
+    } else if(action.type === 'SET_NODE_ATTRIBUTE') {
+        if(state.type && algorithms[state.type].dependencies.nodes && algorithms[state.type].dependencies.nodes.includes(action.attribute)) {
+            return initialState
+        } else {
+            return state;
+        }
+    } else if(action.type === 'SET_EDGE_ATTRIBUTE') {
+        if(state.type && algorithms[state.type].dependencies.edges && algorithms[state.type].dependencies.edges.includes(action.attribute)) {
+            return initialState
+        } else {
+            return state;
+        }
     } else {
         switch(action.type) {
             case 'RUN_ALGORITHM': {
@@ -36,8 +55,8 @@ export default (state = initialState, graph, action) => {
                     type: action.algorithm,
                     focus: 0,
                     result: {
-                        steps: algorithms[action.algorithm](graph),
-                    }
+                        steps: algorithms[action.algorithm].run(graph),
+                    },
                 };
             }
             case 'STEP_ALGORITHM': {

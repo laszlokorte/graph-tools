@@ -14,7 +14,15 @@ const Title = styled.h1`
     margin: 0;
     padding: 0;
     grid-column: 1 / 2;
-
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-weight: normal;
+    padding: 0 0.3em;
+    font-size: 1.3em;
+    background: #333;
+    color: #ccc;
 `;
 
 const Svg = styled.svg`
@@ -45,8 +53,8 @@ const Code = styled.textarea`
     border: 0;
     white-space:pre-wrap;
     font-family: monospace;
-    background: #333;
-    color: #fff;
+    background: #fff;
+    color: #111;
     font-size: 1.2em;
     min-height: 10em;
     resize: none;
@@ -125,6 +133,7 @@ const SectionBody = styled.div`
 
 const Toolbar = styled.div`
     display: flex;
+    background: #444;
     padding: 1px;
     align-items: stretch;
     grid-column: 2 / -1;
@@ -136,13 +145,13 @@ const ToolbarSection = styled.div`
     align-items: center;
     justify-content: flex-start;
     padding: 0 0.5em;
-    background: #333;
+    background: #222;
     color: #fff;
     margin: 1px;
 `
 
 const ToolButton = styled.button`
-    background: #333;
+    background: #222;
     color: #fff;
     font: inherit;
     margin: 1px;
@@ -155,11 +164,12 @@ const ToolButton = styled.button`
     border: none;
 
     :hover {
-        background: #3f3f3f;
+        background: #333;
     }
     :disabled, [disabled],
     :disabled:active, [disabled]:active {
-        background: #999;
+        background: #303030;
+        color: #999;
         cursor: default;
     }
     :active {
@@ -182,6 +192,16 @@ const DefinitionList = styled.ul`
     grid-gap: 4px;
 `
 
+const PlainButton = styled.button`
+    background: inherit;
+    color: inherit;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-size: inherit;
+    cursor: pointer;
+`
+
 const NodeAttribute = ({nodeId, attrKey}) => {
     const dispatch = useDispatch()
     const value = useSelector(state => state.present.graph.attributes.nodes[attrKey][nodeId])
@@ -192,6 +212,11 @@ const NodeAttribute = ({nodeId, attrKey}) => {
         return (<>
             <dt>{attrKey}*:</dt>
             <dd><input type="text" value={value || ''} onChange={(evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))} /></dd>
+        </>);
+    } else if(['boolean'].includes(type)) {
+        return (<>
+            <dt>{attrKey}*:</dt>
+            <dd><input type="checkbox" checked={value===true} onChange={(evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.checked))} /></dd>
         </>);
     } else {
         return (<>
@@ -240,6 +265,11 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
             <dt>{attrKey}:</dt>
             <dd><input type={type} value={value+''} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value))} /></dd>
         </>
+    } else if(['boolean'].includes(type)) {
+        return (<>
+            <dt>{attrKey}*:</dt>
+            <dd><input type="checkbox" checked={value===true} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.checked))} /></dd>
+        </>);
     } else {
         return <>
             <dt>{attrKey}:</dt>
@@ -354,28 +384,44 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
 const AlgorithmRunner = () => {
     const dispatch = useDispatch();
     const selectBox = useRef();
-    const [alg, setAlg] = useState(ALGORITHMS[0]);
     const algorithmType = useSelector(state => state.present.algorithm.type)
+    const flags = useSelector(state => state.present.graph.flags)
+    const [alg, setAlg] = useState(ALGORITHMS[0].key);
 
     const run = useCallback(() => {
         const el : HTMLSelectElement = selectBox.current
-        dispatch(actions.runAlgorithm(el.value))
+        dispatch(actions.runAlgorithm(el.value, {}))
     }, [dispatch, selectBox])
 
     const selectAlg = useCallback((evt) => {
-        setAlg(selectBox.current.value)
+        const el : HTMLSelectElement = selectBox.current
+        setAlg(el.value)
     }, [setAlg])
+
+    useEffect(() => {
+        if(algorithmType) {
+            setAlg(algorithmType)
+        }
+    }, [algorithmType])
+
+    const applicableAlgorithms = ALGORITHMS.filter((alg) => {
+        return !alg.requirements || Object.entries(alg.requirements).every(([k,v]) => {
+            return flags[k] === v;
+        })
+    })
+
+    const canRun = (alg !== null) && applicableAlgorithms.some((a) => a.key === alg)
 
     return <ToolbarSection>
         <div>
             <span>Run Algorithm:</span><br/>
             <select value={alg} onChange={selectAlg} ref={selectBox}>
-                {ALGORITHMS.map((a) =>
-                    <option key={a} value={a}>{a}</option>
+                {applicableAlgorithms.map((a) =>
+                    <option key={a.key} value={a.key}>{a.name}</option>
                 )}
             </select>
         </div>
-        <ToolButton onClick={run}>▶️</ToolButton>
+        {!canRun ? null : <ToolButton onClick={run}>▶️</ToolButton>}
         {alg !== algorithmType ? null : <AlgorithmResult />}
     </ToolbarSection>
 }
@@ -394,13 +440,13 @@ const AlgorithmResult = () => {
     }, [dispatch]);
 
     if(algorithm.result === null) {
-        return <span>-</span>;
+        return null;
     } else if (algorithm.result.steps) {
         return <div style={{textAlign: 'center'}}>
             {algorithm.focus + 1}/{algorithm.result.steps.length}
             <br/>
-            <button onClick={stepBackward}>-</button>
-            <button onClick={stepFoward}>+</button>
+            <PlainButton onClick={stepBackward}>⏪</PlainButton>
+            <PlainButton onClick={stepFoward}>⏩</PlainButton>
         </div>;
     } else {
         return <div>❌</div>;
@@ -658,6 +704,7 @@ const cameraReducer = (camera, action) => {
 
 const Canvas = ({children, box}) => {
     const screenRef = useRef();
+    const cameraRef = useRef();
     const screen = useSize(screenRef, 100, 100);
     const posRef = useRef();
     const svgPos = useSVGPosition(posRef);
@@ -678,6 +725,10 @@ const Canvas = ({children, box}) => {
         panX: null,
         panY: null,
     })
+
+    useEffect(() => {
+        cameraRef.current = camera;
+    }, [camera])
 
     const bounds = useEffect(() => dispatchCamera({
         type: 'clamp',
@@ -780,7 +831,7 @@ const Canvas = ({children, box}) => {
             fill="#ccc" />
 		<g ref={posRef} transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
             <CanvasContext.Provider value={svgPos}>
-                <CameraContext.Provider value={camera}>
+                <CameraContext.Provider value={cameraRef}>
                 <rect
                     x={camera.bounds.minX}
                     y={camera.bounds.minY}
@@ -1200,7 +1251,7 @@ const manipulationReducer = (state, action) => {
                 y: action.y,
                 offsetX: action.offsetX,
                 offsetY: action.offsetY,
-                connectionSnap:null,
+                connectionSnap: action.nodeId,
             }
         case 'snapConnect':
             if(state.connectionStart === null) {
@@ -1476,12 +1527,6 @@ const selectionReducer = function(state, action) {
                 y1:action.y,
             }
         }
-        case 'rotate': {
-            return {
-                ...state,
-                rotation: action.rotation,
-            }
-        }
         case 'end': {
             return {
                 ...state,
@@ -1507,7 +1552,7 @@ const SelectionBox = styled.polygon`
 const GraphSelector = ({box}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
-    const camera = useCamera();
+    // const camera = useCamera();
 
     const flags = useSelector(state => state.present.graph.flags)
     const selectedNodes = useSelector(state => state.present.selection.nodes)
@@ -1535,12 +1580,7 @@ const GraphSelector = ({box}) => {
         y0:null,
         x1:null,
         y1:null,
-        rotation: 0,
     });
-
-    useEffect(() => {
-        dispatchRange({type:'rotate', rotation: camera.rotation})
-    }, [camera.rotation])
 
     const mouseDown = useCallback((evt) => {
         if(evt.altKey) {
@@ -1578,35 +1618,32 @@ const GraphSelector = ({box}) => {
         }
     },[mouseMove])
 
-    // TODO rotate selection rect
-    const selectionPath = `${range.x0} ${range.y0}
+    // const sin = Math.sin(camera.rotation * Math.PI / 180)
+    // const cos = Math.cos(camera.rotation * Math.PI / 180)
+
+    // const dx = range.x1 - range.x0
+    // const dy = range.y1 - range.y0
+    // const ax = cos
+    // const ay = -sin
+    // const bx = sin
+    // const by = cos
+    // const boxWidth = ax * dx + ay * dy
+    // const boxHeight = bx * dx + by * dy
+
+    // const ps = `${range.x0 + 0} ${range.y0 + 0}
+    // ${range.x0 + cos * 0 + sin * boxHeight} ${range.y0 -sin * 0 + cos * boxHeight}
+    //  ${range.x0 + cos * boxWidth + sin * boxHeight} ${range.y0 -sin * boxWidth + cos * boxHeight}
+    //  ${range.x0 + cos * boxWidth + sin * 0} ${range.y0 -sin * boxWidth + cos * 0}`;
+
+    const ps2 = `${range.x0} ${range.y0}
     ${range.x0} ${range.y1}
-    ${range.x1} ${range.y1}
-    ${range.x1} ${range.y0}`;
-
-    const sin = Math.sin(range.rotation * Math.PI / 180)
-    const cos = Math.cos(range.rotation * Math.PI / 180)
-    const sinN = Math.sin(-range.rotation * Math.PI / 180)
-    const cosN = Math.cos(-range.rotation * Math.PI / 180)
-
-    const dx = range.x1 - range.x0
-    const dy = range.y1 - range.y0
-    const ax = cosN
-    const ay = sinN
-    const bx = -sinN
-    const by = cosN
-    const boxWidth = ax * dx + ay * dy
-    const boxHeight = bx * dx + by * dy
-
-    const ps = `${range.x0 + 0} ${range.y0 + 0}
-    ${range.x0 + cos * 0 + sin * boxHeight} ${range.y0 -sin * 0 + cos * boxHeight}
-     ${range.x0 + cos * boxWidth + sin * boxHeight} ${range.y0 -sin * boxWidth + cos * boxHeight}
-     ${range.x0 + cos * boxWidth + sin * 0} ${range.y0 -sin * boxWidth + cos * 0}`;
+     ${range.x1} ${range.y1}
+     ${range.x1} ${range.y0}`;
 
     return <g onMouseDown={mouseDown}>
         <rect style={{pointerEvents:'all'}} onMouseDown={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {range.x0 === null ? null :
-            <SelectionBox points={ps} />
+            <SelectionBox points={ps2} />
         }
         {nodes.map((neighbors, nodeId) => {
             return <NodeSelector
@@ -1668,7 +1705,7 @@ const Graph = ({box}) => {
     return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
         {nodes.map((neighbors, nodeId) => {
-            const nodeLabel = visibleNodeAttributes.map((attr) => nodeAttributes[attr][nodeId]).filter(x=>x).join(', ');
+            const nodeLabel = visibleNodeAttributes.map((attr) => nodeAttributes[attr][nodeId]).filter(x=>x !== null && x !== undefined).join(', ');
 
             return <Node
                 key={nodeId}
@@ -1682,7 +1719,7 @@ const Graph = ({box}) => {
         )}
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) => {
-                const edgeLabel = visibleEdgeAttributes.map((attr) => edgeAttributes[attr][nodeId][edgeIdx]).filter(x=>x).join(', ');
+                const edgeLabel = visibleEdgeAttributes.map((attr) => edgeAttributes[attr][nodeId][edgeIdx]).filter(x=>x=>x !== null && x !== undefined).join(', ');
 
                 return nodeId===neighbourId ?
                     <ReflexiveEdge
@@ -1983,7 +2020,7 @@ const GraphEditor = () => {
 
     return <Container>
             <Title>
-                Graphs
+                Graph Editor
             </Title>
             <Tools tools={tools} currentTool={currentTool} onSelectTool={selectTool} />
             <Menu />
