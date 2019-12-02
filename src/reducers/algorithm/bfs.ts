@@ -90,7 +90,6 @@ export default {
         },
     },
     dependencies: {
-
     },
     requirements: {
         multiGraph: false,

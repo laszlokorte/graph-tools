@@ -92,7 +92,6 @@ export default {
         },
     },
     dependencies: {
-        edges: ['cost']
     },
     requirements: {
         multiGraph: false,

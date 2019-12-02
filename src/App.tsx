@@ -1910,18 +1910,18 @@ const AlgorithmStepper = ({box}) => {
 
         return <g style={{pointerEvents: 'none'}}>
             {nodes.map((neighbors, nodeId) => {
-                const color = nodeAttributes.color[nodeId];
+                const color = nodeAttributes.color && nodeAttributes.color[nodeId];
 
                 return <g key={nodeId}>
-                    <circle stroke="black" cx={positions[nodeId].x} cy={positions[nodeId].y} r={10} fill={color} />
+                    {!color ? null : <circle stroke="black" cx={positions[nodeId].x} cy={positions[nodeId].y} r={10} fill={color} />}
                     {Object.keys(nodeAttributes).map((k, i, all) =>
-                        <text x={positions[nodeId].x + 20} y={positions[nodeId].y + 15 + 20 * i - 10 * all.length}>{k}: {nodeAttributes[k][nodeId]}</text>
+                        <text key={k} x={positions[nodeId].x + 20} y={positions[nodeId].y + 15 + 20 * i - 10 * all.length}>{k}: {nodeAttributes[k][nodeId]}</text>
                     )}
                 </g>
             })}
             {nodes.map((neighbors, nodeId) =>
                 neighbors.map((neighbourId, edgeIdx) => {
-                    const edgeType = edgeAttributes.type[nodeId][edgeIdx]
+                    const edgeType = edgeAttributes.type && edgeAttributes.type[nodeId][edgeIdx]
 
                     const color = edgeType === null ? 'none' : {
                         'forward': 'green',
