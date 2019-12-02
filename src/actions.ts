@@ -87,10 +87,10 @@ export const autoLayout = () => ({
     type: 'NODE_AUTO_LAYOUT'
 })
 
-export const runAlgorithm = (algorithm, options) => ({
+export const runAlgorithm = (algorithm, parameters) => ({
     type: 'RUN_ALGORITHM',
     algorithm,
-    options
+    parameters
 })
 
 export const stepAlgorithm = (delta) => ({

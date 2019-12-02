@@ -8,7 +8,7 @@ const EDGE_FORWARD = 'forward';
 const EDGE_CROSS = 'cross';
 const EDGE_BACK = 'back';
 
-const run = (graph) => {
+const run = (graph, {startNode, weightAttribute}) => {
     const state = init(graph);
     const steps = [];
     const track = (s) => {
@@ -16,11 +16,8 @@ const run = (graph) => {
     }
 
     track(state);
-    for(let i=0;i<graph.nodes.length;i++) {
-        if(state.nodes.distance[i] === Infinity) {
-            bfs(state, graph, i, track);
-        }
-    }
+
+    dijkstra(state, graph, startNode, weightAttribute, track);
 
     return steps;
 }
@@ -39,7 +36,7 @@ const init = (graph) => {
     }
 }
 
-const bfs = (state, graph, nodeId, track) => {
+const dijkstra = (state, graph, nodeId, weightAttr, track) => {
     const q = heap();
     state.nodes.distance[nodeId] = 0;
     state.nodes.color[nodeId] = COLOR_GRAY;
@@ -59,7 +56,7 @@ const bfs = (state, graph, nodeId, track) => {
             if(state.nodes.color[neighbour] === COLOR_GRAY) {
                 continue;
             }
-            const edgeLength = graph.attributes.edges.cost[currentNode][i];
+            const edgeLength = graph.attributes.edges[weightAttr][currentNode][i];
             const prevDistance = state.nodes.distance[neighbour];
             const newDistance = state.nodes.distance[currentNode] + edgeLength;
 
@@ -82,7 +79,17 @@ export default {
     run,
     name: "Dijkstra",
     parameters: {
-
+        startNode: {
+            type: 'NODE',
+            label: 'Start at',
+            required: true,
+        },
+        weightAttribute: {
+            type: 'EDGE_ATTRIBUTE',
+            label: 'Use for cost',
+            required: true,
+            typeRequirement: ['numeric'],
+        },
     },
     dependencies: {
         edges: ['cost']

@@ -55,7 +55,7 @@ export default (state = initialState, graph, action) => {
                     type: action.algorithm,
                     focus: 0,
                     result: {
-                        steps: algorithms[action.algorithm].run(graph),
+                        steps: algorithms[action.algorithm].run(graph, action.parameters),
                     },
                 };
             }

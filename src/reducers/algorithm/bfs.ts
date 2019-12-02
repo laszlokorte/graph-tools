@@ -6,7 +6,7 @@ const EDGE_FORWARD = 'forward';
 const EDGE_CROSS = 'cross';
 const EDGE_BACK = 'back';
 
-const run = (graph) => {
+const run = (graph, {startNode}) => {
     const state = init(graph);
     const steps = [];
     const track = (s) => {
@@ -14,9 +14,14 @@ const run = (graph) => {
     }
 
     track(state);
-    for(let i=0;i<graph.nodes.length;i++) {
-        if(state.nodes.color[i] === COLOR_WHITE) {
-            bfs(state, graph, i, track);
+
+    if(startNode!== null) {
+        bfs(state, graph, startNode, track);
+    } else {
+        for(let i=0;i<graph.nodes.length;i++) {
+            if(state.nodes.color[i] === COLOR_WHITE) {
+                bfs(state, graph, i, track);
+            }
         }
     }
 
@@ -78,7 +83,11 @@ export default {
     run,
     name: "Breadth-First-Search",
     parameters: {
-
+        startNode: {
+            type: 'NODE',
+            label: 'Start at',
+            required: false,
+        },
     },
     dependencies: {
 

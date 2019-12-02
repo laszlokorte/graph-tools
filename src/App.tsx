@@ -150,6 +150,17 @@ const ToolbarSection = styled.div`
     margin: 1px;
 `
 
+const ToolbarForm = styled.form`
+    display: flex;
+    padding: 1px;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 0.5em;
+    background: #222;
+    color: #fff;
+    margin: 1px;
+`
+
 const ToolButton = styled.button`
     background: #222;
     color: #fff;
@@ -381,6 +392,76 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     </Toolbar>
 }
 
+const meetRequirements = (alg, graph) => {
+    return !alg.requirements || Object.entries(alg.requirements).every(([k,v]) => {
+        return graph.flags[k] === v;
+    })
+}
+
+const castAlgorithmParameter = (parameter, value) => {
+    if(value === '') {
+        return null;
+    }
+    switch(parameter.type) {
+        case 'NODE':
+            return parseInt(value, 10);
+    }
+
+    return value;
+}
+
+const AlgorithmOptions = ({algorithm}) => {
+    const dispatch = useDispatch();
+    const graph = useSelector(state => state.present.graph)
+    const alg = ALGORITHMS.find((a) => a.key === algorithm)
+    const canRun = alg !== null && meetRequirements(alg, graph)
+    const nodes = useSelector(state => state.present.graph.nodes)
+    const edgeAttributes = useSelector(state => state.present.graph.attributeTypes.edges)
+
+    const run = useCallback((evt) => {
+        evt.preventDefault();
+        const formData = new FormData(evt.currentTarget);
+        const parameters = Object.keys(alg.parameters).reduce((memo, k) => ({
+          ...memo,
+          [k]: castAlgorithmParameter(alg.parameters[k], formData.get(k)),
+        }), {});
+
+        dispatch(actions.runAlgorithm(alg.key, parameters))
+    }, [dispatch, alg])
+
+    return <ToolbarSection>
+        <ToolbarForm onSubmit={run}>
+        {Object.keys(alg.parameters).map((p) => {
+            switch(alg.parameters[p].type) {
+                case 'NODE': {
+                    return <label key={algorithm+p}>
+                        {alg.parameters[p].label}:<br/>
+                        <select defaultValue={''} name={p}>
+                            {alg.parameters[p].required ? null : <option value="">---</option>}
+                            {nodes.map((_,nodeIdx) => <option key={nodeIdx} value={nodeIdx}>#{nodeIdx}</option>)}
+                        </select>
+                    </label>
+                }
+                case 'EDGE_ATTRIBUTE': {
+                    return <label key={algorithm+p}>
+                        {alg.parameters[p].label}:<br/>
+                        <select defaultValue={''} name={p}>
+                            {alg.parameters[p].required ? null : <option value="">---</option>}
+                            {Object.keys(edgeAttributes).filter((attr) =>
+                                !alg.parameters[p].typeRequirement || alg.parameters[p].typeRequirement.includes(edgeAttributes[attr].type)
+                            ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
+                        </select>
+                    </label>
+                }
+            }
+
+            return '?';
+        })}
+        {!canRun ? null : <ToolButton>▶️</ToolButton>}
+        </ToolbarForm>
+    </ToolbarSection>
+}
+
 const AlgorithmRunner = () => {
     const dispatch = useDispatch();
     const selectBox = useRef();
@@ -410,8 +491,6 @@ const AlgorithmRunner = () => {
         })
     })
 
-    const canRun = (alg !== null) && applicableAlgorithms.some((a) => a.key === alg)
-
     return <ToolbarSection>
         <div>
             <span>Run Algorithm:</span><br/>
@@ -421,7 +500,7 @@ const AlgorithmRunner = () => {
                 )}
             </select>
         </div>
-        {!canRun ? null : <ToolButton onClick={run}>▶️</ToolButton>}
+        <AlgorithmOptions algorithm={alg} />
         {alg !== algorithmType ? null : <AlgorithmResult />}
     </ToolbarSection>
 }
@@ -1832,15 +1911,12 @@ const AlgorithmStepper = ({box}) => {
         return <g style={{pointerEvents: 'none'}}>
             {nodes.map((neighbors, nodeId) => {
                 const color = nodeAttributes.color[nodeId];
-                const discovery = nodeAttributes.discovery && nodeAttributes.discovery[nodeId];
-                const finishing = nodeAttributes.finishing && nodeAttributes.finishing[nodeId];
-                const distance = nodeAttributes.distance && nodeAttributes.distance[nodeId];
 
                 return <g key={nodeId}>
                     <circle stroke="black" cx={positions[nodeId].x} cy={positions[nodeId].y} r={10} fill={color} />
-                    {discovery === undefined ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y}>D: {discovery}</text>}
-                    {finishing === undefined ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y + 15}>F: {finishing}</text>}
-                    {distance === undefined ? null : <text x={positions[nodeId].x + 20} y={positions[nodeId].y + 30}>C: {distance}</text>}
+                    {Object.keys(nodeAttributes).map((k, i, all) =>
+                        <text x={positions[nodeId].x + 20} y={positions[nodeId].y + 15 + 20 * i - 10 * all.length}>{k}: {nodeAttributes[k][nodeId]}</text>
+                    )}
                 </g>
             })}
             {nodes.map((neighbors, nodeId) =>
