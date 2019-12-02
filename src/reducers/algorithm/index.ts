@@ -22,6 +22,10 @@ const initialState = {
     type: null,
     focus: 0,
     result: null,
+    dependencies: {
+        nodes: [],
+        edges: [],
+    },
 };
 
 const invalidatingActions = [
@@ -37,13 +41,13 @@ export default (state = initialState, graph, action) => {
     if(invalidatingActions.includes(action.type)) {
         return initialState;
     } else if(action.type === 'SET_NODE_ATTRIBUTE') {
-        if(state.type && algorithms[state.type].dependencies.nodes && algorithms[state.type].dependencies.nodes.includes(action.attribute)) {
+        if(state.dependencies.nodes && state.dependencies.nodes.includes(action.attribute)) {
             return initialState
         } else {
             return state;
         }
     } else if(action.type === 'SET_EDGE_ATTRIBUTE') {
-        if(state.type && algorithms[state.type].dependencies.edges && algorithms[state.type].dependencies.edges.includes(action.attribute)) {
+        if(state.dependencies.edges && state.dependencies.edges.includes(action.attribute)) {
             return initialState
         } else {
             return state;
@@ -57,6 +61,20 @@ export default (state = initialState, graph, action) => {
                     result: {
                         steps: algorithms[action.algorithm].run(graph, action.parameters),
                     },
+                    dependencies: {
+                        nodes: [
+                            ...(algorithms[action.algorithm].dependencies.nodes),
+                            ...Object.keys(algorithms[action.algorithm].parameters).filter((k) => {
+                                return algorithms[action.algorithm].parameters[k].type === 'NODE_ATTRIBUTE'
+                            }).map((k) => action.parameters[k])
+                        ],
+                        edges: [
+                            ...(algorithms[action.algorithm].dependencies.edges),
+                            ...Object.keys(algorithms[action.algorithm].parameters).filter((k) => {
+                                return algorithms[action.algorithm].parameters[k].type === 'EDGE_ATTRIBUTE'
+                            }).map((k) => action.parameters[k])
+                        ],
+                    }
                 };
             }
             case 'STEP_ALGORITHM': {

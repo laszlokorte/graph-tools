@@ -417,6 +417,7 @@ const AlgorithmOptions = ({algorithm}) => {
     const canRun = alg !== null && meetRequirements(alg, graph)
     const nodes = useSelector(state => state.present.graph.nodes)
     const edgeAttributes = useSelector(state => state.present.graph.attributeTypes.edges)
+    const nodeAttributes = useSelector(state => state.present.graph.attributeTypes.edges)
 
     const run = useCallback((evt) => {
         evt.preventDefault();
@@ -439,6 +440,17 @@ const AlgorithmOptions = ({algorithm}) => {
                         <select defaultValue={''} name={p}>
                             {alg.parameters[p].required ? null : <option value="">---</option>}
                             {nodes.map((_,nodeIdx) => <option key={nodeIdx} value={nodeIdx}>#{nodeIdx}</option>)}
+                        </select>
+                    </label>
+                }
+                case 'NODE_ATTRIBUTE': {
+                    return <label key={algorithm+p}>
+                        {alg.parameters[p].label}:<br/>
+                        <select defaultValue={''} name={p}>
+                            {alg.parameters[p].required ? null : <option value="">---</option>}
+                            {Object.keys(nodeAttributes).filter((attr) =>
+                                !alg.parameters[p].typeRequirement || alg.parameters[p].typeRequirement.includes(nodeAttributes[attr].type)
+                            ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
                         </select>
                     </label>
                 }

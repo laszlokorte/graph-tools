@@ -92,6 +92,8 @@ export default {
         },
     },
     dependencies: {
+        nodes: [],
+        edges: [],
     },
     requirements: {
         multiGraph: false,
