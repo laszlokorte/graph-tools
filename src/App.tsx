@@ -937,9 +937,17 @@ const Canvas = ({children, box}) => {
 }
 
 const NodeCircle = styled.circle`
-	fill:#eee;
-	stroke:currentColor;
-	stroke-width: 1;
+    fill:#eee;
+    stroke:currentColor;
+    stroke-width: 1;
+`
+
+const NewNodeCircle = styled.circle`
+    fill:#eee;
+    stroke:currentColor;
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0.5;
 `
 
 const NodeBox = styled.rect`
@@ -1240,6 +1248,10 @@ const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false}) => {
     />
 }
 
+const NewNode = ({x, y}) => {
+    return <NewNodeCircle style={{cursor:'copy'}} r="20" cx={x} cy={y} />
+}
+
 const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onDoubleClick=null, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
     const mouseDownConnectCallback = useCallback(mouseDownConnect ? (evt) => {
         mouseDownConnect(evt, nodeId, x, y)
@@ -1301,10 +1313,12 @@ const manipulationReducer = (state, action) => {
                 action.dispatch(actions.addEdge(state.connectionStart, state.connectionSnap))
             } else if(state.connectionStart !== null) {
                 action.dispatch(actions.createNode(state.x+state.offsetX, state.y+state.offsetY, state.connectionStart))
-            }
-            if(state.movingNode !== null) {
+            } else if(state.movingNode !== null) {
                 action.dispatch(actions.setNodeAttribute(state.movingNode, 'position', {x:state.x+state.offsetX, y:state.y+state.offsetY}))
+            } else if(state.x !== null && state.y !== null) {
+                action.dispatch(actions.createNode(state.x+state.offsetX, state.y+state.offsetY))
             }
+
 
             return {
                 connectionStart: null,
@@ -1316,7 +1330,7 @@ const manipulationReducer = (state, action) => {
                 movingNode: null,
             };
         case 'move':
-            if(state.connectionStart!==null || state.movingNode !== null) {
+            if(state.connectionStart!==null || state.movingNode !== null || (state.x !== null && state.y !== null)) {
                 return {
                     ...state,
                     x: action.x,
@@ -1334,6 +1348,16 @@ const manipulationReducer = (state, action) => {
                 offsetX: action.offsetX,
                 offsetY: action.offsetY,
                 connectionSnap: action.nodeId,
+            }
+        case 'startCreate':
+            return {
+                ...state,
+                connectionStart: null,
+                x: action.x,
+                y: action.y,
+                offsetX: 0,
+                offsetY: 0,
+                connectionSnap: null,
             }
         case 'snapConnect':
             if(state.connectionStart === null) {
@@ -1451,24 +1475,18 @@ const GraphManipulator = ({box}) => {
     }, [dispatch])
 
 
-    const onClick = useCallback((evt) => {
-        if(evt.altKey) {
-            return;
-        }
-        evt.stopPropagation();
-        const {x,y} = canvasPos({x: evt.clientX, y: evt.clientY});
-        dispatch(actions.createNode(x,y));
-    }, [canvasPos, dispatch])
-
     const onMouseDown = useCallback((evt) => {
         if(evt.altKey) {
             return;
         }
         evt.stopPropagation();
-    }, [])
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        dispatchManipulation({type: 'startCreate', ...pos})
+    }, [canvasPos, dispatchManipulation])
 
     return <g>
-        <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} onClick={onClick} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} onMouseUp={onMouseUp} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {nodes.map((neighbors, nodeId) =>
             <NodeManipulator
                 key={nodeId}
@@ -1483,8 +1501,13 @@ const GraphManipulator = ({box}) => {
                 snapped={nodeId === manipulation.connectionSnap}
                 onDoubleClick={deleteNode} />
         )}
-        {manipulation.connectionStart === null ? null : manipulation.connectionSnap !== null ?
-
+        {manipulation.connectionStart === null ? (
+            (manipulation.movingNode !== null || manipulation.x === null || manipulation.y === null) ? null :
+            <NewNode
+                    x={manipulation.x + manipulation.offsetX}
+                    y={manipulation.y + manipulation.offsetY}
+                />
+        ) : manipulation.connectionSnap !== null ?
             <NewEdge
                     nodeId={0}
                     x0={positions[manipulation.connectionStart].x}
@@ -2004,6 +2027,14 @@ const AlgorithmStepper = ({box}) => {
 
     const algorithm = useSelector(state => state.present.algorithm)
 
+    const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps[algorithm.focus].edges.type && algorithm.result.steps[algorithm.focus].edges.type.map((cs) => cs.map((c) => {
+         return c === null ? 'none' : {
+            'forward': 'green',
+            'cross': 'red',
+            'back': 'blue',
+        }[c];
+    })), [algorithm.result, algorithm.focus]);
+
     if(!algorithm.result || !algorithm.result.steps) {
         return <></>;
     } else {
@@ -2011,13 +2042,6 @@ const AlgorithmStepper = ({box}) => {
         const edgeAttributes = step.edges
         const nodeAttributes = step.nodes
         const nodeColors = nodeAttributes.color
-        const edgeColors = edgeAttributes.type && edgeAttributes.type.map((cs) => cs.map((c) => {
-             return c === null ? 'none' : {
-                'forward': 'green',
-                'cross': 'red',
-                'back': 'blue',
-            }[c];
-        }))
 
 
         return <g style={{pointerEvents: 'none'}}>
