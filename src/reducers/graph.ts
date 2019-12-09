@@ -326,37 +326,37 @@ const example = {
             "y": 0
           },
           "type": "object",
-          visible: false,
+          "visible": false,
         },
         "label": {
           "default": "new",
           "type": "text",
-          visible: true,
+          "visible": true,
         },
         "color": {
           "default": null,
           "type": "color",
-          visible: false,
+          "visible": false,
         },
         "initial": {
           "default": false,
           "type": "boolean",
-          visible: false,
+          "visible": false,
         },
         "final": {
           "default": false,
           "type": "boolean",
-          visible: false,
+          "visible": false,
         },
         "source": {
           "default": false,
           "type": "boolean",
-          visible: false,
+          "visible": false,
         },
         "sink": {
           "default": false,
           "type": "boolean",
-          visible: false,
+          "visible": false,
         },
       }
     }
