@@ -427,6 +427,18 @@ const thisReducer = (state = /*initialState*/example, action) => {
         case 'CLEAR_GRAPH': {
             return initialState;
         }
+        case 'CLEAR_GRAPH_EDGES': {
+            return ({
+                ...state,
+                nodes: state.nodes.map((_) => []),
+                attributes: {
+                    ...state.attributes,
+                    edges: objectMap(state.attributes.edges,
+                        (key, value) => value.map((_) => [])
+                    )
+                },
+            });
+        }
         case 'ADD_EDGE': {
             if(!state.flags.multiGraph && state.nodes[action.fromNodeId].includes(action.toNodeId)) {
                 return state;

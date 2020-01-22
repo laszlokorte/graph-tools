@@ -379,11 +379,13 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
     const layout = useCallback(() => dispatch(actions.autoLayout()), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
+    const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
 
     return <Toolbar>
         <ToolButton disabled={!canUndo} onClick={undo}>↶</ToolButton>
         <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
         <ToolButton onClick={clear}>Clear</ToolButton>
+        <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
         <ToolButton onClick={layout}>Auto Layout</ToolButton>
         {tools.map((t) =>
             <ToolButton key={t} disabled={t===currentTool} onClick={() => onSelectTool(t)}>{t}</ToolButton>
@@ -982,7 +984,7 @@ const NodeId = styled.text`
 
 const NodeLabel = styled.text`
     cursor: default;
-    text-anchor: start;
+    text-anchor: middle;
     dominant-baseline: central;
 `
 const NodeLabelSelection = styled.text`
@@ -1088,14 +1090,14 @@ const Node = ({x, y, nodeType = 'circle', nodeId, selected = false, style = {}, 
 	</g>
 }
 
-const edgePath = (directed, x0,y0,x1,y1) => {
+const edgePath = (directed, x0,y0,x1,y1, angle = 0) => {
     const midX = (x0 + x1) / 2
     const midY = (y0 + y1) / 2
     let dirX = x1 - x0
     let dirY = y1 - y0
     if(!dirX && !dirY) {
-        dirX = 1
-        dirY = 0
+        dirX = Math.cos(angle - Math.PI / 2)
+        dirY = Math.sin(angle - Math.PI / 2)
     }
     const length2 = dirX*dirX + dirY*dirY
     const length = Math.sqrt(length2)
@@ -1126,8 +1128,8 @@ const edgePath = (directed, x0,y0,x1,y1) => {
     }
 }
 
-const Edge = ({nodeId, edgeIndex = null, x0,y0,x1,y1, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true, disabled=false}) => {
-	const path = edgePath(directed, x0, y0, x1, y1)
+const Edge = ({nodeId, edgeIndex = null, x0,y0,x1,y1, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true, disabled=false, angle = 0}) => {
+	const path = edgePath(directed, x0, y0, x1, y1, angle)
 
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId, edgeIndex)
@@ -1206,12 +1208,12 @@ const NodeEdge = ({nodeId, edgeIndex, x0, y0, x1, y1, onClick = null, onDoubleCl
     />
 }
 
-const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false}) => {
+const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false, angle = 0}) => {
     let dirX = x1 - x0
     let dirY = y1 - y0
     if(!dirX && !dirY) {
-        dirX = 1
-        dirY = 0
+        dirX = Math.cos(angle - Math.PI / 2)
+        dirY = Math.sin(angle - Math.PI / 2)
     }
     const length2 = dirX*dirX + dirY*dirY
     const length = Math.sqrt(length2)
@@ -1243,6 +1245,7 @@ const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false}) => {
         x1={x1 + (offset ? 20 * cDirXNormr : 0)}
         y1={y1 + (offset ? 20 * cDirYNormr : 0)}
         style={{strokeDasharray: "10 10"}}
+        angle={angle}
         disabled={true}
         directed={directed}
     />
@@ -1392,7 +1395,7 @@ const manipulationReducer = (state, action) => {
     return state;
 }
 
-const GraphManipulator = ({box}) => {
+const GraphManipulator = ({box, nodeAngles}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -1516,6 +1519,7 @@ const GraphManipulator = ({box}) => {
                     y1={positions[manipulation.connectionSnap].y}
                     directed={flags.directed}
                     offset={true}
+                    angle={nodeAngles[manipulation.connectionSnap]}
                 />
          :
             <NewEdge
@@ -1525,6 +1529,7 @@ const GraphManipulator = ({box}) => {
                     x1={manipulation.x}
                     y1={manipulation.y}
                     directed={flags.directed}
+                    angle={0}
                 />
         }
     </g>
@@ -1654,7 +1659,7 @@ const SelectionBox = styled.polygon`
     vector-effect: non-scaling-stroke;
 `
 
-const GraphSelector = ({box}) => {
+const GraphSelector = ({box, nodeAngles}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
     // const camera = useCamera();
@@ -1664,6 +1669,7 @@ const GraphSelector = ({box}) => {
     const selectedEdges = useSelector(state => state.present.selection.edges)
     const nodes = useSelector(state => state.present.graph.nodes)
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+
 
     const selectNode = useCallback((evt, nodeId) => {
         dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
@@ -1768,7 +1774,7 @@ const GraphSelector = ({box}) => {
                         nodeId={nodeId}
                         edgeIndex={edgeIdx}
                         key={`${nodeId}-${edgeIdx}`}
-                        angle={Math.PI/1}
+                        angle={nodeAngles[nodeId] + Math.PI}
                         x={positions[nodeId].x}
                         y={positions[nodeId].y}
                         onMouseDown={selectEdge}
@@ -1803,7 +1809,7 @@ const GraphLayerNodes = ({positions}) => {
     </>
 }
 
-const GraphLayerEdges = ({directed, nodes, positions}) => {
+const GraphLayerEdges = ({directed, nodes, positions, angles}) => {
     return <>
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) => {
@@ -1812,7 +1818,7 @@ const GraphLayerEdges = ({directed, nodes, positions}) => {
                         nodeId={nodeId}
                         edgeIndex={edgeIdx}
                         key={`${nodeId}-${edgeIdx}`}
-                        angle={Math.PI/1}
+                        angle={angles[nodeId] + Math.PI}
                         x={positions[nodeId].x}
                         y={positions[nodeId].y}
                     /> :
@@ -1838,10 +1844,9 @@ const GraphLayerNodeLabels = ({positions, labels, labelKeys}) => {
                 {positions.map((pos, nodeId) => {
                     return <NodeLabel
                         key={nodeId}
-                        nodeId={nodeId}
-                        x={30 + pos.x}
-                        y={pos.y}
-                        dy={15 * (0.5 + i - labelKeys.length / 2)}
+                        x={pos.x}
+                        y={30 + pos.y}
+                        dy={15 * (1 + i - labelKeys.length / 2)}
                     >{k}: {JSON.stringify(labels[k][nodeId])}</NodeLabel>
                 })}
             </g>
@@ -1849,13 +1854,13 @@ const GraphLayerNodeLabels = ({positions, labels, labelKeys}) => {
     </g>
 }
 
-const GraphLayerEdgeLabels = ({directed, nodes, positions, labels, labelKeys}) => {
+const GraphLayerEdgeLabels = ({directed, nodes, positions, labels, labelKeys, angles}) => {
     return <>
         {labelKeys.map((k, kdx) => {
             return <g key={k}>
                 {nodes.map((neighbors, nodeId) =>
                     neighbors.map((neighbourId, edgeIdx) => {
-                        const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y);
+                        const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, angles[nodeId]);
                         return <EdgeLabel key={nodeId + '-' + edgeIdx} x={p.textX} y={p.textY} dy={20 * (0.5 + kdx - labelKeys.length / 2)} orientation={p.orientation}>
                             {k}: {labels[k][nodeId][edgeIdx]}
                         </EdgeLabel>
@@ -1866,7 +1871,7 @@ const GraphLayerEdgeLabels = ({directed, nodes, positions, labels, labelKeys}) =
     </>
 }
 
-const Graph = ({box}) => {
+const Graph = ({box, nodeAngles}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -1880,13 +1885,12 @@ const Graph = ({box}) => {
     const edgeAttributes = useSelector(state => state.present.graph.attributes.edges)
     const visibleEdgeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => state.present.graph.attributeTypes.edges[e].visible))
 
-
     return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
         <GraphLayerNodes positions={positions} />
-        <GraphLayerEdges directed={flags.directed} nodes={nodes} positions={positions} />
+        <GraphLayerEdges angles={nodeAngles} directed={flags.directed} nodes={nodes} positions={positions} />
         <GraphLayerNodeLabels positions={positions} labels={nodeAttributes} labelKeys={visibleNodeAttributes} />
-        <GraphLayerEdgeLabels directed={flags.directed} nodes={nodes} positions={positions} labels={edgeAttributes} labelKeys={visibleEdgeAttributes} />
+        <GraphLayerEdgeLabels angles={nodeAngles} directed={flags.directed} nodes={nodes} positions={positions} labels={edgeAttributes} labelKeys={visibleEdgeAttributes} />
     </g>
 }
 
@@ -1903,7 +1907,8 @@ const ReflexiveEdgeStepper = ({x,y,angle, directed, color}) => {
         x + Math.cos(angle - Math.PI / 8) * 20,
         y + Math.sin(angle - Math.PI / 8) * 20,
         x + Math.cos(angle + Math.PI / 8) * 20,
-        y + Math.sin(angle + Math.PI / 8) * 20
+        y + Math.sin(angle + Math.PI / 8) * 20,
+        angle
     )
 
     return <EdgeStepperLine stroke={color} d={path.curve} />
@@ -1976,13 +1981,13 @@ const AlgorithmStepperNodeColoring = ({positions, colors}) => {
 }
 
 
-const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes}) => {
+const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles}) => {
     return <>
         {/*TODO: Implement*/}
     </>
 }
 
-const AlgorithmStepperEdgeColoring = ({directed, positions, nodes, colors}) => {
+const AlgorithmStepperEdgeColoring = ({directed, positions, angles, nodes, colors}) => {
     if(!colors) {
         return <></>;
     }
@@ -1995,7 +2000,7 @@ const AlgorithmStepperEdgeColoring = ({directed, positions, nodes, colors}) => {
                     return nodeId===neighbourId ?
                         <ReflexiveEdgeStepper
                             key={`${nodeId}-${edgeIdx}`}
-                            angle={Math.PI/1}
+                            angle={angles[nodeId] + Math.PI}
                             x={positions[nodeId].x}
                             y={positions[nodeId].y}
                             directed={directed}
@@ -2015,7 +2020,7 @@ const AlgorithmStepperEdgeColoring = ({directed, positions, nodes, colors}) => {
     </g>
 }
 
-const AlgorithmStepper = ({box}) => {
+const AlgorithmStepper = ({box, nodeAngles}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -2047,8 +2052,8 @@ const AlgorithmStepper = ({box}) => {
         return <g style={{pointerEvents: 'none'}}>
             <AlgorithmStepperNodeColoring positions={positions} colors={nodeColors} />
             <AlgorithmStepperNodeLabels positions={positions} nodeAttributes={nodeAttributes} />
-            <AlgorithmStepperEdgeColoring directed={flags.directed} positions={positions} nodes={nodes} colors={edgeColors} />
-            <AlgorithmStepperEdgeLabels positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
+            <AlgorithmStepperEdgeColoring angles={nodeAngles} directed={flags.directed} positions={positions} nodes={nodes} colors={edgeColors} />
+            <AlgorithmStepperEdgeLabels angles={nodeAngles} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
         </g>
     }
 }
@@ -2063,7 +2068,8 @@ const ReflexiveEdgeSelection = ({x,y,angle, directed}) => {
         x + Math.cos(angle - Math.PI / 8) * 20,
         y + Math.sin(angle - Math.PI / 8) * 20,
         x + Math.cos(angle + Math.PI / 8) * 20,
-        y + Math.sin(angle + Math.PI / 8) * 20
+        y + Math.sin(angle + Math.PI / 8) * 20,
+        angle
     )
 
     return <EdgeSelectionLine d={path.curve} />
@@ -2109,7 +2115,7 @@ const NodeEdgeSelection = ({x0,y0,x1,y1,directed}) => {
     return <EdgeSelectionLine d={path.curve} />
 }
 
-const GraphSelection = ({box}) => {
+const GraphSelection = ({box, nodeAngles}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -2131,7 +2137,7 @@ const GraphSelection = ({box}) => {
             return from===to ?
                     <ReflexiveEdgeSelection
                         key={`${from}-${edgeIdx}`}
-                        angle={Math.PI/1}
+                        angle={nodeAngles[from] + Math.PI}
                         x={positions[from].x}
                         y={positions[from].y}
                         directed={flags.directed}
@@ -2173,6 +2179,24 @@ const GraphEditor = () => {
         }))
     , [present.graph]);
 
+    const nodeAngles = useSelector(state => {
+        const positions = state.present.graph.attributes.nodes.position
+
+        return state.present.graph.nodes.map((neighbours, idx) => {
+            const ownPos = positions[idx]
+            const outgoing = neighbours.map((n) => n !== idx ? Math.atan2(positions[n].y - ownPos.y, positions[n].x - ownPos.x) : null).filter(a => a !== null)
+            const incoming = state.present.graph.nodes.map((others, o) => (o !== idx && others.includes(idx)) ? Math.atan2(positions[o].y - ownPos.y, positions[o].x - ownPos.x) : null).filter(a => a !== null)
+
+            const cosSum = outgoing.reduce((acc, angle) => acc + Math.cos(angle), 0) +
+                incoming.reduce((acc, angle) => acc + Math.cos(angle), 0)
+
+            const sinSum = outgoing.reduce((acc, angle) => acc + Math.sin(angle), 0) +
+                incoming.reduce((acc, angle) => acc + Math.sin(angle), 0)
+
+            return Math.atan2(sinSum, cosSum)
+        })
+    })
+
     const nonInfBox = {
         minX: box.minX===Infinity ? -1*margin : box.minX,
         maxX: box.maxX===-Infinity ? 1*margin : box.maxX,
@@ -2203,15 +2227,19 @@ const GraphEditor = () => {
             <Canvas box={nonInfBox}>
                 <Graph
                     box={nonInfBox}
+                    nodeAngles={nodeAngles}
                 />
                 <GraphSelection
                     box={nonInfBox}
+                    nodeAngles={nodeAngles}
                 />
                 <ToolComponent
                     box={nonInfBox}
+                    nodeAngles={nodeAngles}
                 />
                 <AlgorithmStepper
                     box={nonInfBox}
+                    nodeAngles={nodeAngles}
                 />
             </Canvas>
         </Container>;

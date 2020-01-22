@@ -27,6 +27,11 @@ export const setPosition = (nodeId, x, y) => ({
 export const clearGraph = () => ({
     type: 'CLEAR_GRAPH',
 })
+
+export const clearGraphEdges = () => ({
+    type: 'CLEAR_GRAPH_EDGES',
+})
+
 export const addEdge = (fromNodeId, toNodeId) => ({
     type: 'ADD_EDGE',
     fromNodeId,
