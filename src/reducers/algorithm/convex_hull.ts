@@ -3,6 +3,7 @@ const COLOR_GRAY = 'GRAY';
 const COLOR_BLACK = 'BLACK';
 
 const run = (graph) => {
+    const positioning = graph.attributes.nodes.position
     const steps = [];
 
     const track = (s) => {
@@ -10,22 +11,22 @@ const run = (graph) => {
     }
 
     const minNode = graph.nodes.reduce((best, _, idx) => {
-        if(graph.attributes.nodes.position[idx].y >
-           graph.attributes.nodes.position[best].y) {
+        if(positioning[idx].y >
+           positioning[best].y) {
             return idx
         } else {
             return best;
         }
     }, 0)
 
-    const posBest = graph.attributes.nodes.position[minNode]
+    const posBest = positioning[minNode]
 
     const sortedNodes = graph.nodes.map((_,idx) => idx).sort((a,b) => {
         if(a === minNode) return -1
         if(b === minNode) return 1
 
-        const posA = graph.attributes.nodes.position[a]
-        const posB = graph.attributes.nodes.position[b]
+        const posA = positioning[a]
+        const posB = positioning[b]
 
         return Math.atan2(posA.y - posBest.y, posA.x - posBest.x) - Math.atan2(posB.y - posBest.y, posB.x - posBest.x)
     })
@@ -43,12 +44,14 @@ const run = (graph) => {
 
 
     while (i < N) {
+        state.time++;
+
         const p1 = stack[stack.length - 1]
         const p2 = stack[stack.length - 2]
 
-        const pos1 = graph.attributes.nodes.position[sortedNodes[p1]]
-        const pos2 = graph.attributes.nodes.position[sortedNodes[p2]]
-        const posI = graph.attributes.nodes.position[sortedNodes[i]]
+        const pos1 = positioning[sortedNodes[p1]]
+        const pos2 = positioning[sortedNodes[p2]]
+        const posI = positioning[sortedNodes[i]]
 
         const cw = (pos2.y - pos1.y) * (posI.x - pos2.x) -
                   (pos2.x - pos1.x) * (posI.y - pos2.y) >= 0
@@ -61,6 +64,11 @@ const run = (graph) => {
             const no = stack.pop()
             state.nodes.color[sortedNodes[no]] = COLOR_GRAY
         }
+
+        state.polygons = [
+            stack.map((i) => positioning[sortedNodes[i]])
+        ]
+
         track(state)
     }
 
@@ -69,17 +77,18 @@ const run = (graph) => {
 
 const init = (graph, sortedNodes) => {
     const sortLabels = []
-    for(let k=0;k<sortedNodes.length;k++) {
+    for(let k=0; k<sortedNodes.length; k++) {
         sortLabels[sortedNodes[k]] = k
     }
 
     return {
         nodes: {
-            sort: sortLabels,
+            polarSort: sortLabels,
             color: graph.nodes.map((_,idx) => idx === sortedNodes[0] ? COLOR_BLACK : COLOR_WHITE),
         },
         edges: {},
         time: 0,
+        polygons: [],
     }
 }
 
@@ -98,6 +107,5 @@ export default {
         edges: [],
     },
     requirements: {
-        directed: false,
     },
 }

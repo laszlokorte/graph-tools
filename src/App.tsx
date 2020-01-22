@@ -1981,6 +1981,14 @@ const AlgorithmStepperNodeColoring = ({positions, colors}) => {
 }
 
 
+const AlgorithmStepperPolygons = ({polygons}) => {
+    return <>
+        {polygons ? polygons.map((p, i) => {
+            return <polygon key={i} fill="rgba(0,200,0,0.1)" points={p.map(({x,y}) => `${x} ${y},`).join(' ')} />
+        }) : null}
+    </>
+}
+
 const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles}) => {
     return <>
         {/*TODO: Implement*/}
@@ -2050,6 +2058,7 @@ const AlgorithmStepper = ({box, nodeAngles}) => {
 
 
         return <g style={{pointerEvents: 'none'}}>
+            <AlgorithmStepperPolygons polygons={step.polygons} />
             <AlgorithmStepperNodeColoring positions={positions} colors={nodeColors} />
             <AlgorithmStepperNodeLabels positions={positions} nodeAttributes={nodeAttributes} />
             <AlgorithmStepperEdgeColoring angles={nodeAngles} directed={flags.directed} positions={positions} nodes={nodes} colors={edgeColors} />
