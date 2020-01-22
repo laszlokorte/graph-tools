@@ -2032,7 +2032,7 @@ const AlgorithmStepper = ({box, nodeAngles}) => {
 
     const algorithm = useSelector(state => state.present.algorithm)
 
-    const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps[algorithm.focus].edges.type && algorithm.result.steps[algorithm.focus].edges.type.map((cs) => cs.map((c) => {
+    const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps.length && algorithm.result.steps[algorithm.focus].edges.type && algorithm.result.steps[algorithm.focus].edges.type.map((cs) => cs.map((c) => {
          return c === null ? 'none' : {
             'forward': 'green',
             'cross': 'red',
@@ -2040,7 +2040,7 @@ const AlgorithmStepper = ({box, nodeAngles}) => {
         }[c];
     })), [algorithm.result, algorithm.focus]);
 
-    if(!algorithm.result || !algorithm.result.steps) {
+    if(!algorithm.result || !algorithm.result.steps || !algorithm.result.steps.length) {
         return <></>;
     } else {
         const step = algorithm.result.steps[algorithm.focus];

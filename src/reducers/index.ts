@@ -44,6 +44,9 @@ export default undoable((state, action) => {
         if(action.type === 'CLEAR_GRAPH') {
             return 'CLEAR_GRAPH';
         }
+        if(action.type === 'CLEAR_GRAPH_EDGES') {
+            return 'CLEAR_GRAPH_EDGES';
+        }
 
         return null;
     }

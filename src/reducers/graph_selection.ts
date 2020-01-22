@@ -7,6 +7,11 @@ export default (graphState, selectionState, action) => {
                 nodes: [],
                 edges: [],
             }
+        case 'CLEAR_GRAPH_EDGES':
+            return {
+                ...selectionState,
+                edges: [],
+            }
         case 'SET_NODE_ATTRIBUTE':
             return {
                 ...selectionState,

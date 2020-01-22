@@ -2,12 +2,16 @@ import bfs from './bfs'
 import dfs from './dfs'
 import dijkstra from './dijkstra'
 import belman_ford from './belman_ford'
+import convex_hull from './convex_hull'
+import triangulation from './triangulation'
 
 const algorithms = {
     bfs,
     dfs,
     dijkstra,
     belman_ford,
+    convex_hull,
+    triangulation,
 };
 
 export const ALGORITHMS = Object.keys(algorithms).map((a) => ({
@@ -48,6 +52,12 @@ export default (state = initialState, graph, action) => {
         }
     } else if(action.type === 'SET_EDGE_ATTRIBUTE') {
         if(state.dependencies.edges && state.dependencies.edges.includes(action.attribute)) {
+            return initialState
+        } else {
+            return state;
+        }
+    } else if(action.type === 'CLEAR_GRAPH_EDGES') {
+        if(state.dependencies.edges.length) {
             return initialState
         } else {
             return state;
