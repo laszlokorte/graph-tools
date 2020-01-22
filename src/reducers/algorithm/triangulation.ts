@@ -33,7 +33,7 @@ const run = (graph) => {
 
         const newTriangles = insertPoint(triangles, pos)
 
-        state.polygons = triangles.map(({a,b,c}) => [a,b,c])
+        state.polygons = triangles.filter(({children}) => children.length === 0).map(({a,b,c}) => [a,b,c])
         track(state)
     }
 
