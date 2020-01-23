@@ -66,7 +66,9 @@ const run = (graph) => {
         }
 
         state.polygons = [
-            stack.map((i) => positioning[sortedNodes[i]])
+            {
+                points: stack.map((i) => positioning[sortedNodes[i]]),
+            }
         ]
 
         track(state)

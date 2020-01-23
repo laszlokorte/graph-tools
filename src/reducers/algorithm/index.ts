@@ -50,6 +50,12 @@ export default (state = initialState, graph, action) => {
         } else {
             return state;
         }
+    } else if(action.type === 'NODE_AUTO_LAYOUT') {
+        if(state.dependencies.nodes && state.dependencies.nodes.includes('position')) {
+            return initialState
+        } else {
+            return state;
+        }
     } else if(action.type === 'SET_EDGE_ATTRIBUTE') {
         if(state.dependencies.edges && state.dependencies.edges.includes(action.attribute)) {
             return initialState

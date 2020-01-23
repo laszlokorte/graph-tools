@@ -1983,8 +1983,8 @@ const AlgorithmStepperNodeColoring = ({positions, colors}) => {
 
 const AlgorithmStepperPolygons = ({polygons}) => {
     return <>
-        {polygons ? polygons.map((p, i) => {
-            return <polygon key={i} stroke="green" fill="rgba(0,200,0,0.1)" points={p.map(({x,y}) => `${x} ${y},`).join(' ')} />
+        {polygons ? polygons.map(({points, stroke, fill}, i) => {
+            return <polygon key={i} stroke={stroke||'green'} fill={fill||'lightgreen'} fill-opacity="0.3" points={points.map(({x,y}) => `${x} ${y},`).join(' ')} />
         }) : null}
     </>
 }

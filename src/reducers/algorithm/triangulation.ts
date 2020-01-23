@@ -25,22 +25,30 @@ const run = (graph) => {
         ]
     }
 
-    state.polygons.push([
-        geometry.points[geometry.triangles[0].a],
-        geometry.points[geometry.triangles[0].b],
-        geometry.points[geometry.triangles[0].c],
-    ])
+    state.polygons.push({
+        fill: 'gray',
+        stroke: 'black',
+        points: [
+            geometry.points[geometry.triangles[0].a],
+            geometry.points[geometry.triangles[0].b],
+            geometry.points[geometry.triangles[0].c],
+        ]
+    })
 
     track(state)
 
     const step = () => {
         state.polygons = geometry.triangles.
             filter(({children}) => children.length === 0).
-            map(({a,b,c}) => [
-                geometry.points[a],
-                geometry.points[b],
-                geometry.points[c]
-            ])
+            map(({a,b,c}) => ({
+                fill: (a>=3 && b>=3 && c>=3) ? 'green' : 'gray',
+                stroke: (a>=3 && b>=3 && c>=3) ? 'green' : 'black',
+                points: [
+                    geometry.points[a],
+                    geometry.points[b],
+                    geometry.points[c]
+                ]
+            }))
 
         track(state)
     }
@@ -55,11 +63,15 @@ const run = (graph) => {
     state.polygons = geometry.triangles.
         filter(({children}) => children.length === 0).
         filter(({a,b,c}) => a>=3 && b>=3 && c>=3).
-        map(({a,b,c}) => [
-            geometry.points[a],
-            geometry.points[b],
-            geometry.points[c]
-        ])
+        map(({a,b,c}) => ({
+            fill: 'green',
+            stroke: 'green',
+            points: [
+                geometry.points[a],
+                geometry.points[b],
+                geometry.points[c]
+            ]
+        }))
 
     track(state)
 
