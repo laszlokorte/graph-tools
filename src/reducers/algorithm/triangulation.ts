@@ -33,12 +33,7 @@ const run = (graph) => {
 
     track(state)
 
-    for(let i=0;i<graph.nodes.length;i++) {
-        state.time += 1
-        const pos = positioning[i];
-
-        const newTriangles = insertPoint(geometry, pos)
-
+    const step = () => {
         state.polygons = geometry.triangles.
             filter(({children}) => children.length === 0).
             map(({a,b,c}) => [
@@ -48,6 +43,13 @@ const run = (graph) => {
             ])
 
         track(state)
+    }
+
+    for(let i=0;i<graph.nodes.length;i++) {
+        state.time += 1
+        const pos = positioning[i];
+
+        const newTriangles = insertPoint(geometry, pos, step)
     }
 
     state.polygons = geometry.triangles.
@@ -64,7 +66,7 @@ const run = (graph) => {
     return steps;
 }
 
-const insertPoint = (geometry, pos) => {
+const insertPoint = (geometry, pos, step) => {
     let currentTriangle = 0
 
     outer: while(geometry.triangles[currentTriangle].children.length) {
@@ -112,14 +114,16 @@ const insertPoint = (geometry, pos) => {
 
     geometry.triangles[currentTriangle].children.push(t3)
 
-    legalizEdge(newPointIdx, geometry.triangles[currentTriangle].a, geometry.triangles[currentTriangle].b, geometry, t1)
-    legalizEdge(newPointIdx, geometry.triangles[currentTriangle].a, geometry.triangles[currentTriangle].c, geometry, t2)
-    legalizEdge(newPointIdx, geometry.triangles[currentTriangle].b, geometry.triangles[currentTriangle].c, geometry, t3)
+    step()
+
+    legalizEdge(newPointIdx, geometry.triangles[currentTriangle].a, geometry.triangles[currentTriangle].b, geometry, t1, step)
+    legalizEdge(newPointIdx, geometry.triangles[currentTriangle].a, geometry.triangles[currentTriangle].c, geometry, t2, step)
+    legalizEdge(newPointIdx, geometry.triangles[currentTriangle].b, geometry.triangles[currentTriangle].c, geometry, t3, step)
 
     return geometry
 }
 
-const legalizEdge = (pr, pi, pj, geometry, currentTriangle) => {
+const legalizEdge = (pr, pi, pj, geometry, currentTriangle, step) => {
     const nbTri = geometry.triangles.
         findIndex((t, i) => {
             return i !== currentTriangle &&
@@ -175,8 +179,10 @@ const legalizEdge = (pr, pi, pj, geometry, currentTriangle) => {
         geometry.triangles[nbTri].children.push(t1)
         geometry.triangles[nbTri].children.push(t2)
 
-        legalizEdge(pr, pj, pk, geometry, t1)
-        legalizEdge(pr, pi, pk, geometry, t2)
+        step()
+
+        legalizEdge(pr, pj, pk, geometry, t1, step)
+        legalizEdge(pr, pi, pk, geometry, t2, step)
     }
 }
 
