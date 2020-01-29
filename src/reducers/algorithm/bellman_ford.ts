@@ -65,7 +65,7 @@ const copy = (object) => {
 
 export default {
     run,
-    name: "Belmann-Ford",
+    name: "Bellmann-Ford",
     parameters: {
         startNode: {
             type: 'NODE',

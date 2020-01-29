@@ -1,17 +1,21 @@
 import bfs from './bfs'
 import dfs from './dfs'
 import dijkstra from './dijkstra'
-import belman_ford from './belman_ford'
+import bellman_ford from './bellman_ford'
 import convex_hull from './convex_hull'
 import triangulation from './triangulation'
+import two_color from './two_color'
+import kd_tree from './kd_tree'
 
 const algorithms = {
     bfs,
     dfs,
     dijkstra,
-    belman_ford,
+    bellman_ford,
     convex_hull,
     triangulation,
+    two_color,
+    kd_tree,
 };
 
 export const ALGORITHMS = Object.keys(algorithms).map((a) => ({
