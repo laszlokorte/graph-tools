@@ -6,6 +6,7 @@ import convex_hull from './convex_hull'
 import triangulation from './triangulation'
 import two_color from './two_color'
 import kd_tree from './kd_tree'
+import rotating_calipers from './rotating_calipers'
 
 const algorithms = {
     bfs,
@@ -16,6 +17,7 @@ const algorithms = {
     triangulation,
     two_color,
     kd_tree,
+    rotating_calipers,
 };
 
 export const ALGORITHMS = Object.keys(algorithms).map((a) => ({
