@@ -7,7 +7,7 @@ const EDGE_CROSS = 'cross';
 const EDGE_BACK = 'back';
 
 
-const run = (graph, {startNode}) => {
+const run = (graph) => {
     const state = init(graph);
     const steps = [];
     const track = (s) => {
@@ -15,6 +15,8 @@ const run = (graph, {startNode}) => {
     }
 
     track(state);
+
+    return; ///////////// TODO
 
     if(startNode !== null) {
         visitNode(state, graph, startNode, track);
@@ -78,13 +80,8 @@ const copy = (object) => {
 
 export default {
     run,
-    name: "Depth-First-Search",
+    name: "❌ Topological Sort",
     parameters: {
-        startNode: {
-            type: 'NODE',
-            label: 'Start at',
-            required: false,
-        },
     },
     dependencies: {
         nodes: [],
@@ -92,5 +89,6 @@ export default {
     },
     requirements: {
         multiGraph: false,
+        directed: true,
     },
 }

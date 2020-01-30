@@ -6,7 +6,21 @@ import convex_hull from './convex_hull'
 import triangulation from './triangulation'
 import two_color from './two_color'
 import kd_tree from './kd_tree'
+import quad_tree from './quad_tree'
 import rotating_calipers from './rotating_calipers'
+import bcc from './bcc'
+import closest_point_pair from './closest_point_pair'
+import dinic from './dinic'
+import max_bip_matching_fulkerson from './max_bip_matching_fulkerson'
+import max_flow from './max_flow'
+import max_matching from './max_matching'
+import max_matching_hungarian_method from './max_matching_hungarian_method'
+import minimal_disk from './minimal_disk'
+import push_relabel from './push_relabel'
+import scc from './scc'
+import topological_sort from './topological_sort'
+import johnson from './johnson'
+import floyd_warshall from './floyd_warshall'
 
 const algorithms = {
     bfs,
@@ -17,7 +31,21 @@ const algorithms = {
     triangulation,
     two_color,
     kd_tree,
+    quad_tree,
     rotating_calipers,
+    bcc,
+    closest_point_pair,
+    dinic,
+    max_bip_matching_fulkerson,
+    max_flow,
+    max_matching,
+    max_matching_hungarian_method,
+    minimal_disk,
+    push_relabel,
+    scc,
+    topological_sort,
+    johnson,
+    floyd_warshall,
 };
 
 export const ALGORITHMS = Object.keys(algorithms).map((a) => ({
