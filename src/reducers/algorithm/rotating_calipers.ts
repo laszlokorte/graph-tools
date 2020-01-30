@@ -1,6 +1,8 @@
 const COLOR_WHITE = 'WHITE';
 const COLOR_GRAY = 'GRAY';
 const COLOR_BLACK = 'BLACK';
+const COLOR_GREEN = 'lightgreen';
+const COLOR_ORANGE = 'orange';
 
 const run = (graph) => {
     const positioning = graph.attributes.nodes.position
@@ -22,16 +24,40 @@ const run = (graph) => {
     ]
 
     const pairs = rotate(positioning, hull)
+    let maxDistance = 0
+    let maxPair = null;
 
-    for(let [a,p1,p2] of pairs) {
+    for(let [p, p1,p2] of pairs) {
+        const dx = positioning[hull[(p + 1)%hull.length]].x - positioning[hull[p%hull.length]].x
+        const dy = positioning[hull[(p + 1)%hull.length]].y - positioning[hull[p%hull.length]].y
+
+        const pairDx = positioning[hull[p2%hull.length]].x - positioning[hull[p1%hull.length]].x
+        const pairDy = positioning[hull[p2%hull.length]].y - positioning[hull[p1%hull.length]].y
+        const pairDistance = pairDx * pairDx + pairDy * pairDy
+
+        if(pairDistance > maxDistance) {
+            if(maxPair) {
+                state.nodes.color[hull[maxPair[0]]] = COLOR_WHITE
+                state.nodes.color[hull[maxPair[1]]] = COLOR_WHITE
+            }
+            maxDistance = pairDistance
+            maxPair = [p1,p2]
+
+            state.nodes.color[hull[p1]] = COLOR_ORANGE
+            state.nodes.color[hull[p2]] = COLOR_ORANGE
+        }
+
+        const a = Math.atan2(dy, dx)
         state.lines = [
             {
+                dashArray: '10 10',
                 x: positioning[hull[p1]].x,
                 y: positioning[hull[p1]].y,
                 dx: Math.cos(a),
                 dy: Math.sin(a)
             },
             {
+                dashArray: '10 10',
                 x: positioning[hull[p2]].x,
                 y: positioning[hull[p2]].y,
                 dx: Math.cos(a),
@@ -40,6 +66,11 @@ const run = (graph) => {
         ]
         track(state)
     }
+
+    state.nodes.color[hull[maxPair[0]]] = COLOR_GREEN
+    state.nodes.color[hull[maxPair[1]]] = COLOR_GREEN
+
+    track(state)
 
     return steps;
 }
@@ -53,21 +84,23 @@ const rotate = (positioning, hull) => {
     while (angle(hull, positioning, i, j) < Math.PI) {
         j++
     }
-    result.push([0, i,j])
 
     while (j % m !== 0) {
         let a = 2*Math.PI - angle(hull, positioning, i, j) // clockwise angle
         if(a === Math.PI) {
-            result.push([0,(i+1)%m, j%m])
-            result.push([0,i%m, (j+1)%m])
-            result.push([0,(i+1)%m, (j+1)%m])
+            result.push([i, i, j])
+            result.push([i, i, (i+1)%m, j%m])
+            result.push([j, i%m, (j+1)%m])
+            result.push([i, (i+1)%m, (j+1)%m])
             i++
             j++
         } else if(a < Math.PI) {
-            result.push([0,(i+1)%m, j%m])
+            result.push([i, (i)%m, j%m])
+            result.push([i, (i+1)%m, j%m])
             i++
         } else {
-            result.push([0,i%m, (j+1)%m])
+            result.push([j, i%m, (j)%m])
+            result.push([j, i%m, (j+1)%m])
             j++
         }
     }

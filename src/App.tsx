@@ -1991,8 +1991,8 @@ const AlgorithmStepperPolygons = ({polygons}) => {
 
 const AlgorithmStepperLines = ({lines, length = 100}) => {
     return <>
-        {lines ? lines.map(({points, stroke, x, y, dx, dy}, i) => {
-            return <line key={i} strokeWidth="5" stroke={stroke||'green'} x1={x - dx * length} y1={y - dy * length} x2={x + dx * length} y2={y + dy * length} />
+        {lines ? lines.map(({dashArray = null, points, stroke, x, y, dx, dy}, i) => {
+            return <line strokeDasharray={dashArray} key={i} strokeWidth="5" stroke={stroke||'green'} x1={x - dx * length} y1={y - dy * length} x2={x + dx * length} y2={y + dy * length} />
         }) : null}
     </>
 }
