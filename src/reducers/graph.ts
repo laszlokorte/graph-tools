@@ -5,6 +5,7 @@ const initialState = {
             label: [],
             cost: [],
             capacity: [],
+            weight: [],
         },
         nodes: {
             position: [],
@@ -33,9 +34,14 @@ const initialState = {
                 visible: false,
             },
             capacity: {
-              default: 1,
-              type: 'numeric',
-              visible: true,
+                default: 1,
+                type: 'numeric',
+                visible: true,
+            },
+            weight: {
+                default: 1,
+                type: 'numeric',
+                visible: true,
             },
         },
         nodes: {
@@ -208,6 +214,38 @@ const example = {
             1
           ],
           []
+        ],
+        "weight": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ],
+          []
         ]
       },
       "nodes": {
@@ -314,6 +352,11 @@ const example = {
           "visible": true,
         },
         "capacity": {
+          "default": 1,
+          "type": "numeric",
+          "visible": false,
+        },
+        "weight": {
           "default": 1,
           "type": "numeric",
           "visible": false,

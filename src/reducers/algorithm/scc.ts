@@ -80,7 +80,7 @@ const copy = (object) => {
 
 export default {
     run,
-    name: "Strongly Connected Components",
+    name: "❌ Strongly Connected Components",
     parameters: {
     },
     dependencies: {

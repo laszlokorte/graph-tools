@@ -1047,6 +1047,12 @@ const NodeDragger = styled.path`
     opacity: 0.5;
 `;
 
+const EdgeHandle = styled.circle`
+    cursor: copy;
+    fill: #6EAEAE;
+    opacity: 0.5;
+`;
+
 const NodeConnector = styled.path`
     cursor: alias;
     fill: ${p => p.snapped ? '#FD9B1C' : p.active ? '#6EAEAE':'#84DBDB'};
@@ -1108,11 +1114,14 @@ const edgePath = (directed, x0,y0,x1,y1, angle = 0) => {
 
     const orientation = Math.round(((Math.atan2(normY, normX) + Math.PI) / Math.PI + 0.5) * 2) % 4
 
-    const caX = midX + bendA * normY - bendB*normX
-    const caY = midY - bendA * normX - bendB*normY
+    const cX = midX + bendA * normY
+    const cY = midY - bendA * normX
 
-    const cbX = midX + bendA * normY + bendB*normX
-    const cbY = midY - bendA * normX + bendB*normY
+    const caX = cX - bendB*normX
+    const caY = cY - bendB*normY
+
+    const cbX = cX + bendB*normX
+    const cbY = cY + bendB*normY
 
     const textX = midX + 0.9 * bendA * normY
     const textY = midY - 0.9 * bendA * normX
@@ -1124,6 +1133,8 @@ const edgePath = (directed, x0,y0,x1,y1, angle = 0) => {
         textY,
         headAngle,
         orientation,
+        cX: (caX+cbX) / 2,
+        cY: (caY+cbY) / 2,
         curve: `M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`,
     }
 }
@@ -1307,6 +1318,18 @@ const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onD
             fill="#111"
             />
     </g>
+}
+
+const EdgeManipulator = ({nodes, directed, positions, nodeAngles}) => {
+    return <>
+    {nodes.map((neighbors, nodeId) =>
+        neighbors.filter((neighbourId) => nodeId !== neighbourId).map((neighbourId, edgeIdx) => {
+            const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngles[nodeId])
+
+            return <EdgeHandle key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
+        })
+    )}
+    </>
 }
 
 const manipulationReducer = (state, action) => {
@@ -1504,6 +1527,16 @@ const GraphManipulator = ({box, nodeAngles}) => {
                 snapped={nodeId === manipulation.connectionSnap}
                 onDoubleClick={deleteNode} />
         )}
+        {
+            manipulation.x === null && manipulation.y === null &&
+            manipulation.connectionStart === null && manipulation.movingNode === null ?
+            <EdgeManipulator
+                nodes={nodes}
+                directed={flags.directed}
+                positions={positions}
+                nodeAngles={nodeAngles}
+            /> : null
+        }
         {manipulation.connectionStart === null ? (
             (manipulation.movingNode !== null || manipulation.x === null || manipulation.y === null) ? null :
             <NewNode
@@ -1997,9 +2030,20 @@ const AlgorithmStepperLines = ({lines, length = 100}) => {
     </>
 }
 
-const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles}) => {
+const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles, directed, verticalOffset}) => {
     return <>
-        {/*TODO: Implement*/}
+        {Object.keys(edgeAttributes).map((k, i, all) =>
+            <g key={k}>
+                {nodes.map((neighbors, nodeId) =>
+                    neighbors.map((neighbourId, edgeIdx) => {
+                        const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, angles[nodeId]);
+                        return <EdgeLabel key={nodeId + '-' + edgeIdx} x={p.textX} y={p.textY} dy={20 * (0.5 + i - all.length / 2 + verticalOffset)} orientation={p.orientation}>
+                            {k}: {edgeAttributes[k][nodeId][edgeIdx]}
+                        </EdgeLabel>
+                    })
+                )}
+            </g>
+        )}
     </>
 }
 
@@ -2045,6 +2089,7 @@ const AlgorithmStepper = ({box, nodeAngles}) => {
     const selectedEdges = useSelector(state => state.present.selection.edges)
     const nodes = useSelector(state => state.present.graph.nodes)
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+    const visibleEdgeAttributesCount = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => state.present.graph.attributeTypes.edges[e].visible).length)
 
     const algorithm = useSelector(state => state.present.algorithm)
 
@@ -2071,7 +2116,7 @@ const AlgorithmStepper = ({box, nodeAngles}) => {
             <AlgorithmStepperNodeColoring positions={positions} colors={nodeColors} />
             <AlgorithmStepperNodeLabels positions={positions} nodeAttributes={nodeAttributes} />
             <AlgorithmStepperEdgeColoring angles={nodeAngles} directed={flags.directed} positions={positions} nodes={nodes} colors={edgeColors} />
-            <AlgorithmStepperEdgeLabels angles={nodeAngles} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
+            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} angles={nodeAngles} directed={flags.directed} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
         </g>
     }
 }
