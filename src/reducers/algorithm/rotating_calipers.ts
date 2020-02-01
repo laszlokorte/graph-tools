@@ -70,6 +70,28 @@ const run = (graph) => {
     state.nodes.color[hull[maxPair[0]]] = COLOR_GREEN
     state.nodes.color[hull[maxPair[1]]] = COLOR_GREEN
 
+    const finalDx = positioning[hull[maxPair[1]]].x - positioning[hull[maxPair[0]]].x
+    const finalDy = positioning[hull[maxPair[1]]].y - positioning[hull[maxPair[0]]].y
+
+    const finalDist = Math.sqrt(finalDx*finalDx + finalDy * finalDy)
+
+    state.lines = [
+        {
+            dashArray: '10 10',
+            x: positioning[hull[maxPair[0]]].x,
+            y: positioning[hull[maxPair[0]]].y,
+            dx: finalDy / finalDist,
+            dy: -finalDx / finalDist,
+        },
+        {
+            dashArray: '10 10',
+            x: positioning[hull[maxPair[1]]].x,
+            y: positioning[hull[maxPair[1]]].y,
+            dx: finalDy / finalDist,
+            dy: -finalDx / finalDist,
+        },
+    ]
+
     track(state)
 
     return steps;

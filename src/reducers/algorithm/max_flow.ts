@@ -87,6 +87,8 @@ const run = (graph) => {
         }
     }
 
+    track(state);
+
     return steps;
 }
 

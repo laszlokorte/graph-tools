@@ -17,7 +17,7 @@ import max_matching from './max_matching'
 import max_matching_hungarian_method from './max_matching_hungarian_method'
 import minimal_disk from './minimal_disk'
 import push_relabel from './push_relabel'
-import scc from './scc'
+import scc_tarjan from './scc_tarjan'
 import topological_sort from './topological_sort'
 import johnson from './johnson'
 import floyd_warshall from './floyd_warshall'
@@ -42,7 +42,7 @@ const algorithms = {
     max_matching_hungarian_method,
     minimal_disk,
     push_relabel,
-    scc,
+    scc_tarjan,
     topological_sort,
     johnson,
     floyd_warshall,
@@ -106,11 +106,12 @@ export default (state = initialState, graph, action) => {
     } else {
         switch(action.type) {
             case 'RUN_ALGORITHM': {
+                const result = algorithms[action.algorithm].run(graph, action.parameters)
                 return {
                     type: action.algorithm,
-                    focus: 0,
+                    focus: result.length-1,
                     result: {
-                        steps: algorithms[action.algorithm].run(graph, action.parameters),
+                        steps: result,
                     },
                     dependencies: {
                         nodes: [
