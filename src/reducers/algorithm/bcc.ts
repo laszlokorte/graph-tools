@@ -17,8 +17,6 @@ const run = (graph) => {
         }
     }
 
-    console.log(state.edges.component)
-
     state.edges.color = state.edges.component.map((e) =>
         e.map((c) => `hsl(${c*360 / state.currentComponent}, 100%, 50%)`)
     )
