@@ -2,6 +2,10 @@ const COLOR_WHITE = 'WHITE';
 const COLOR_GRAY = 'GRAY';
 const COLOR_BLACK = 'BLACK';
 
+const COLOR_GREEN = 'GREEN';
+const COLOR_RED = 'RED';
+const COLOR_BLUE = 'BLUE';
+
 const EDGE_FORWARD = 'forward';
 const EDGE_CROSS = 'cross';
 const EDGE_BACK = 'back';
@@ -37,7 +41,8 @@ const init = (graph) => {
             predecessor: graph.nodes.map(() => null),
         },
         edges: {
-            type: graph.nodes.map((n) => n.map(() => null))
+            type: graph.nodes.map((n) => n.map(() => null)),
+            color: graph.nodes.map((n) => n.map(() => null)),
         },
         time: 0,
     }
@@ -57,13 +62,16 @@ const bfs = (state, graph, nodeId, track) => {
             if(state.nodes.color[neighbour] === COLOR_WHITE) {
                 state.nodes.predecessor[neighbour] = currentNode;
                 state.edges.type[currentNode][i] = EDGE_FORWARD;
+                state.edges.color[currentNode][i] = COLOR_GREEN;
                 state.nodes.color[neighbour] = COLOR_GRAY;
                 state.nodes.discovery[currentNode] = state.time;
                 q.push(neighbour)
             } else if(state.nodes.color[neighbour] === COLOR_GRAY) {
                 state.edges.type[currentNode][i] = EDGE_BACK;
+                state.edges.color[currentNode][i] = COLOR_RED;
             } else if(state.nodes.color[neighbour] === COLOR_BLACK) {
                 state.edges.type[currentNode][i] = EDGE_CROSS;
+                state.edges.color[currentNode][i] = COLOR_BLUE;
             }
             track(state);
         }

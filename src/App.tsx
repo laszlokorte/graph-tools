@@ -374,14 +374,24 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     const dispatch = useDispatch();
     const canUndo = useSelector(state => state.past.length > 0)
     const canRedo = useSelector(state => state.future.length > 0)
+    const savedGraphs = useSelector(state => state.present.storage)
 
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
     const layout = useCallback(() => dispatch(actions.autoLayout()), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
+    const openGraph = useCallback((evt) => dispatch(actions.storageLoad(evt.target.value)), [])
 
     return <Toolbar>
+        <ToolbarSection>
+            <select value={''} onChange={openGraph}>
+                <option value={''}>Open…</option>
+                {savedGraphs.map((a, i) =>
+                    <option key={i} value={a}>{a}</option>
+                )}
+            </select>
+        </ToolbarSection>
         <ToolButton disabled={!canUndo} onClick={undo}>↶</ToolButton>
         <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
         <ToolButton onClick={clear}>Clear</ToolButton>
@@ -1013,9 +1023,17 @@ const EdgeSelectionLine = styled.path`
 `
 
 const EdgeLabel = styled.text`
-	cursor: default;
-	text-anchor: ${({orientation: o}) => o===2 ? 'end' : (o===0 ? 'start' : 'middle')};
-	dominant-baseline: ${({orientation: o}) => o===1 ? 'hanging' : (o===3 ? 'initial' : 'central')};
+    cursor: default;
+    text-anchor: ${({orientation: o}) => o===2 ? 'end' : (o===0 ? 'start' : 'middle')};
+    dominant-baseline: ${({orientation: o}) => o===1 ? 'hanging' : (o===3 ? 'initial' : 'central')};
+`
+
+const TransientEdgeLabel = styled.text`
+    cursor: default;
+    font-style: italic;
+    fill: #555;
+    text-anchor: ${({orientation: o}) => o===2 ? 'end' : (o===0 ? 'start' : 'middle')};
+    dominant-baseline: ${({orientation: o}) => o===1 ? 'hanging' : (o===3 ? 'initial' : 'central')};
 `
 
 const EdgeLabelSelection = styled.text`
@@ -2037,9 +2055,9 @@ const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles, d
                 {nodes.map((neighbors, nodeId) =>
                     neighbors.map((neighbourId, edgeIdx) => {
                         const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, angles[nodeId]);
-                        return <EdgeLabel key={nodeId + '-' + edgeIdx} x={p.textX} y={p.textY} dy={20 * (0.5 + i - all.length / 2 + verticalOffset)} orientation={p.orientation}>
+                        return <TransientEdgeLabel key={nodeId + '-' + edgeIdx} x={p.textX} y={p.textY} dy={20 * (1.5 + i - all.length / 2 + verticalOffset / 2)} orientation={p.orientation}>
                             {k}: {edgeAttributes[k][nodeId][edgeIdx]}
-                        </EdgeLabel>
+                        </TransientEdgeLabel>
                     })
                 )}
             </g>
@@ -2093,13 +2111,8 @@ const AlgorithmStepper = ({box, nodeAngles}) => {
 
     const algorithm = useSelector(state => state.present.algorithm)
 
-    const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps.length && algorithm.result.steps[algorithm.focus].edges.type && algorithm.result.steps[algorithm.focus].edges.type.map((cs) => cs.map((c) => {
-         return c === null ? 'none' : {
-            'forward': 'green',
-            'cross': 'red',
-            'back': 'blue',
-        }[c];
-    })), [algorithm.result, algorithm.focus]);
+    const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps.length && algorithm.result.steps[algorithm.focus].edges.color
+    , [algorithm.result, algorithm.focus]);
 
     if(!algorithm.result || !algorithm.result.steps || !algorithm.result.steps.length) {
         return <></>;

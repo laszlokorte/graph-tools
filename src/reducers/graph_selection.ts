@@ -1,5 +1,6 @@
 export default (graphState, selectionState, action) => {
     switch(action.type) {
+        case 'STORAGE_LOAD':
         case 'SET_GRAPH_FLAG':
         case 'CLEAR_GRAPH':
             return {

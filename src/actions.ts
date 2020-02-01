@@ -102,3 +102,9 @@ export const stepAlgorithm = (delta) => ({
     type: 'STEP_ALGORITHM',
     delta,
 })
+
+
+export const storageLoad = (id) => ({
+    type: 'STORAGE_LOAD',
+    id,
+});

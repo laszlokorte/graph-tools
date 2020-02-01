@@ -2,6 +2,10 @@ const COLOR_WHITE = 'WHITE';
 const COLOR_GRAY = 'GRAY';
 const COLOR_BLACK = 'BLACK';
 
+const COLOR_GREEN = 'GREEN';
+const COLOR_RED = 'RED';
+const COLOR_BLUE = 'BLUE';
+
 const EDGE_FORWARD = 'forward';
 const EDGE_CROSS = 'cross';
 const EDGE_BACK = 'back';
@@ -38,7 +42,8 @@ const init = (graph) => {
             finishing: graph.nodes.map(() => null),
         },
         edges: {
-            type: graph.nodes.map((n) => n.map(() => null))
+            type: graph.nodes.map((n) => n.map(() => null)),
+            color: graph.nodes.map((n) => n.map(() => null)),
         },
         time: 0,
     }
@@ -55,12 +60,15 @@ const visitNode = (state, graph, nodeId, track) => {
         if(state.nodes.color[neighbour] === COLOR_WHITE) {
             state.nodes.predecessor[neighbour] = nodeId;
             state.edges.type[nodeId][i] = EDGE_FORWARD;
+            state.edges.color[nodeId][i] = COLOR_GREEN;
             visitNode(state, graph, neighbour, track);
         } else if(state.nodes.color[neighbour] === COLOR_GRAY) {
             state.edges.type[nodeId][i] = EDGE_BACK;
+            state.edges.color[nodeId][i] = COLOR_RED;
             track(state);
         } else if(state.nodes.color[neighbour] === COLOR_BLACK) {
             state.edges.type[nodeId][i] = EDGE_CROSS;
+            state.edges.color[nodeId][i] = COLOR_BLUE;
             track(state);
         }
     }

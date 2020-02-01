@@ -73,6 +73,7 @@ const invalidatingActions = [
     'CREATE_NODE',
     'DELETE_EDGE',
     'SET_GRAPH_FLAG',
+    'STORAGE_LOAD',
 ];
 
 export default (state = initialState, graph, action) => {
