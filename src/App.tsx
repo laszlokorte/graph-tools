@@ -14,6 +14,7 @@ const Title = styled.h1`
     margin: 0;
     padding: 0;
     grid-column: 1 / 2;
+    grid-row: 1 / 2;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -35,14 +36,24 @@ const Svg = styled.svg`
 const Container = styled.div`
     font-family: sans-serif;
 	height: 100vh;
-	width: 100vw;
+    width: 100vw;
 	display: grid;
-	grid-template-columns: 1fr 3fr;
-	grid-template-rows: 3em 3fr 1fr;
-	grid-template-areas: "a b" "c d" "c d";
+	grid-template-columns: 2fr 4fr 2fr;
+	grid-template-rows: 3em 3fr 2fr;
+	grid-template-areas: "a b b" "c d d" "c d d";
 	justify-items: stretch;
 	align-items: stretch;
 `;
+
+const OverlayBox = styled.div`
+    grid-row: 2 / 4;
+    grid-column: 3 / 4;
+    background: white;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 1em;
+    overflow: auto;
+`
 
 const Code = styled.textarea`
     display: block;
@@ -137,6 +148,7 @@ const Toolbar = styled.div`
     padding: 1px;
     align-items: stretch;
     grid-column: 2 / -1;
+    grid-row: 1 / 2;
 `
 
 const ToolbarSection = styled.div`
@@ -518,7 +530,7 @@ const AlgorithmRunner = () => {
     return <ToolbarSection>
         <div>
             <span>Run Algorithm:</span><br/>
-            <select value={alg} onChange={selectAlg} ref={selectBox}>
+            <select style={{maxWidth: '10em'}} value={alg} onChange={selectAlg} ref={selectBox}>
                 {applicableAlgorithms.map((a) =>
                     <option key={a.key} value={a.key}>{a.name}</option>
                 )}
@@ -2134,6 +2146,40 @@ const AlgorithmStepper = ({box, nodeAngles}) => {
     }
 }
 
+const AlgorithmDetails = () => {
+    const algorithm = useSelector(state => state.present.algorithm)
+
+    if(algorithm.result && algorithm.result.steps && algorithm.result.steps[algorithm.focus]) {
+        const matrices = algorithm.result.steps[algorithm.focus].matrices
+
+        if(matrices) {
+            return <OverlayBox>
+            {Object.keys(matrices).map((k) => {
+                const matrix = matrices[k]
+                return <div key={k}>
+                    <h2>{k} matrix</h2>
+                    <table cellSpacing={5}>
+                        <tbody>
+                           {matrix.map((row, y) => {
+                               return <tr key={y}>
+                                   {row.map((d, x) => {
+                                       return <td key={x}>
+                                           {d != null ? d : "∞"}
+                                       </td>
+                                   })}
+                               </tr>
+                           })}
+                        </tbody>
+                    </table>
+                </div>
+            })}
+            </OverlayBox>
+        }
+    }
+
+    return <></>
+}
+
 
 const NodeSelection = ({x,y}) => {
     return <NodeCircleSelection cx={x} cy={y} r={20} />
@@ -2318,5 +2364,6 @@ const GraphEditor = () => {
                     nodeAngles={nodeAngles}
                 />
             </Canvas>
+            <AlgorithmDetails />
         </Container>;
 }

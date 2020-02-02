@@ -15,21 +15,78 @@ const run = (graph, {weightAttribute}) => {
         steps.push(copy(s))
     }
 
-    track(state);
+    const distanceMatrix = graph.nodes.map((_,i) => graph.nodes.map((_,j) => Infinity))
+    const predecessorMatrix = graph.nodes.map((_,i) => graph.nodes.map((_,j) => null))
+
+    const step = () => {
+        if(!graph.flags.directed) {
+            for(let j=0;j<distanceMatrix.length;j++) {
+                for(let k=0;k<j;k++) {
+                    distanceMatrix[j][k] = distanceMatrix[k][j]
+                    predecessorMatrix[j][k] = predecessorMatrix[k][j]
+                }
+            }
+        }
+        track(state)
+    }
+
+    state.matrices = {
+        distance: distanceMatrix,
+        predecessor: predecessorMatrix,
+    }
+
+    for(let i=0;i<graph.nodes.length;i++) {
+        const neighbours = graph.nodes[i]
+        distanceMatrix[i][i] = 0
+
+        for(let j=0;j<neighbours.length;j++) {
+            const neighbour = neighbours[j]
+
+            predecessorMatrix[i][neighbour] = i
+
+            distanceMatrix[i][neighbour] = Math.min(
+                distanceMatrix[i][neighbour],
+                graph.attributes.edges[weightAttribute][i][j]
+            )
+        }
+    }
+
+    track(state)
+
+
+    floydWarshall(distanceMatrix, predecessorMatrix, step)
 
     return steps;
+}
+
+const floydWarshall = (distance, predecessor, step) => {
+    for(let i=0;i<distance.length;i++) {
+        const row = distance[i]
+        for(let j=0;j<row.length;j++) {
+            for(let k=0;k<distance.length;k++) {
+                const newDistance = distance[i][k] + distance[k][j]
+                if(distance[i][j] > newDistance) {
+                    distance[i][j] = newDistance
+                    predecessor[i][j] = predecessor[k][j]
+                }
+            }
+        }
+
+        step()
+    }
 }
 
 const init = (graph) => {
     return {
         nodes: {
-            color: graph.nodes.map(() => COLOR_WHITE),
-            distance: graph.nodes.map(() => Infinity),
         },
         edges: {
-            type: graph.nodes.map((n) => n.map(() => null))
         },
         time: 0,
+        matrices: {
+            distance: null,
+            predecessor: null,
+        },
     }
 }
 
@@ -39,7 +96,7 @@ const copy = (object) => {
 
 export default {
     run,
-    name: "❌ Floyd-Warshall",
+    name: "Floyd-Warshall",
     parameters: {
         weightAttribute: {
             type: 'EDGE_ATTRIBUTE',

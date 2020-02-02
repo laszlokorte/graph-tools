@@ -72,7 +72,7 @@ const buildKDTree = (points, dimensions, depth) => {
 }
 
 const drawKD = (kd, dimensions, box, depth, result, snap) => {
-    if(!kd.hasOwnProperty('position')) {
+    if(!kd || !kd.hasOwnProperty('position')) {
         return
     }
     const di = depth%dimensions.length;

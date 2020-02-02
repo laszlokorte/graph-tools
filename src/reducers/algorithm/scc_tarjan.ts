@@ -1,12 +1,3 @@
-const COLOR_WHITE = 'WHITE';
-const COLOR_GRAY = 'GRAY';
-const COLOR_BLACK = 'BLACK';
-
-const EDGE_FORWARD = 'forward';
-const EDGE_CROSS = 'cross';
-const EDGE_BACK = 'back';
-
-
 const run = (graph) => {
     const state = init(graph);
     const steps = [];

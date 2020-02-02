@@ -100,8 +100,8 @@ const draw = (tree, color, minX, minY, maxX, maxY, polygons) => {
     if(tree && (tree.SE || tree.SW || tree.NE || tree.NW)) {
         draw(tree.SE, 'red', minX, minY, tree.x, tree.y, polygons)
         draw(tree.SW, 'green', tree.x, minY, maxX, tree.y, polygons)
-        draw(tree.NE, 'cyan', minX, tree.y, tree.x, maxY, polygons)
-        draw(tree.NW, 'magenta', tree.x, tree.y, maxX, maxY, polygons)
+        draw(tree.NE, 'blue', minX, tree.y, tree.x, maxY, polygons)
+        draw(tree.NW, 'yellow', tree.x, tree.y, maxX, maxY, polygons)
     }
 }
 

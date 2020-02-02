@@ -1005,6 +1005,426 @@ const store = {
         }
       }
     }
+  },
+  "5 Nodes": {
+    "nodes": [
+      [
+        4,
+        1,
+        2
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        1
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3
+      ]
+    ],
+    "attributes": {
+      "edges": {
+        "label": [
+          [
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            ""
+          ],
+          [
+            ""
+          ],
+          [
+            "",
+            ""
+          ],
+          [
+            ""
+          ]
+        ],
+        "cost": [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ]
+        ],
+        "capacity": [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ]
+        ],
+        "weight": [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1
+          ]
+        ]
+      },
+      "nodes": {
+        "position": [
+          {
+            "x": -238.94989013671875,
+            "y": -119.60690307617188
+          },
+          {
+            "x": 22.917999267578125,
+            "y": -358.3670654296875
+          },
+          {
+            "x": 333.04742431640625,
+            "y": -150.12103271484375
+          },
+          {
+            "x": 212.928955078125,
+            "y": 163.57861328125
+          },
+          {
+            "x": -100.01959228515625,
+            "y": 161.33566284179688
+          }
+        ],
+        "label": [
+          "new",
+          "new",
+          "new",
+          "new",
+          "new"
+        ],
+        "color": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "initial": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "final": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "source": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "sink": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "flags": {
+      "multiGraph": false,
+      "directed": true
+    },
+    "attributeTypes": {
+      "edges": {
+        "label": {
+          "default": "",
+          "type": "text",
+          "visible": true
+        },
+        "cost": {
+          "default": 1,
+          "type": "numeric",
+          "visible": false
+        },
+        "capacity": {
+          "default": 1,
+          "type": "numeric",
+          "visible": true
+        },
+        "weight": {
+          "default": 1,
+          "type": "numeric",
+          "visible": true
+        }
+      },
+      "nodes": {
+        "position": {
+          "default": {
+            "x": 0,
+            "y": 0
+          },
+          "type": "object",
+          "visible": false
+        },
+        "label": {
+          "default": "new",
+          "type": "text",
+          "visible": true
+        },
+        "color": {
+          "default": null,
+          "type": "color",
+          "visible": false
+        },
+        "initial": {
+          "default": false,
+          "type": "boolean",
+          "visible": false
+        },
+        "final": {
+          "default": false,
+          "type": "boolean",
+          "visible": false
+        },
+        "source": {
+          "default": false,
+          "type": "boolean",
+          "visible": false
+        },
+        "sink": {
+          "default": false,
+          "type": "boolean",
+          "visible": false
+        }
+      }
+    }
+  },
+  "negative": {
+    "nodes": [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        0
+      ]
+    ],
+    "attributes": {
+      "edges": {
+        "label": [
+          [
+            ""
+          ],
+          [
+            ""
+          ],
+          [
+            ""
+          ]
+        ],
+        "cost": [
+          [
+            1
+          ],
+          [
+            -1
+          ],
+          [
+            1
+          ]
+        ],
+        "capacity": [
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1
+          ]
+        ],
+        "weight": [
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1
+          ]
+        ]
+      },
+      "nodes": {
+        "position": [
+          {
+            "x": -114.7032470703125,
+            "y": -100.0654296875
+          },
+          {
+            "x": 162.790283203125,
+            "y": -104.614501953125
+          },
+          {
+            "x": -8.5582275390625,
+            "y": 192.5916748046875
+          }
+        ],
+        "label": [
+          "new",
+          "new",
+          "new"
+        ],
+        "color": [
+          null,
+          null,
+          null
+        ],
+        "initial": [
+          false,
+          false,
+          false
+        ],
+        "final": [
+          false,
+          false,
+          false
+        ],
+        "source": [
+          false,
+          false,
+          false
+        ],
+        "sink": [
+          false,
+          false,
+          false
+        ]
+      }
+    },
+    "flags": {
+      "multiGraph": false,
+      "directed": true
+    },
+    "attributeTypes": {
+      "edges": {
+        "label": {
+          "default": "",
+          "type": "text",
+          "visible": false
+        },
+        "cost": {
+          "default": 1,
+          "type": "numeric",
+          "visible": true
+        },
+        "capacity": {
+          "default": 1,
+          "type": "numeric",
+          "visible": false
+        },
+        "weight": {
+          "default": 1,
+          "type": "numeric",
+          "visible": false
+        }
+      },
+      "nodes": {
+        "position": {
+          "default": {
+            "x": 0,
+            "y": 0
+          },
+          "type": "object",
+          "visible": false
+        },
+        "label": {
+          "default": "new",
+          "type": "text",
+          "visible": false
+        },
+        "color": {
+          "default": null,
+          "type": "color",
+          "visible": false
+        },
+        "initial": {
+          "default": false,
+          "type": "boolean",
+          "visible": false
+        },
+        "final": {
+          "default": false,
+          "type": "boolean",
+          "visible": false
+        },
+        "source": {
+          "default": false,
+          "type": "boolean",
+          "visible": false
+        },
+        "sink": {
+          "default": false,
+          "type": "boolean",
+          "visible": false
+        }
+      }
+    }
   }
 }
 
