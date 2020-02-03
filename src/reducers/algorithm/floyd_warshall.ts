@@ -112,4 +112,5 @@ export default {
     requirements: {
         multiGraph: false,
     },
+    category: 'graph shortest path',
 }

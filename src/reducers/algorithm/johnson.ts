@@ -148,4 +148,5 @@ export default {
         multiGraph: false,
         directed: true,
     },
+    category: 'graph shortest path',
 }

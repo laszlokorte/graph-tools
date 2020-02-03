@@ -126,4 +126,5 @@ export default {
         multiGraph: false,
         directed: false,
     },
+    category: 'graph topology',
 }

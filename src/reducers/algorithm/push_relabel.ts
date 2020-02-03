@@ -49,4 +49,5 @@ export default {
         multiGraph: false,
         directed: true,
     },
+    category: 'flow',
 }

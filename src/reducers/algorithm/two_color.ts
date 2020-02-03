@@ -98,4 +98,5 @@ export default {
     },
     requirements: {
     },
+    category: 'graph topology',
 }

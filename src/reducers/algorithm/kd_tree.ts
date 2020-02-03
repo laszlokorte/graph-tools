@@ -134,4 +134,5 @@ export default {
     },
     requirements: {
     },
+    category: 'geometry',
 }

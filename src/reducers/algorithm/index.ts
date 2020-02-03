@@ -54,6 +54,7 @@ export const ALGORITHMS = Object.keys(algorithms).map((a) => ({
     parameters: algorithms[a].parameters,
     requirements: algorithms[a].requirements,
     dependencies: algorithms[a].dependencies,
+    category: algorithms[a].category,
 }));
 
 const initialState = {
