@@ -1350,13 +1350,16 @@ const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onD
     </g>
 }
 
-const EdgeManipulator = ({nodes, directed, positions, nodeAngles}) => {
+const EdgeManipulator = ({nodes, directed, positions, nodeAngles, selectEdge}) => {
     return <>
     {nodes.map((neighbors, nodeId) =>
         neighbors.filter((neighbourId) => nodeId !== neighbourId).map((neighbourId, edgeIdx) => {
             const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngles[nodeId])
+            const onClick = useCallback((evt) => {
+                selectEdge(evt, nodeId, edgeIdx)
+            }, [nodeId, edgeIdx])
 
-            return <EdgeHandle key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
+            return <EdgeHandle onClick={onClick} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
         })
     )}
     </>
@@ -1525,6 +1528,11 @@ const GraphManipulator = ({box, nodeAngles}) => {
         dispatch(actions.deleteEdge(nodeId, edgeIndex));
     }, [dispatch])
 
+    const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
+        evt.stopPropagation();
+        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
+    }, [dispatch])
+
     const deleteNode = useCallback((evt, nodeId) => {
         evt.stopPropagation();
         dispatch(actions.deleteNode(nodeId));
@@ -1565,6 +1573,7 @@ const GraphManipulator = ({box, nodeAngles}) => {
                 directed={flags.directed}
                 positions={positions}
                 nodeAngles={nodeAngles}
+                selectEdge={selectEdge}
             /> : null
         }
         {manipulation.connectionStart === null ? (
