@@ -1,5 +1,5 @@
 
-import select from './select'
+import select from './utils/select'
 
 const run = (graph, {startNode, weightAttribute}) => {
     const state = init(graph);

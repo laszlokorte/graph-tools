@@ -620,7 +620,7 @@ const Menu = () => {
             </Section>
             <Section>
                 <SectionTitle>Dump</SectionTitle>
-                <Dump value={present} />
+                <Dump value={present.graph} />
             </Section>
     </Scroller>
 }

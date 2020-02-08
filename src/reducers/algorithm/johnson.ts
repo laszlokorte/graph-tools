@@ -1,4 +1,4 @@
-import heap from './heap';
+import heap from './utils/heap';
 
 const COLOR_WHITE = 'WHITE';
 const COLOR_GRAY = 'GRAY';
