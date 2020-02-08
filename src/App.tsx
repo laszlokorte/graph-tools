@@ -1355,9 +1355,9 @@ const EdgeManipulator = ({nodes, directed, positions, nodeAngles, selectEdge}) =
     {nodes.map((neighbors, nodeId) =>
         neighbors.filter((neighbourId) => nodeId !== neighbourId).map((neighbourId, edgeIdx) => {
             const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngles[nodeId])
-            const onClick = useCallback((evt) => {
+            const onClick = (evt) => {
                 selectEdge(evt, nodeId, edgeIdx)
-            }, [nodeId, edgeIdx])
+            }
 
             return <EdgeHandle onClick={onClick} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
         })

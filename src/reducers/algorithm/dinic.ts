@@ -132,9 +132,9 @@ const buildResidual = (graph) => {
         for(let m=0;m<neighbours.length;m++) {
             const neighbour = neighbours[m]
 
-            nodes[m].push(n)
-            capacity[m].push(0)
-            backEdge[m].push(true)
+            nodes[neighbour].push(n)
+            capacity[neighbour].push(0)
+            backEdge[neighbour].push(true)
         }
     }
 
@@ -169,6 +169,8 @@ const bfs = (nodes, capacity, startNode, target) => {
             }
         }
     }
+
+    parents[startNode].clear()
 
     const allPaths = reconstructPaths(startNode, target, parents, capacity, nodes, Infinity)
 
