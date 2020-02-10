@@ -1078,7 +1078,7 @@ const NodeDragger = styled.path`
 `;
 
 const EdgeHandle = styled.circle`
-    cursor: copy;
+    cursor: default;
     fill: #6EAEAE;
     opacity: 0.5;
 `;
@@ -1350,16 +1350,42 @@ const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onD
     </g>
 }
 
-const EdgeManipulator = ({nodes, directed, positions, nodeAngles, selectEdge}) => {
+const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, directed, nodeAngle, neighbourId}) => {
+    const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngle)
+
+    const onClickCallback = useCallback((evt) => {
+        evt.preventDefault();
+        selectEdge(evt, nodeId, edgeIdx)
+
+    }, [deleteEdge, nodeId, edgeIdx])
+
+    const onDoubleCallback = useCallback((evt) => {
+        evt.preventDefault();
+        deleteEdge(evt, nodeId, edgeIdx)
+    }, [deleteEdge, nodeId, edgeIdx])
+
+    return <EdgeHandle onClick={onClickCallback} onDoubleClick={onDoubleCallback} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
+}
+
+const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, deleteEdge}) => {
     return <>
     {nodes.map((neighbors, nodeId) =>
-        neighbors.filter((neighbourId) => nodeId !== neighbourId).map((neighbourId, edgeIdx) => {
-            const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngles[nodeId])
-            const onClick = (evt) => {
-                selectEdge(evt, nodeId, edgeIdx)
+        neighbors.map((neighbourId, edgeIdx) => {
+            if(nodeId === neighbourId) {
+                return null
             }
 
-            return <EdgeHandle onClick={onClick} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
+            return <EdgeManipulator
+                key={nodeId + '-' + edgeIdx}
+                deleteEdge={deleteEdge}
+                selectEdge={selectEdge}
+                nodeId={nodeId}
+                edgeIdx={edgeIdx}
+                positions={positions}
+                directed={directed}
+                neighbourId={neighbourId}
+                nodeAngle ={nodeAngles[nodeId]}
+            />
         })
     )}
     </>
@@ -1568,12 +1594,13 @@ const GraphManipulator = ({box, nodeAngles}) => {
         {
             manipulation.x === null && manipulation.y === null &&
             manipulation.connectionStart === null && manipulation.movingNode === null ?
-            <EdgeManipulator
+            <EdgesManipulator
                 nodes={nodes}
                 directed={flags.directed}
                 positions={positions}
                 nodeAngles={nodeAngles}
                 selectEdge={selectEdge}
+                deleteEdge={deleteEdge}
             /> : null
         }
         {manipulation.connectionStart === null ? (
