@@ -8,20 +8,40 @@ JS GUI for exploring graph algorithms
 
 I just started this project. You can already construct a simple graph not not much else can be done yet.
 
+## Features
+
+You can construct a graph and run following algorithms visualizing the computation steps:
+
+* Bellmann-Ford (shortest path)
+* Bi-Connected-Components
+* Breadth-First-Search
+* Delaunay Triangulation
+* Depth-First-Search (considering only the nodes as 2d points)
+* Dijkstra (shortest path)
+* Floyd-Warshall (shortest paths)
+* Graham Scan (convex hull)
+* Johnson (shortest path)
+* KD Tree (considering only the nodes as 2d points)
+* Quad Tree (considering only the nodes as 2d points)
+* Dinic (maximal flow)
+* Edmonds-Karp (maximal flow)
+* Push/Relabel (maximal flow)
+* Rotating Calipers (considering only the nodes as 2d points)
+* Tarjan (Strongly Connected Components)
+* Two Coloring
+
+### Not yet implemented
+
+* ❌ Closest Point Pair
+* ❌ Maximal Bipartit Matching
+* ❌ Maximal Matching
+* ❌ Minimal Disk
+* ❌ Topological Sort
+
 ## Future
 
-I would like to implement:
+In the future I would like to implement:
 
-* depth first search
-* breath first search
-* djikstra
-* bellman-ford
-* johnson's algorithm
-* topological sort
-* detect dag
-* detect strongly connected components
-* detect bi-partitions
-* detect bi-connected components
 * finite state automata simulation
 * petri net simulation
 
