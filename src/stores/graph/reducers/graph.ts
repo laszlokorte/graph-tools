@@ -149,6 +149,9 @@ const thisReducer = (state = initialState, action) => {
         case 'CLEAR_GRAPH': {
             return initialState;
         }
+        case 'INIT_GRAPH': {
+            return action.graph;
+        }
         case 'CLEAR_GRAPH_EDGES': {
             return ({
                 ...state,
@@ -242,11 +245,21 @@ const thisReducer = (state = initialState, action) => {
             });
 
             if(action.attributes.connectTo !== null) {
-                return thisReducer(nodeAdded, {
+                const withEdge = thisReducer(nodeAdded, {
                     type: 'ADD_EDGE',
                     fromNodeId: action.attributes.connectTo,
                     toNodeId: nodeAdded.nodes.length - 1,
                 })
+
+                if(action.attributes.onEdge !== null) {
+                    return thisReducer(withEdge, {
+                        type: 'ADD_EDGE',
+                        fromNodeId: withEdge.nodes.length - 1,
+                        toNodeId: withEdge.nodes[action.attributes.connectTo][action.attributes.onEdge],
+                    })
+                } else {
+                    return withEdge;
+                }
             } else {
                 return nodeAdded;
             }

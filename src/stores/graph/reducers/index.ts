@@ -4,19 +4,16 @@ import graph from './graph'
 import graphSelection from './graph_selection'
 import algorithm from './algorithm'
 import properties from './properties'
-import {load, save} from './storage'
 
 export default undoable((state, action) => {
     const combination = combineReducers({
         selection,
         graph,
-        storage: save,
     })
 
     const intermediateState = combination({
         selection: state ? state.selection : undefined,
-        graph: load(state ? state.graph : undefined, action),
-        storage: save(state ? state.storage : undefined, state ? state.graph : undefined, action),
+        graph: state ? state.graph : undefined,
     }, action);
 
     return {
@@ -28,7 +25,7 @@ export default undoable((state, action) => {
 }, {
     limit: 10,
     filter: excludeAction([
-        'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE','STEP_ALGORITHM','STORAGE_LOAD',
+        'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE','STEP_ALGORITHM',
     ]),
     ignoreInitialState: true,
     groupBy: (action, currentState, previousHistory) => {

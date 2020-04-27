@@ -1428,16 +1428,6 @@ const store = {
   }
 }
 
-export const load = (graph, action) => {
-    switch(action.type) {
-        case 'STORAGE_LOAD': {
-            return store[action.id]
-        }
-    }
-
-    return graph
-}
-
-export const save = (storage = [], graph, action) => {
-    return Object.keys(store)
+export default (storage = store, action) => {
+    return store
 }

@@ -3,10 +3,13 @@ import ReactDOM from 'react-dom';
 import { Provider } from 'react-redux'
 
 import App from './App'
-import store from './store'
+import {GraphProvider} from './stores/graph/context'
+import {ProjectsProvider} from './stores/projects/context'
 
 ReactDOM.render(
-<Provider store={store}>
-    <App />
-</Provider>
+<ProjectsProvider>
+    <GraphProvider>
+        <App />
+    </GraphProvider>
+</ProjectsProvider>
 , document.getElementById('app-root'));

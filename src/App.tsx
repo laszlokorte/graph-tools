@@ -3,10 +3,12 @@ import {useReducer, useRef, useMemo, useEffect, useContext, useCallback, useStat
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
-import { useSelector, useDispatch } from 'react-redux'
+import { batch } from 'react-redux'
+import { useSelector, useDispatch } from './stores/graph/context'
+import { useSelector as useProjectsSelector, useSelector as useProjectsDispatch } from './stores/projects/context'
 import { ActionCreators } from 'redux-undo';
 
-import {ALGORITHMS} from './reducers/algorithm/index';
+import {ALGORITHMS} from './stores/graph/reducers/algorithm/index';
 
 import * as actions from './actions'
 
@@ -386,20 +388,21 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     const dispatch = useDispatch();
     const canUndo = useSelector(state => state.past.length > 0)
     const canRedo = useSelector(state => state.future.length > 0)
-    const savedGraphs = useSelector(state => state.present.storage)
+    const savedGraphs = useProjectsSelector(state => state)
+    const savedGraphNames = Object.keys(savedGraphs)
 
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
     const layout = useCallback(() => dispatch(actions.autoLayout()), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
-    const openGraph = useCallback((evt) => dispatch(actions.storageLoad(evt.target.value)), [])
+    const openGraph = useCallback((evt) => dispatch(actions.loadGraph(savedGraphs[evt.target.value])), [savedGraphs])
 
     return <Toolbar>
         <ToolbarSection>
             <select value={''} onChange={openGraph}>
                 <option value={''}>Open…</option>
-                {savedGraphs.map((a, i) =>
+                {savedGraphNames.map((a, i) =>
                     <option key={i} value={a}>{a}</option>
                 )}
             </select>
@@ -1350,8 +1353,12 @@ const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onD
     </g>
 }
 
-const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, directed, nodeAngle, neighbourId}) => {
+const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, directed, nodeAngle, neighbourId, mouseDown}) => {
     const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngle)
+
+    const mouseDownCallback = useCallback(mouseDown ? (evt) => {
+        mouseDown(evt, nodeId, edgeIdx, p.cX, p.cY)
+    } : null, [nodeId, mouseDown, p])
 
     const onClickCallback = useCallback((evt) => {
         evt.preventDefault();
@@ -1364,10 +1371,10 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, di
         deleteEdge(evt, nodeId, edgeIdx)
     }, [deleteEdge, nodeId, edgeIdx])
 
-    return <EdgeHandle onClick={onClickCallback} onDoubleClick={onDoubleCallback} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
+    return <EdgeHandle onMouseDown={mouseDownCallback} onClick={onClickCallback} onDoubleClick={onDoubleCallback} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
 }
 
-const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, deleteEdge}) => {
+const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, deleteEdge, grabEdge}) => {
     return <>
     {nodes.map((neighbors, nodeId) =>
         neighbors.map((neighbourId, edgeIdx) => {
@@ -1379,6 +1386,7 @@ const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, d
                 key={nodeId + '-' + edgeIdx}
                 deleteEdge={deleteEdge}
                 selectEdge={selectEdge}
+                mouseDown={grabEdge}
                 nodeId={nodeId}
                 edgeIdx={edgeIdx}
                 positions={positions}
@@ -1394,18 +1402,8 @@ const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, d
 const manipulationReducer = (state, action) => {
     switch(action.type) {
         case 'stop':
-            if(state.connectionStart !== null && state.connectionSnap !== null) {
-                action.dispatch(actions.addEdge(state.connectionStart, state.connectionSnap))
-            } else if(state.connectionStart !== null) {
-                action.dispatch(actions.createNode(state.x+state.offsetX, state.y+state.offsetY, state.connectionStart))
-            } else if(state.movingNode !== null) {
-                action.dispatch(actions.setNodeAttribute(state.movingNode, 'position', {x:state.x+state.offsetX, y:state.y+state.offsetY}))
-            } else if(state.x !== null && state.y !== null) {
-                action.dispatch(actions.createNode(state.x+state.offsetX, state.y+state.offsetY))
-            }
-
-
             return {
+                ...state,
                 connectionStart: null,
                 connectionSnap: null,
                 x: null,
@@ -1413,6 +1411,7 @@ const manipulationReducer = (state, action) => {
                 offsetX: 0,
                 offsetY: 0,
                 movingNode: null,
+                edgeIndex: null,
             };
         case 'move':
             if(state.connectionStart!==null || state.movingNode !== null || (state.x !== null && state.y !== null)) {
@@ -1425,6 +1424,8 @@ const manipulationReducer = (state, action) => {
                 return state;
             }
         case 'startConnect':
+            const hasEdge = typeof action.edgeIndex !== 'undefined';
+
             return {
                 ...state,
                 connectionStart: action.nodeId,
@@ -1432,7 +1433,8 @@ const manipulationReducer = (state, action) => {
                 y: action.y,
                 offsetX: action.offsetX,
                 offsetY: action.offsetY,
-                connectionSnap: action.nodeId,
+                connectionSnap: hasEdge ? null : action.nodeId,
+                edgeIndex: hasEdge ? action.edgeIndex : null,
             }
         case 'startCreate':
             return {
@@ -1443,6 +1445,7 @@ const manipulationReducer = (state, action) => {
                 offsetX: 0,
                 offsetY: 0,
                 connectionSnap: null,
+                edgeIndex: null,
             }
         case 'snapConnect':
             if(state.connectionStart === null) {
@@ -1472,6 +1475,7 @@ const manipulationReducer = (state, action) => {
                 offsetX: action.offsetX,
                 offsetY: action.offsetY,
                 movingNode: action.nodeId,
+                edgeIndex: null,
             }
     }
     return state;
@@ -1489,6 +1493,7 @@ const GraphManipulator = ({box, nodeAngles}) => {
 
     const [manipulation, dispatchManipulation] = useReducer(manipulationReducer, {
         connectionStart: null,
+        edgeIndex: null,
         connectionSnap: null,
         x: null,
         y: null,
@@ -1498,8 +1503,33 @@ const GraphManipulator = ({box, nodeAngles}) => {
     });
 
     const onMouseUp = useCallback((evt) => {
-        dispatchManipulation({type: 'stop', dispatch})
-    }, [dispatchManipulation]);
+        if(manipulation.connectionStart !== null && manipulation.connectionSnap !== null) {
+            dispatch(actions.addEdge(
+                manipulation.connectionStart,
+                manipulation.connectionSnap
+            ))
+        } else if(manipulation.connectionStart !== null) {
+            dispatch(actions.createNode(
+                manipulation.x+manipulation.offsetX,
+                manipulation.y+manipulation.offsetY,
+                manipulation.connectionStart,
+                manipulation.edgeIndex
+            ))
+        } else if(manipulation.movingNode !== null) {
+            dispatch(actions.setNodeAttribute(
+                manipulation.movingNode,
+                'position',
+                {x:manipulation.x+manipulation.offsetX, y:manipulation.y+manipulation.offsetY}
+            ))
+        } else if(manipulation.x !== null && manipulation.y !== null) {
+            dispatch(actions.createNode(
+                manipulation.x+manipulation.offsetX,
+                manipulation.y+manipulation.offsetY
+            ))
+        }
+
+        dispatchManipulation({type: 'stop'})
+    }, [dispatchManipulation, manipulation, dispatch]);
 
     useEffect(() => {
         const prevMouseUp = onMouseUp
@@ -1512,8 +1542,8 @@ const GraphManipulator = ({box, nodeAngles}) => {
 
     const onMouseMove =  useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        dispatchManipulation({type: 'move', ...pos, dispatch})
-    }, [canvasPos, dispatch])
+        dispatchManipulation({type: 'move', ...pos})
+    }, [canvasPos])
 
 
     useEffect(() => {
@@ -1575,6 +1605,16 @@ const GraphManipulator = ({box, nodeAngles}) => {
         dispatchManipulation({type: 'startCreate', ...pos})
     }, [canvasPos, dispatchManipulation])
 
+    const onGrabEdge = useCallback((evt, nodeId, edgeIndex, cx, cy) => {
+        if(evt.altKey) {
+            return;
+        }
+        evt.stopPropagation();
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        dispatchManipulation({type: 'startConnect', ...pos, nodeId, edgeIndex, offsetX: cx - pos.x, offsetY: cy - pos.y,})
+    }, [canvasPos, dispatchManipulation])
+
     return <g>
         <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} onMouseUp={onMouseUp} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {nodes.map((neighbors, nodeId) =>
@@ -1601,10 +1641,11 @@ const GraphManipulator = ({box, nodeAngles}) => {
                 nodeAngles={nodeAngles}
                 selectEdge={selectEdge}
                 deleteEdge={deleteEdge}
+                grabEdge={onGrabEdge}
             /> : null
         }
-        {manipulation.connectionStart === null ? (
-            (manipulation.movingNode !== null || manipulation.x === null || manipulation.y === null) ? null :
+        {(manipulation.connectionStart === null || manipulation.edgeIndex !== null) ? (
+            (manipulation.movingNode !== null || manipulation.x === null || manipulation.y === null || manipulation.connectionStart !== null) ? null :
             <NewNode
                     x={manipulation.x + manipulation.offsetX}
                     y={manipulation.y + manipulation.offsetY}
@@ -1630,6 +1671,38 @@ const GraphManipulator = ({box, nodeAngles}) => {
                     directed={flags.directed}
                     angle={0}
                 />
+        }
+        {
+            (manipulation.connectionStart !== null && manipulation.edgeIndex !== null) ?
+            [<NewNode
+                key="midpoint-node"
+                x={manipulation.x + manipulation.offsetX}
+                y={manipulation.y + manipulation.offsetY}
+            />,
+            <NewEdge
+                key="midpoint-pre-edge"
+                nodeId={0}
+                x0={positions[manipulation.connectionStart].x}
+                y0={positions[manipulation.connectionStart].y}
+                x1={manipulation.x + manipulation.offsetX}
+                y1={manipulation.y + manipulation.offsetY}
+                directed={flags.directed}
+                offset={true}
+                angle={0}
+            />,
+            <NewEdge
+                key="midpoint-post-edge"
+                nodeId={0}
+                x0={manipulation.x + manipulation.offsetX}
+                y0={manipulation.y + manipulation.offsetY}
+                x1={positions[nodes[manipulation.connectionStart][manipulation.edgeIndex]].x}
+                y1={positions[nodes[manipulation.connectionStart][manipulation.edgeIndex]].y}
+                directed={flags.directed}
+                offset={true}
+                angle={0}
+            />,
+            ]
+            : null
         }
     </g>
 }
@@ -1972,7 +2045,6 @@ const GraphLayerEdgeLabels = ({directed, nodes, positions, labels, labelKeys, an
 
 const Graph = ({box, nodeAngles}) => {
     const dispatch = useDispatch()
-    const canvasPos = useCanvasPos()
 
     const flags = useSelector(state => state.present.graph.flags)
     const nodes = useSelector(state => state.present.graph.nodes)
@@ -2148,7 +2220,6 @@ const AlgorithmStepperEdgeColoring = ({directed, positions, angles, nodes, color
 
 const AlgorithmStepper = ({box, nodeAngles}) => {
     const dispatch = useDispatch()
-    const canvasPos = useCanvasPos()
 
     const flags = useSelector(state => state.present.graph.flags)
     const selectedNodes = useSelector(state => state.present.selection.nodes)
@@ -2275,7 +2346,6 @@ const NodeEdgeSelection = ({x0,y0,x1,y1,directed}) => {
 
 const GraphSelection = ({box, nodeAngles}) => {
     const dispatch = useDispatch()
-    const canvasPos = useCanvasPos()
 
     const flags = useSelector(state => state.present.graph.flags)
     const selectedNodes = useSelector(state => state.present.selection.nodes)

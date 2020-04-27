@@ -2,6 +2,11 @@ export const clearSelection = () => ({
     type: 'CLEAR_SELECTION',
 });
 
+export const loadGraph = (graph) => ({
+    type: 'INIT_GRAPH',
+    graph,
+});
+
 export const selectNode = (nodeId, add = false, toggle = false) => ({
     type: 'SELECT_NODE',
     nodeId,
@@ -43,11 +48,12 @@ export const deleteNode = (nodeId) => ({
     nodeId,
 })
 
-export const createNode = (x, y, connectTo = null) => ({
+export const createNode = (x, y, connectTo = null, onEdge = null) => ({
     type: 'CREATE_NODE',
     attributes: {
         position: {x, y},
-        connectTo
+        connectTo,
+        onEdge
     },
 })
 
