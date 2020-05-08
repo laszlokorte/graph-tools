@@ -1496,9 +1496,8 @@ function getCurvePoints(pts, tension, isClosed, numOfSegments) {
 
 const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, selectEdge, deleteEdge, grabEdge}) => {
     const dispatch = useDispatch()
-    const visible = useSelector(state => state.present.graph.attributeTypes.edges.path.visible)
-
-
+    const pathattr = useSelector(state => state.present.graph.attributeTypes.edges.path)
+    const visible = pathattr && pathattr.visible
 
     const addControl = useCallback((n, e, c, x, y) => {
         const oldPath = paths[n][e]
