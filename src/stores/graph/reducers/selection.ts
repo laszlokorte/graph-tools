@@ -5,6 +5,7 @@ const initialState = {
 
 export default (state = initialState, action) => {
     switch(action.type) {
+        case 'INIT_GRAPH':
         case 'CLEAR_SELECTION': {
             return initialState;
         }

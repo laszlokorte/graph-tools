@@ -1,95 +1,215 @@
 const initialState = {
-    nodes: [],
-    attributes: {
-        edges: {
-            label: [],
-            cost: [],
-            capacity: [],
-            weight: [],
-        },
-        nodes: {
-            position: [],
-            label: [],
-            color: [],
-            initial: [],
-            final: [],
-            source: [],
-            sink: [],
-        }
+  "nodes": [
+    [
+      1,
+      0
+    ],
+    [
+      2
+    ],
+    [
+      0
+    ]
+  ],
+  "attributes": {
+    "edges": {
+      "path": [
+        [
+          [-200,-150, 0, -200, 100,-150],
+          []
+        ],
+        [
+          [50, 50]
+        ],
+        [
+          []
+        ]
+      ],
+      "label": [
+        [
+          "asdasd",
+          ""
+        ],
+        [
+          ""
+        ],
+        [
+          ""
+        ]
+      ],
+      "cost": [
+        [
+          1,
+          1
+        ],
+        [
+          -1
+        ],
+        [
+          1
+        ]
+      ],
+      "capacity": [
+        [
+          1,
+          1
+        ],
+        [
+          1
+        ],
+        [
+          1
+        ]
+      ],
+      "weight": [
+        [
+          1,
+          1
+        ],
+        [
+          1
+        ],
+        [
+          1
+        ]
+      ]
     },
-    flags: {
-        multiGraph: false,
-        directed: true,
-    },
-    attributeTypes: {
-        edges: {
-            label: {
-                default: '',
-                type: 'text',
-                visible: true,
-            },
-            cost: {
-                default: 1,
-                type: 'numeric',
-                visible: false,
-            },
-            capacity: {
-                default: 1,
-                type: 'numeric',
-                visible: true,
-            },
-            weight: {
-                default: 1,
-                type: 'numeric',
-                visible: true,
-            },
+    "nodes": {
+      "position": [
+        {
+          "x": -114.7032470703125,
+          "y": -100.0654296875
         },
-        nodes: {
-            position: {
-                default: {x:0,y:0},
-                type: 'object',
-                visible: false,
-            },
-            label: {
-                default: 'new',
-                type: 'text',
-                visible: true,
-            },
-            color: {
-                default: null,
-                type: 'color',
-                visible: false,
-            },
-            initial: {
-                default: false,
-                type: 'boolean',
-                visible: false,
-            },
-            final: {
-                default: false,
-                type: 'boolean',
-                visible: false,
-            },
-            source: {
-                default: false,
-                type: 'boolean',
-                visible: false,
-            },
-            sink: {
-                default: false,
-                type: 'boolean',
-                visible: false,
-            },
+        {
+          "x": 162.790283203125,
+          "y": -104.614501953125
+        },
+        {
+          "x": -8.5582275390625,
+          "y": 192.5916748046875
         }
+      ],
+      "label": [
+        "new",
+        "new",
+        "new"
+      ],
+      "color": [
+        null,
+        null,
+        null
+      ],
+      "initial": [
+        false,
+        false,
+        false
+      ],
+      "final": [
+        false,
+        false,
+        false
+      ],
+      "source": [
+        false,
+        false,
+        false
+      ],
+      "sink": [
+        false,
+        false,
+        false
+      ]
     }
+  },
+  "flags": {
+    "multiGraph": false,
+    "directed": true
+  },
+  "attributeTypes": {
+    "edges": {
+      "path": {
+        "default": [],
+        "type": "path",
+        "visible": true
+      },
+      "label": {
+        "default": "",
+        "type": "text",
+        "visible": true
+      },
+      "cost": {
+        "default": 1,
+        "type": "numeric",
+        "visible": true
+      },
+      "capacity": {
+        "default": 1,
+        "type": "numeric",
+        "visible": false
+      },
+      "weight": {
+        "default": 1,
+        "type": "numeric",
+        "visible": false
+      }
+    },
+    "nodes": {
+      "position": {
+        "default": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "object",
+        "visible": false
+      },
+      "label": {
+        "default": "new",
+        "type": "text",
+        "visible": false
+      },
+      "color": {
+        "default": null,
+        "type": "color",
+        "visible": false
+      },
+      "initial": {
+        "default": false,
+        "type": "boolean",
+        "visible": false
+      },
+      "final": {
+        "default": false,
+        "type": "boolean",
+        "visible": false
+      },
+      "source": {
+        "default": false,
+        "type": "boolean",
+        "visible": false
+      },
+      "sink": {
+        "default": false,
+        "type": "boolean",
+        "visible": false
+      }
+    }
+  }
 };
 
-const castAttributeType = (type, val) => {
-    switch(type) {
+const castAttributeType = (attr, val) => {
+    switch(attr.type) {
         case 'numeric':
             return parseFloat(val || 0);
         case 'boolean':
             return !!val;
+        case 'enum':
+            if(attr.options.indexOf(val) > -1) {
+                return val
+            } else if(attr.required) {
+                return attr.options[0];
+            } else {
+                return null;
+            }
     }
     return val;
 }
@@ -252,11 +372,21 @@ const thisReducer = (state = initialState, action) => {
                 })
 
                 if(action.attributes.onEdge !== null) {
-                    return thisReducer(withEdge, {
+                    const bothEdges = thisReducer(withEdge, {
                         type: 'ADD_EDGE',
                         fromNodeId: withEdge.nodes.length - 1,
                         toNodeId: withEdge.nodes[action.attributes.connectTo][action.attributes.onEdge],
                     })
+
+                    if(!action.attributes.keepEdge) {
+                        return thisReducer(bothEdges, {
+                            type: 'DELETE_EDGE',
+                            nodeId: action.attributes.connectTo,
+                            edgeIndex: action.attributes.onEdge,
+                        })
+                    } else {
+                        return bothEdges;
+                    }
                 } else {
                     return withEdge;
                 }
@@ -293,7 +423,7 @@ const thisReducer = (state = initialState, action) => {
             });
         }
         case 'SET_EDGE_ATTRIBUTE': {
-            const newAttr = castAttributeType(state.attributeTypes.edges[action.attribute].type, action.value);
+            const newAttr = castAttributeType(state.attributeTypes.edges[action.attribute], action.value);
             const oldAttr = state.attributes.edges[action.attribute][action.nodeId][action.edgeIndex];
             if(newAttr == oldAttr) {
                 return state;
@@ -319,7 +449,7 @@ const thisReducer = (state = initialState, action) => {
             });
         }
         case 'SET_NODE_ATTRIBUTE': {
-            const newAttr = castAttributeType(state.attributeTypes.nodes[action.attribute].type, action.value);
+            const newAttr = castAttributeType(state.attributeTypes.nodes[action.attribute], action.value);
             const oldAttr = state.attributes.nodes[action.attribute][action.nodeId];
             if(newAttr == oldAttr) {
                 return state;

@@ -48,12 +48,13 @@ export const deleteNode = (nodeId) => ({
     nodeId,
 })
 
-export const createNode = (x, y, connectTo = null, onEdge = null) => ({
+export const createNode = (x, y, connectTo = null, onEdge = null, keepEdge = false) => ({
     type: 'CREATE_NODE',
     attributes: {
         position: {x, y},
         connectTo,
-        onEdge
+        onEdge,
+        keepEdge,
     },
 })
 

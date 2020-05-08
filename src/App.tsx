@@ -3,9 +3,8 @@ import {useReducer, useRef, useMemo, useEffect, useContext, useCallback, useStat
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
-import { batch } from 'react-redux'
 import { useSelector, useDispatch } from './stores/graph/context'
-import { useSelector as useProjectsSelector, useSelector as useProjectsDispatch } from './stores/projects/context'
+import { useSelector as useProjectsSelector, useDispatch as useProjectsDispatch } from './stores/projects/context'
 import { ActionCreators } from 'redux-undo';
 
 import {ALGORITHMS} from './stores/graph/reducers/algorithm/index';
@@ -230,18 +229,38 @@ const PlainButton = styled.button`
 const NodeAttribute = ({nodeId, attrKey}) => {
     const dispatch = useDispatch()
     const value = useSelector(state => state.present.graph.attributes.nodes[attrKey][nodeId])
-    const type = useSelector(state => state.present.graph.attributeTypes.nodes[attrKey].type)
+    const type = useSelector(state => state.present.graph.attributeTypes.nodes[attrKey])
+    const typeName = type.type
 
+    const onChange = useCallback(
+        (evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))
+    , [nodeId, attrKey])
 
-    if(['text','color','numeric'].includes(type)) {
+    const onCheck = useCallback(
+        (evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))
+    , [nodeId, attrKey])
+
+    if(['text','color','numeric'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><input type="text" value={value || ''} onChange={(evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))} /></dd>
+            <dd><input type="text" value={value || ''} onChange={onChange} /></dd>
         </>);
-    } else if(['boolean'].includes(type)) {
+    } else if(['boolean'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><input type="checkbox" checked={value===true} onChange={(evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.checked))} /></dd>
+            <dd><input type="checkbox" checked={value===true} onChange={onCheck} /></dd>
+        </>);
+    } else if(['enum'].includes(typeName)) {
+        return (<>
+            <dt>{attrKey}*:</dt>
+            <dd>
+                <select value={value} onChange={onChange}>
+                    {type.required ? null : <option value={null}>---</option>}
+                    {type.options.map((v, i) => {
+                        return <option key={i}>{v}</option>
+                    })}
+                </select>
+            </dd>
         </>);
     } else {
         return (<>
@@ -1082,7 +1101,7 @@ const NodeDragger = styled.path`
 
 const EdgeHandle = styled.circle`
     cursor: default;
-    fill: #6EAEAE;
+    fill: #c0c0c0;
     opacity: 0.5;
 `;
 
@@ -1169,6 +1188,9 @@ const edgePath = (directed, x0,y0,x1,y1, angle = 0) => {
         cX: (caX+cbX) / 2,
         cY: (caY+cbY) / 2,
         curve: `M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`,
+        length,
+        normX,
+        normY,
     }
 }
 
@@ -1371,7 +1393,7 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, di
         deleteEdge(evt, nodeId, edgeIdx)
     }, [deleteEdge, nodeId, edgeIdx])
 
-    return <EdgeHandle onMouseDown={mouseDownCallback} onClick={onClickCallback} onDoubleClick={onDoubleCallback} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={5} />
+    return <EdgeHandle onMouseDown={mouseDownCallback} onClick={onClickCallback} onDoubleClick={onDoubleCallback} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={10} />
 }
 
 const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, deleteEdge, grabEdge}) => {
@@ -1394,6 +1416,175 @@ const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, d
                 neighbourId={neighbourId}
                 nodeAngle ={nodeAngles[nodeId]}
             />
+        })
+    )}
+    </>
+}
+
+function getCurvePoints(pts, tension, isClosed, numOfSegments) {
+
+  // use input value if provided, or use a default value
+  tension = (typeof tension != 'undefined') ? tension : 0.5;
+  isClosed = isClosed ? isClosed : false;
+  numOfSegments = numOfSegments ? numOfSegments : 16;
+
+  var _pts = [], res = [],	// clone array
+      x, y,			// our x,y coords
+      t1x, t2x, t1y, t2y,	// tension vectors
+      c1, c2, c3, c4,		// cardinal points
+      st, t, i;		// steps based on num. of segments
+
+  // clone array so we don't change the original
+  //
+  _pts = pts.slice(0);
+
+  // The algorithm require a previous and next point to the actual point array.
+  // Check if we will draw closed or open curve.
+  // If closed, copy end points to beginning and first points to end
+  // If open, duplicate first points to befinning, end points to end
+  if (isClosed) {
+    _pts.unshift(pts[pts.length - 1]);
+    _pts.unshift(pts[pts.length - 2]);
+    _pts.unshift(pts[pts.length - 1]);
+    _pts.unshift(pts[pts.length - 2]);
+    _pts.push(pts[0]);
+    _pts.push(pts[1]);
+  }
+  else {
+    _pts.unshift(pts[1]);	//copy 1. point and insert at beginning
+    _pts.unshift(pts[0]);
+    _pts.push(pts[pts.length - 2]);	//copy last point and append
+    _pts.push(pts[pts.length - 1]);
+  }
+
+  // ok, lets start..
+
+  // 1. loop goes through point array
+  // 2. loop goes through each segment between the 2 pts + 1e point before and after
+  for (i=2; i < (_pts.length - 4); i+=2) {
+    for (t=0; t <= numOfSegments; t++) {
+
+      // calc tension vectors
+      t1x = (_pts[i+2] - _pts[i-2]) * tension;
+      t2x = (_pts[i+4] - _pts[i]) * tension;
+
+      t1y = (_pts[i+3] - _pts[i-1]) * tension;
+      t2y = (_pts[i+5] - _pts[i+1]) * tension;
+
+      // calc step
+      st = t / numOfSegments;
+
+      // calc cardinals
+      c1 =   2 * Math.pow(st, 3) 	- 3 * Math.pow(st, 2) + 1;
+      c2 = -(2 * Math.pow(st, 3)) + 3 * Math.pow(st, 2);
+      c3 = 	   Math.pow(st, 3)	- 2 * Math.pow(st, 2) + st;
+      c4 = 	   Math.pow(st, 3)	- 	  Math.pow(st, 2);
+
+      // calc x and y cords with common control vectors
+      x = c1 * _pts[i]	+ c2 * _pts[i+2] + c3 * t1x + c4 * t2x;
+      y = c1 * _pts[i+1]	+ c2 * _pts[i+3] + c3 * t1y + c4 * t2y;
+
+      //store points in array
+      res.push(x);
+      res.push(y);
+
+    }
+  }
+
+  return res;
+}
+
+const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, selectEdge, deleteEdge, grabEdge}) => {
+    const dispatch = useDispatch()
+    const visible = useSelector(state => state.present.graph.attributeTypes.edges.path.visible)
+
+
+
+    const addControl = useCallback((n, e, c, x, y) => {
+        const oldPath = paths[n][e]
+        const newPath = [...oldPath.slice(0, c*2), x, y, ...oldPath.slice(c*2)]
+        dispatch(actions.setEdgeAttribute(n, e, 'path', newPath))
+    }, [paths, dispatch])
+
+    const removeControl = useCallback((n, e, c) => {
+        const oldPath = paths[n][e]
+        const newPath = [...oldPath.slice(0, (c)*2), ...oldPath.slice((c+1)*2)]
+        dispatch(actions.setEdgeAttribute(n, e, 'path', newPath))
+    }, [paths, dispatch])
+
+    if(!visible) {
+        return null
+    }
+
+    return <>
+    {nodes.map((neighbors, nodeId) =>
+        neighbors.map((neighbourId, edgeIdx) => {
+            if(neighbourId == nodeId) {
+                return null;
+            }
+
+            const result = [];
+            const controls = paths[nodeId][edgeIdx]
+
+            const c = [];
+
+            let points = [...controls]
+            let ep = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngles[nodeId][edgeIdx])
+
+            if(controls.length == 0) {
+                points = [
+                    (positions[nodeId].x + positions[neighbourId].x) / 2 + 20 * ep.normY,
+                    (positions[nodeId].y + positions[neighbourId].y) / 2 - 20 * ep.normX,
+                ]
+            }
+
+            points.unshift(positions[nodeId].y)
+            points.unshift(positions[nodeId].x)
+
+            points.push(positions[neighbourId].x, positions[neighbourId].y)
+
+            const curvePath = [];
+
+            curvePath.push("M" + points[0], points[1]);
+            let t = 0.8;
+            for (let i = 0; i < points.length - 3; i += 2)
+            {
+                let p0x = (i > 0) ? points[i - 2] : points[0];
+                let p0y = (i > 0) ? points[i - 1] : points[1];
+                let p1x = points[i];
+                let p1y = points[i+1];
+                let p2x = points[i + 2];
+                let p2y = points[i + 3];
+                let p3x = (i != points.length - 4) ? points[i + 4] : p2x;
+                let p3y = (i != points.length - 4) ? points[i + 5] : p2y;
+
+                let cp1x = p1x + (p2x - p0x) / 6 * t;
+                let cp1y = p1y + (p2y - p0y) / 6 * t;
+
+                let cp2x = p2x - (p3x - p1x) / 6 * t;
+                let cp2y = p2y - (p3y - p1y) / 6 * t;
+
+                let cx = 0.125 * p1x + 0.75 * 0.5 * cp1x + 1.5 * 0.25 * cp2x + 0.125 * p2x;
+                let cy = 0.125 * p1y + 0.75 * 0.5 * cp1y + 1.5 * 0.25 * cp2y + 0.125 * p2y;
+
+                curvePath.push("C" + cp1x +' '+ cp1y+' '+cp2x+' '+cp2y+' '+p2x+' '+p2y);
+                if(controls.length) {
+                    result.push(<circle onClick={() => addControl(nodeId, edgeIdx, i / 2, cx, cy)} key={"a"+i} cx={cx} fill="orange" cy={cy} r={7} />)
+                } else if(i==0) {
+                    result.push(<circle onClick={() => addControl(nodeId, edgeIdx, i / 2, p2x, p2y)} key={"a"+i} cx={p2x} fill="cyan" cy={p2y} r={7} />)
+                }
+            }
+
+            for(let i=0; i<controls.length; i += 2) {
+                const cx = controls[i];
+                const cy = controls[i + 1];
+                result.push(<circle onClick={() => removeControl(nodeId, edgeIdx, i / 2)} key={"b"+i} cx={cx} cy={cy} r={7} />)
+            }
+
+
+            result.unshift(<path key="line" d={curvePath.join(' ')} fill="none" stroke="purple" strokeWidth={2} />)
+
+            return result;
         })
     )}
     </>
@@ -1490,6 +1681,7 @@ const GraphManipulator = ({box, nodeAngles}) => {
     const selectedEdges = useSelector(state => state.present.selection.edges)
     const nodes = useSelector(state => state.present.graph.nodes)
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+    const paths = useSelector(state => state.present.graph.attributes.edges.path)
 
     const [manipulation, dispatchManipulation] = useReducer(manipulationReducer, {
         connectionStart: null,
@@ -1513,7 +1705,8 @@ const GraphManipulator = ({box, nodeAngles}) => {
                 manipulation.x+manipulation.offsetX,
                 manipulation.y+manipulation.offsetY,
                 manipulation.connectionStart,
-                manipulation.edgeIndex
+                manipulation.edgeIndex,
+                evt.shiftKey
             ))
         } else if(manipulation.movingNode !== null) {
             dispatch(actions.setNodeAttribute(
@@ -1606,7 +1799,7 @@ const GraphManipulator = ({box, nodeAngles}) => {
     }, [canvasPos, dispatchManipulation])
 
     const onGrabEdge = useCallback((evt, nodeId, edgeIndex, cx, cy) => {
-        if(evt.altKey) {
+        if(!evt.altKey) {
             return;
         }
         evt.stopPropagation();
@@ -1642,6 +1835,17 @@ const GraphManipulator = ({box, nodeAngles}) => {
                 selectEdge={selectEdge}
                 deleteEdge={deleteEdge}
                 grabEdge={onGrabEdge}
+            /> : null
+        }
+        {
+            manipulation.x === null && manipulation.y === null &&
+            manipulation.connectionStart === null && manipulation.movingNode === null ?
+            <EdgesPathManipulator
+                nodes={nodes}
+                directed={flags.directed}
+                positions={positions}
+                paths={paths}
+                nodeAngles={nodeAngles}
             /> : null
         }
         {(manipulation.connectionStart === null || manipulation.edgeIndex !== null) ? (
@@ -1923,10 +2127,13 @@ const GraphSelector = ({box, nodeAngles}) => {
      ${range.x1} ${range.y1}
      ${range.x1} ${range.y0}`;
 
+    const rect = useRef();
+
+
     return <g onMouseDown={mouseDown}>
         <rect style={{pointerEvents:'all'}} onMouseDown={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {range.x0 === null ? null :
-            <SelectionBox points={ps2} />
+            <SelectionBox ref={rect} points={ps2} />
         }
         {nodes.map((neighbors, nodeId) => {
             return <NodeSelector
@@ -2034,7 +2241,7 @@ const GraphLayerEdgeLabels = ({directed, nodes, positions, labels, labelKeys, an
                     neighbors.map((neighbourId, edgeIdx) => {
                         const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, angles[nodeId]);
                         return <EdgeLabel key={nodeId + '-' + edgeIdx} x={p.textX} y={p.textY} dy={20 * (0.5 + kdx - labelKeys.length / 2)} orientation={p.orientation}>
-                            {k}: {labels[k][nodeId][edgeIdx]}
+                            {k}: {String(labels[k][nodeId][edgeIdx])}
                         </EdgeLabel>
                     })
                 )}
