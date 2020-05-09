@@ -1053,6 +1053,7 @@ const EdgeSelectionLine = styled.path`
     pointer-events: none;
     stroke: #37B1F6;
     opacity: 0.6;
+    stroke-linecap: round;
 	stroke-width: 6;
 `
 
@@ -1068,16 +1069,6 @@ const TransientEdgeLabel = styled.text`
     fill: #555;
     text-anchor: ${({orientation: o}) => o===2 ? 'end' : (o===0 ? 'start' : 'middle')};
     dominant-baseline: ${({orientation: o}) => o===1 ? 'hanging' : (o===3 ? 'initial' : 'central')};
-`
-
-const EdgeLabelSelection = styled.text`
-	cursor: default;
-    pointer-events: none;
-    stroke: #37B1F6;
-    opacity: 0.6;
-	stroke-width: 4;
-	text-anchor: ${({orientation: o}) => o===2 ? 'end' : (o===0 ? 'start' : 'middle')};
-	dominant-baseline: ${({orientation: o}) => o===1 ? 'hanging' : (o===3 ? 'initial' : 'central')};
 `
 
 const ArrowHead = styled.polygon`
@@ -1141,62 +1132,14 @@ const Node = ({x, y, nodeType = 'circle', nodeId, selected = false, style = {}, 
     } : null, [nodeId, onDoubleClick]);
 
     return <g style={style} onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
-		{nodeType === 'circle' ?
-			<NodeCircle cx={x} cy={y} r={20} /> :
-			<NodeBox x={x - 17} y={y - 17} width={34} height={34} />
-		}
-	</g>
+        {nodeType === 'circle' ?
+            <NodeCircle cx={x} cy={y} r={20}/> :
+            <NodeBox x={x - 17} y={y - 17} width={34} height={34}/>
+        }
+    </g>
 }
 
-const edgePath = (directed, x0,y0,x1,y1, angle = 0) => {
-    const midX = (x0 + x1) / 2
-    const midY = (y0 + y1) / 2
-    let dirX = x1 - x0
-    let dirY = y1 - y0
-    if(!dirX && !dirY) {
-        dirX = Math.cos(angle - Math.PI / 2)
-        dirY = Math.sin(angle - Math.PI / 2)
-    }
-    const length2 = dirX*dirX + dirY*dirY
-    const length = Math.sqrt(length2)
-    const normX = dirX/length
-    const normY = dirY/length
-    const bendA = directed ? 80/Math.log(Math.max(3, length)) : 0
-    const bendB = directed ? 80/Math.log(Math.max(3, length)) : 0
-
-    const orientation = Math.round(((Math.atan2(normY, normX) + Math.PI) / Math.PI + 0.5) * 2) % 4
-
-    const cX = midX + bendA * normY
-    const cY = midY - bendA * normX
-
-    const caX = cX - bendB*normX
-    const caY = cY - bendB*normY
-
-    const cbX = cX + bendB*normX
-    const cbY = cY + bendB*normY
-
-    const textX = midX + 0.9 * bendA * normY
-    const textY = midY - 0.9 * bendA * normX
-
-    const headAngle = Math.atan2(y1 - cbY + bendB*normY/2, x1 - cbX + bendB*normX/2);
-
-    return {
-        textX,
-        textY,
-        headAngle,
-        orientation,
-        cX: (caX+cbX) / 2,
-        cY: (caY+cbY) / 2,
-        curve: `M${x0},${y0} C${caX},${caY} ${cbX},${cbY} ${x1},${y1}`,
-        length,
-        normX,
-        normY,
-    }
-}
-
-const Edge = ({nodeId, edgeIndex = null, x0,y0,x1,y1, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true, disabled=false, angle = 0}) => {
-	const path = edgePath(directed, x0, y0, x1, y1, angle)
-
+const Edge = ({nodeId, edgeIndex = null, edgePath, selected = false, onClick = null, onDoubleClick = null, style = null, labelStyle = null, directed = true, disabled=false, angle = 0}) => {
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId, edgeIndex)
     } : null, [nodeId, edgeIndex, onClick])
@@ -1208,65 +1151,19 @@ const Edge = ({nodeId, edgeIndex = null, x0,y0,x1,y1, selected = false, onClick 
 	return <g onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
 		<g style={style}>
         {directed ?
-            <EdgeHead disabled={disabled} x={x1} y={y1} angle={path.headAngle} />
+            <EdgeHead disabled={disabled} x={edgePath.tip.x} y={edgePath.tip.y} angle={edgePath.tip.angle} />
             :null
         }
-        <EdgeLine disabled={disabled} d={path.curve} />
+        <EdgeLine disabled={disabled} d={edgePath.string} />
         </g>
 	</g>
 }
 
-const ReflexiveEdge = ({nodeId, edgeIndex, x, y, angle = 0, onClick = null, onDoubleClick = null, style = null}) =>
-	<Edge
-        nodeId={nodeId}
-        edgeIndex={edgeIndex}
-		x0={x + Math.cos(angle - Math.PI / 8) * 20}
-		y0={y + Math.sin(angle - Math.PI / 8) * 20}
-		x1={x + Math.cos(angle + Math.PI / 8) * 20}
-		y1={y + Math.sin(angle + Math.PI / 8) * 20}
-		onClick={onClick}
-        onDoubleClick={onDoubleClick}
-		style={style}
-        directed={true}
-	/>
-
-const NodeEdge = ({nodeId, edgeIndex, x0, y0, x1, y1, onClick = null, onDoubleClick = null, style = null, directed = true}) => {
-    let dirX = x1 - x0
-    let dirY = y1 - y0
-    if(!dirX && !dirY) {
-        dirX = 1
-        dirY = 0
-    }
-    const length2 = dirX*dirX + dirY*dirY
-    const length = Math.sqrt(length2)
-    const normX = dirX/length
-    const normY = dirY/length
-    const midX = (x0 + x1) / 2
-    const midY = (y0 + y1) / 2
-    const bend = directed ? 30 : 0
-
-    const cX = midX + bend * normY
-    const cY = midY - bend * normX
-
-    const cDirX = cX - x0
-    const cDirY = cY - y0
-    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
-    const cDirXNorm = cDirX / cDirLength
-    const cDirYNorm = cDirY / cDirLength
-
-    const cDirXr = cX - x1
-    const cDirYr = cY - y1
-    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
-    const cDirXNormr = cDirXr / cDirLengthr
-    const cDirYNormr = cDirYr / cDirLengthr
-
+const NodeEdge = ({nodeId, edgeIndex, edgePath, onClick = null, onDoubleClick = null, style = null, directed = true}) => {
     return <Edge
         nodeId={nodeId}
         edgeIndex={edgeIndex}
-        x0={x0 + 20 * cDirXNorm}
-        y0={y0 + 20 * cDirYNorm}
-        x1={x1 + 20 * cDirXNormr}
-        y1={y1 + 20 * cDirYNormr}
+        edgePath={edgePath}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
         style={style}
@@ -1275,46 +1172,8 @@ const NodeEdge = ({nodeId, edgeIndex, x0, y0, x1, y1, onClick = null, onDoubleCl
 }
 
 const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false, angle = 0}) => {
-    let dirX = x1 - x0
-    let dirY = y1 - y0
-    if(!dirX && !dirY) {
-        dirX = Math.cos(angle - Math.PI / 2)
-        dirY = Math.sin(angle - Math.PI / 2)
-    }
-    const length2 = dirX*dirX + dirY*dirY
-    const length = Math.sqrt(length2)
-    const normX = dirX/length
-    const normY = dirY/length
-    const midX = (x0 + x1) / 2
-    const midY = (y0 + y1) / 2
-    const bend = directed ? 30 : 0
 
-    const cX = midX + bend * normY
-    const cY = midY - bend * normX
-
-    const cDirX = cX - x0
-    const cDirY = cY - y0
-    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
-    const cDirXNorm = cDirX / cDirLength
-    const cDirYNorm = cDirY / cDirLength
-
-    const cDirXr = cX - x1
-    const cDirYr = cY - y1
-    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
-    const cDirXNormr = cDirXr / cDirLengthr
-    const cDirYNormr = cDirYr / cDirLengthr
-
-    return <Edge
-        nodeId={nodeId}
-        x0={x0 + 20 * cDirXNorm}
-        y0={y0 + 20 * cDirYNorm}
-        x1={x1 + (offset ? 20 * cDirXNormr : 0)}
-        y1={y1 + (offset ? 20 * cDirYNormr : 0)}
-        style={{strokeDasharray: "10 10"}}
-        angle={angle}
-        disabled={true}
-        directed={directed}
-    />
+    return null;
 }
 
 const NewNode = ({x, y}) => {
@@ -1375,12 +1234,10 @@ const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onD
     </g>
 }
 
-const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, directed, nodeAngle, neighbourId, mouseDown}) => {
-    const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngle)
-
+const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, directed, nodeAngle, edgePath, neighbourId, mouseDown}) => {
     const mouseDownCallback = useCallback(mouseDown ? (evt) => {
-        mouseDown(evt, nodeId, edgeIdx, p.cX, p.cY)
-    } : null, [nodeId, mouseDown, p])
+        mouseDown(evt, nodeId, edgeIdx, edgePath.median.x, edgePath.median.y)
+    } : null, [nodeId, mouseDown, edgePath.median])
 
     const onClickCallback = useCallback((evt) => {
         evt.preventDefault();
@@ -1393,10 +1250,10 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, di
         deleteEdge(evt, nodeId, edgeIdx)
     }, [deleteEdge, nodeId, edgeIdx])
 
-    return <EdgeHandle onMouseDown={mouseDownCallback} onClick={onClickCallback} onDoubleClick={onDoubleCallback} key={nodeId+' '+neighbourId} cx={p.cX} cy={p.cY} r={10} />
+    return <EdgeHandle onMouseDown={mouseDownCallback} onClick={onClickCallback} onDoubleClick={onDoubleCallback} key={nodeId+' '+neighbourId} cx={edgePath.median.x} cy={edgePath.median.y} r={10} />
 }
 
-const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, deleteEdge, grabEdge}) => {
+const EdgesManipulator = ({nodes, directed, positions, nodeAngles, edgePaths, selectEdge, deleteEdge, grabEdge}) => {
     return <>
     {nodes.map((neighbors, nodeId) =>
         neighbors.map((neighbourId, edgeIdx) => {
@@ -1415,99 +1272,154 @@ const EdgesManipulator = ({nodes, directed, positions, nodeAngles, selectEdge, d
                 directed={directed}
                 neighbourId={neighbourId}
                 nodeAngle ={nodeAngles[nodeId]}
+                edgePath={edgePaths[nodeId][edgeIdx]}
             />
         })
     )}
     </>
 }
 
-function getCurvePoints(pts, tension, isClosed, numOfSegments) {
-
-  // use input value if provided, or use a default value
-  tension = (typeof tension != 'undefined') ? tension : 0.5;
-  isClosed = isClosed ? isClosed : false;
-  numOfSegments = numOfSegments ? numOfSegments : 16;
-
-  var _pts = [], res = [],	// clone array
-      x, y,			// our x,y coords
-      t1x, t2x, t1y, t2y,	// tension vectors
-      c1, c2, c3, c4,		// cardinal points
-      st, t, i;		// steps based on num. of segments
-
-  // clone array so we don't change the original
-  //
-  _pts = pts.slice(0);
-
-  // The algorithm require a previous and next point to the actual point array.
-  // Check if we will draw closed or open curve.
-  // If closed, copy end points to beginning and first points to end
-  // If open, duplicate first points to befinning, end points to end
-  if (isClosed) {
-    _pts.unshift(pts[pts.length - 1]);
-    _pts.unshift(pts[pts.length - 2]);
-    _pts.unshift(pts[pts.length - 1]);
-    _pts.unshift(pts[pts.length - 2]);
-    _pts.push(pts[0]);
-    _pts.push(pts[1]);
-  }
-  else {
-    _pts.unshift(pts[1]);	//copy 1. point and insert at beginning
-    _pts.unshift(pts[0]);
-    _pts.push(pts[pts.length - 2]);	//copy last point and append
-    _pts.push(pts[pts.length - 1]);
-  }
-
-  // ok, lets start..
-
-  // 1. loop goes through point array
-  // 2. loop goes through each segment between the 2 pts + 1e point before and after
-  for (i=2; i < (_pts.length - 4); i+=2) {
-    for (t=0; t <= numOfSegments; t++) {
-
-      // calc tension vectors
-      t1x = (_pts[i+2] - _pts[i-2]) * tension;
-      t2x = (_pts[i+4] - _pts[i]) * tension;
-
-      t1y = (_pts[i+3] - _pts[i-1]) * tension;
-      t2y = (_pts[i+5] - _pts[i+1]) * tension;
-
-      // calc step
-      st = t / numOfSegments;
-
-      // calc cardinals
-      c1 =   2 * Math.pow(st, 3) 	- 3 * Math.pow(st, 2) + 1;
-      c2 = -(2 * Math.pow(st, 3)) + 3 * Math.pow(st, 2);
-      c3 = 	   Math.pow(st, 3)	- 2 * Math.pow(st, 2) + st;
-      c4 = 	   Math.pow(st, 3)	- 	  Math.pow(st, 2);
-
-      // calc x and y cords with common control vectors
-      x = c1 * _pts[i]	+ c2 * _pts[i+2] + c3 * t1x + c4 * t2x;
-      y = c1 * _pts[i+1]	+ c2 * _pts[i+3] + c3 * t1y + c4 * t2y;
-
-      //store points in array
-      res.push(x);
-      res.push(y);
-
+const pathManipulationReducer = (state, action) => {
+    switch(action.type) {
+        case 'stop':
+            return {
+                ...state,
+                nodeIdx: null,
+                edgeIdx: null,
+                controlIdx: null,
+                path:null,
+                offsetX: 0,
+                offsetY: 0,
+            };
+        case 'move':
+            if(state.nodeIdx != null) {
+                return {
+                    ...state,
+                    path: [...state.path.slice(0, state.controlIdx*2), action.x, action.y, ...state.path.slice(state.controlIdx*2 + 2)],
+                }
+            } else {
+                return state;
+            }
+        case 'startCreate':
+            return {
+                ...state,
+                nodeIdx: action.nodeIdx,
+                edgeIdx: action.edgeIdx,
+                controlIdx: action.controlIdx,
+                path: [...action.path.slice(0, action.controlIdx*2), action.x, action.y, ...action.path.slice(action.controlIdx*2)],
+                offsetX: 0,
+                offsetY: 0,
+            }
+        case 'startMove':
+            return {
+                ...state,
+                nodeIdx: action.nodeIdx,
+                edgeIdx: action.edgeIdx,
+                controlIdx: action.controlIdx,
+                path: [...action.path.slice(0, action.controlIdx*2), action.x, action.y, ...action.path.slice(action.controlIdx*2 + 2)],
+                offsetX: 0,
+                offsetY: 0,
+            }
     }
-  }
-
-  return res;
+    return state;
 }
 
-const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, selectEdge, deleteEdge, grabEdge}) => {
+const EdgePathManipulator = ({nodeId, edgeIdx, controls, startPosition, endPosition, directed, angle, edgePath, mouseDownControl, doubleClickControl}) => {
+    const result = [];
+
+    const mouseDownNew = useCallback((evt) => {
+        evt.stopPropagation();
+        const c = 1*evt.target.getAttribute('data-c');
+        const x = 1*evt.target.getAttribute('data-x');
+        const y = 1*evt.target.getAttribute('data-y');
+        mouseDownControl(nodeId, edgeIdx, c, x, y, true)
+    }, [nodeId, edgeIdx, mouseDownControl, controls])
+
+    const mouseDownExisting = useCallback((evt) => {
+        evt.stopPropagation();
+        const c = 1*evt.target.getAttribute('data-c');
+        const x = 1*evt.target.getAttribute('data-x');
+        const y = 1*evt.target.getAttribute('data-y');
+        mouseDownControl(nodeId, edgeIdx, c, x, y, false)
+    }, [nodeId, edgeIdx, mouseDownControl, controls])
+
+    const doubleClick = useCallback((evt) => {
+        const c = 1*evt.target.getAttribute('data-c');
+        doubleClickControl(nodeId, edgeIdx, c, evt)
+    }, [nodeId, edgeIdx, doubleClickControl, controls])
+
+    for (let i = 2; i < edgePath.curve.length - 5; i += 6)
+    {
+        let cx = 0.125 * edgePath.curve[i-2] + 0.75 * 0.5 * edgePath.curve[i] + 1.5 * 0.25 * edgePath.curve[i+2] + 0.125 * edgePath.curve[i+4];
+        let cy = 0.125 * edgePath.curve[i-1] + 0.75 * 0.5 * edgePath.curve[i+1] + 1.5 * 0.25 * edgePath.curve[i+3] + 0.125 * edgePath.curve[i+5];
+
+        if(controls.length) {
+            result.push(<circle onMouseDown={mouseDownNew} data-c={(i-2)/6} data-x={cx} data-y={cy} key={"a"+i} cx={cx} fill="orange" cy={cy} r={7} />)
+        } else if(i === 2) {
+            result.push(<circle onMouseDown={mouseDownNew} data-c={(i-2)/6}  data-x={edgePath.curve[i+4]} data-y={edgePath.curve[i+5]} key={"a"+i} cx={edgePath.curve[i+4]} fill="cyan" cy={edgePath.curve[i+5]} r={7} />)
+        }
+    }
+
+    for(let i=0; i<controls.length; i += 2) {
+        const cx = controls[i];
+        const cy = controls[i + 1];
+        result.push(<circle onMouseDown={mouseDownExisting} onDoubleClick={doubleClick} data-c={i/2} data-x={cx} data-y={cy} key={"b"+i} cx={cx} cy={cy} r={7} />)
+    }
+
+    return result;
+}
+
+const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, edgePaths, selectedEdges}) => {
     const dispatch = useDispatch()
+    const canvasPos = useCanvasPos()
+
     const pathattr = useSelector(state => state.present.graph.attributeTypes.edges.path)
     const visible = pathattr && pathattr.visible
 
-    const addControl = useCallback((n, e, c, x, y) => {
-        const oldPath = paths[n][e]
-        const newPath = [...oldPath.slice(0, c*2), x, y, ...oldPath.slice(c*2)]
-        dispatch(actions.setEdgeAttribute(n, e, 'path', newPath))
+    const [manipulation, dispatchManipulation] = useReducer(pathManipulationReducer, {
+        nodeIdx: null,
+        edgeIdx: null,
+        controlIdx: null,
+        path: null,
+        offsetX: 0,
+        offsetY: 0,
+    });
+
+    const onMouseUp = useCallback((evt) => {
+        if(manipulation.nodeIdx != null) {
+            dispatch(actions.setEdgeAttribute(manipulation.nodeIdx, manipulation.edgeIdx, 'path', manipulation.path))
+        }
+        dispatchManipulation({type: 'stop'})
+    }, [manipulation, dispatchManipulation, dispatch])
+
+    const onMouseMove = useCallback((evt) => {
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+        dispatchManipulation({type: 'move', ...pos})
+    }, [dispatchManipulation, canvasPos])
+
+    useEffect(() => {
+        window.addEventListener('mousemove', onMouseMove)
+        window.addEventListener('mouseup', onMouseUp)
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove)
+            window.removeEventListener('mouseup', onMouseUp)
+        }
+    }, [onMouseUp, onMouseMove])
+
+    const mouseDownControl = useCallback((nodeIdx, edgeIdx, controlIdx, x, y, init) => {
+        const oldPath = paths[nodeIdx][edgeIdx];
+        if(init) {
+            dispatchManipulation({type: 'startCreate', nodeIdx, edgeIdx, controlIdx, path: oldPath, x, y})
+        } else {
+            dispatchManipulation({type: 'startMove', nodeIdx, edgeIdx, controlIdx, path: oldPath, x, y})
+        }
     }, [paths, dispatch])
 
-    const removeControl = useCallback((n, e, c) => {
-        const oldPath = paths[n][e]
-        const newPath = [...oldPath.slice(0, (c)*2), ...oldPath.slice((c+1)*2)]
+    const doubleClickControl = useCallback((n, e, c, evt) => {
+        evt.stopPropagation();
+        const oldPath = paths[n][e];
+        const newPath = [...oldPath.slice(0, c*2), ...oldPath.slice(c*2 + 2)]
         dispatch(actions.setEdgeAttribute(n, e, 'path', newPath))
     }, [paths, dispatch])
 
@@ -1516,76 +1428,33 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, se
     }
 
     return <>
-    {nodes.map((neighbors, nodeId) =>
-        neighbors.map((neighbourId, edgeIdx) => {
-            if(neighbourId == nodeId) {
+        {selectedEdges.map((e) => {
+            const nodeId = e[0];
+            const edgeIdx = e[1];
+            const neighbourId = nodes[nodeId][edgeIdx];
+
+            if(nodeId == neighbourId) {
                 return null;
             }
 
-            const result = [];
-            const controls = paths[nodeId][edgeIdx]
-
-            const c = [];
-
-            let points = [...controls]
-            let ep = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, nodeAngles[nodeId][edgeIdx])
-
-            if(controls.length == 0) {
-                points = [
-                    (positions[nodeId].x + positions[neighbourId].x) / 2 + 20 * ep.normY,
-                    (positions[nodeId].y + positions[neighbourId].y) / 2 - 20 * ep.normX,
-                ]
+            let controls = paths[nodeId][edgeIdx]
+            if(manipulation.nodeIdx === nodeId && manipulation.edgeIdx == edgeIdx) {
+                controls = manipulation.path;
             }
 
-            points.unshift(positions[nodeId].y)
-            points.unshift(positions[nodeId].x)
-
-            points.push(positions[neighbourId].x, positions[neighbourId].y)
-
-            const curvePath = [];
-
-            curvePath.push("M" + points[0], points[1]);
-            let t = 0.8;
-            for (let i = 0; i < points.length - 3; i += 2)
-            {
-                let p0x = (i > 0) ? points[i - 2] : points[0];
-                let p0y = (i > 0) ? points[i - 1] : points[1];
-                let p1x = points[i];
-                let p1y = points[i+1];
-                let p2x = points[i + 2];
-                let p2y = points[i + 3];
-                let p3x = (i != points.length - 4) ? points[i + 4] : p2x;
-                let p3y = (i != points.length - 4) ? points[i + 5] : p2y;
-
-                let cp1x = p1x + (p2x - p0x) / 6 * t;
-                let cp1y = p1y + (p2y - p0y) / 6 * t;
-
-                let cp2x = p2x - (p3x - p1x) / 6 * t;
-                let cp2y = p2y - (p3y - p1y) / 6 * t;
-
-                let cx = 0.125 * p1x + 0.75 * 0.5 * cp1x + 1.5 * 0.25 * cp2x + 0.125 * p2x;
-                let cy = 0.125 * p1y + 0.75 * 0.5 * cp1y + 1.5 * 0.25 * cp2y + 0.125 * p2y;
-
-                curvePath.push("C" + cp1x +' '+ cp1y+' '+cp2x+' '+cp2y+' '+p2x+' '+p2y);
-                if(controls.length) {
-                    result.push(<circle onClick={() => addControl(nodeId, edgeIdx, i / 2, cx, cy)} key={"a"+i} cx={cx} fill="orange" cy={cy} r={7} />)
-                } else if(i==0) {
-                    result.push(<circle onClick={() => addControl(nodeId, edgeIdx, i / 2, p2x, p2y)} key={"a"+i} cx={p2x} fill="cyan" cy={p2y} r={7} />)
-                }
-            }
-
-            for(let i=0; i<controls.length; i += 2) {
-                const cx = controls[i];
-                const cy = controls[i + 1];
-                result.push(<circle onClick={() => removeControl(nodeId, edgeIdx, i / 2)} key={"b"+i} cx={cx} cy={cy} r={7} />)
-            }
-
-
-            result.unshift(<path key="line" d={curvePath.join(' ')} fill="none" stroke="purple" strokeWidth={2} />)
-
-            return result;
-        })
-    )}
+            return <EdgePathManipulator
+                key={nodeId + '-' + edgeIdx}
+                edgePath={edgePaths[nodeId][edgeIdx]}
+                controls={controls}
+                startPosition={positions[nodeId]}
+                endPosition={positions[neighbourId]}
+                nodeId={nodeId}
+                edgeIdx={edgeIdx}
+                mouseDownControl={mouseDownControl}
+                doubleClickControl={doubleClickControl}
+                directed={directed}
+                angle={nodeAngles[nodeId]} />
+        })}
     </>
 }
 
@@ -1671,7 +1540,7 @@ const manipulationReducer = (state, action) => {
     return state;
 }
 
-const GraphManipulator = ({box, nodeAngles}) => {
+const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -1831,6 +1700,7 @@ const GraphManipulator = ({box, nodeAngles}) => {
                 directed={flags.directed}
                 positions={positions}
                 nodeAngles={nodeAngles}
+                edgePaths={edgePaths}
                 selectEdge={selectEdge}
                 deleteEdge={deleteEdge}
                 grabEdge={onGrabEdge}
@@ -1845,6 +1715,8 @@ const GraphManipulator = ({box, nodeAngles}) => {
                 positions={positions}
                 paths={paths}
                 nodeAngles={nodeAngles}
+                edgePaths={edgePaths}
+                selectedEdges={selectedEdges}
             /> : null
         }
         {(manipulation.connectionStart === null || manipulation.edgeIndex !== null) ? (
@@ -1932,63 +1804,13 @@ const EdgeSelectorLine = styled.path`
     pointer-events: all;
 `
 
-const NodeEdgeSelector = ({x0,x1,y0,y1,nodeId,edgeIndex,onMouseDown,directed}) => {
-    let dirX = x1 - x0
-    let dirY = y1 - y0
-    if(!dirX && !dirY) {
-        dirX = 1
-        dirY = 0
-    }
-    const length2 = dirX*dirX + dirY*dirY
-    const length = Math.sqrt(length2)
-    const normX = dirX/length
-    const normY = dirY/length
-    const midX = (x0 + x1) / 2
-    const midY = (y0 + y1) / 2
-    const bend = directed ? 30 : 0
-
-    const cX = midX + bend * normY
-    const cY = midY - bend * normX
-
-    const cDirX = cX - x0
-    const cDirY = cY - y0
-    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
-    const cDirXNorm = cDirX / cDirLength
-    const cDirYNorm = cDirY / cDirLength
-
-    const cDirXr = cX - x1
-    const cDirYr = cY - y1
-    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
-    const cDirXNormr = cDirXr / cDirLengthr
-    const cDirYNormr = cDirYr / cDirLengthr
-
-    const path = edgePath(directed,
-        x0 + 20 * cDirXNorm,
-        y0 + 20 * cDirYNorm,
-        x1 + 20 * cDirXNormr,
-        y1 + 20 * cDirYNormr
-    )
+const NodeEdgeSelector = ({nodeId,edgeIndex,edgePath,onMouseDown,directed}) => {
 
     const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
         onMouseDown(evt, nodeId, edgeIndex)
     } : null, [nodeId, edgeIndex, onMouseDown])
 
-    return <EdgeSelectorLine onMouseDown={onMouseDownCallback} d={path.curve} />
-}
-
-const ReflexiveEdgeSelector = ({x, y, angle = 0, nodeId, edgeIndex, onMouseDown, directed}) => {
-    const path = edgePath(directed,
-        x + Math.cos(angle - Math.PI / 8) * 20,
-        y + Math.sin(angle - Math.PI / 8) * 20,
-        x + Math.cos(angle + Math.PI / 8) * 20,
-        y + Math.sin(angle + Math.PI / 8) * 20
-    )
-
-    const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
-        onMouseDown(evt, nodeId, edgeIndex)
-    } : null, [nodeId, edgeIndex, onMouseDown])
-
-    return <EdgeSelectorLine onMouseDown={onMouseDownCallback} d={path.curve} />
+    return <EdgeSelectorLine onMouseDown={onMouseDownCallback} d={edgePath.string} />
 }
 
 const selectionReducer = function(state, action) {
@@ -2034,7 +1856,7 @@ const SelectionBox = styled.polygon`
     vector-effect: non-scaling-stroke;
 `
 
-const GraphSelector = ({box, nodeAngles}) => {
+const GraphSelector = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
     // const camera = useCamera();
@@ -2147,25 +1969,12 @@ const GraphSelector = ({box, nodeAngles}) => {
         )}
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) => {
-                return nodeId===neighbourId ?
-                    <ReflexiveEdgeSelector
-                        nodeId={nodeId}
-                        edgeIndex={edgeIdx}
-                        key={`${nodeId}-${edgeIdx}`}
-                        angle={nodeAngles[nodeId] + Math.PI}
-                        x={positions[nodeId].x}
-                        y={positions[nodeId].y}
-                        onMouseDown={selectEdge}
-                        directed={flags.directed}
-                    /> :
+                return
                     <NodeEdgeSelector
                         nodeId={nodeId}
                         edgeIndex={edgeIdx}
                         key={`${nodeId}-${edgeIdx}`}
-                        x0={positions[nodeId].x}
-                        y0={positions[nodeId].y}
-                        x1={positions[neighbourId].x}
-                        y1={positions[neighbourId].y}
+                        edgePath={edgePaths[nodeId][edgeIdx]}
                         onMouseDown={selectEdge}
                         directed={flags.directed}
                     />;
@@ -2187,29 +1996,17 @@ const GraphLayerNodes = ({positions}) => {
     </>
 }
 
-const GraphLayerEdges = ({directed, nodes, positions, angles}) => {
+const GraphLayerEdges = ({directed, nodes, positions, edgePaths, angles}) => {
     return <>
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) => {
-                return nodeId===neighbourId ?
-                    <ReflexiveEdge
+                return <NodeEdge
                         nodeId={nodeId}
                         edgeIndex={edgeIdx}
                         key={`${nodeId}-${edgeIdx}`}
-                        angle={angles[nodeId] + Math.PI}
-                        x={positions[nodeId].x}
-                        y={positions[nodeId].y}
-                    /> :
-                    <NodeEdge
-                        nodeId={nodeId}
-                        edgeIndex={edgeIdx}
-                        key={`${nodeId}-${edgeIdx}`}
-                        x0={positions[nodeId].x}
-                        y0={positions[nodeId].y}
-                        x1={positions[neighbourId].x}
-                        y1={positions[neighbourId].y}
+                        edgePath={edgePaths[nodeId][edgeIdx]}
                         directed={directed}
-                    />;
+                    />
             })
         )}
     </>
@@ -2232,14 +2029,14 @@ const GraphLayerNodeLabels = ({positions, labels, labelKeys}) => {
     </g>
 }
 
-const GraphLayerEdgeLabels = ({directed, nodes, positions, labels, labelKeys, angles}) => {
+const GraphLayerEdgeLabels = ({directed, nodes, positions, labels, labelKeys, angles, edgePaths}) => {
     return <>
         {labelKeys.map((k, kdx) => {
             return <g key={k}>
                 {nodes.map((neighbors, nodeId) =>
                     neighbors.map((neighbourId, edgeIdx) => {
-                        const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, angles[nodeId]);
-                        return <EdgeLabel key={nodeId + '-' + edgeIdx} x={p.textX} y={p.textY} dy={20 * (0.5 + kdx - labelKeys.length / 2)} orientation={p.orientation}>
+                        const e = edgePaths[nodeId][edgeIdx];
+                        return <EdgeLabel key={nodeId + '-' + edgeIdx} x={e.text.x + 20 * e.text.normX} y={e.text.y + 20 * e.text.normY} dy={20 * (0.5 + kdx) - 20 * (1-e.text.normY) * 0.5*labelKeys.length} orientation={e.text.orientation}>
                             {k}: {String(labels[k][nodeId][edgeIdx])}
                         </EdgeLabel>
                     })
@@ -2249,25 +2046,27 @@ const GraphLayerEdgeLabels = ({directed, nodes, positions, labels, labelKeys, an
     </>
 }
 
-const Graph = ({box, nodeAngles}) => {
+const Graph = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
+    const excludedEdgeAttributes = ['path']
+    const excludedNodeAttributes = ['position']
 
     const flags = useSelector(state => state.present.graph.flags)
     const nodes = useSelector(state => state.present.graph.nodes)
     const positions = useSelector(state => state.present.graph.attributes.nodes.position)
 
     const nodeAttributes = useSelector(state => state.present.graph.attributes.nodes)
-    const visibleNodeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes).filter((n) => state.present.graph.attributeTypes.nodes[n].visible))
+    const visibleNodeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes).filter((n) => !excludedNodeAttributes.includes(n) && state.present.graph.attributeTypes.nodes[n].visible))
 
     const edgeAttributes = useSelector(state => state.present.graph.attributes.edges)
-    const visibleEdgeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => state.present.graph.attributeTypes.edges[e].visible))
+    const visibleEdgeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => !excludedEdgeAttributes.includes(e) && state.present.graph.attributeTypes.edges[e].visible))
 
     return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
         <GraphLayerNodes positions={positions} />
-        <GraphLayerEdges angles={nodeAngles} directed={flags.directed} nodes={nodes} positions={positions} />
+        <GraphLayerEdges angles={nodeAngles} edgePaths={edgePaths} directed={flags.directed} nodes={nodes} positions={positions} />
         <GraphLayerNodeLabels positions={positions} labels={nodeAttributes} labelKeys={visibleNodeAttributes} />
-        <GraphLayerEdgeLabels angles={nodeAngles} directed={flags.directed} nodes={nodes} positions={positions} labels={edgeAttributes} labelKeys={visibleEdgeAttributes} />
+        <GraphLayerEdgeLabels angles={nodeAngles} edgePaths={edgePaths}  directed={flags.directed} nodes={nodes} positions={positions} labels={edgeAttributes} labelKeys={visibleEdgeAttributes} />
     </g>
 }
 
@@ -2279,56 +2078,9 @@ const EdgeStepperLine = styled.path`
     stroke-width: 6;
 `
 
-const ReflexiveEdgeStepper = ({x,y,angle, directed, color}) => {
-    const path = edgePath(directed,
-        x + Math.cos(angle - Math.PI / 8) * 20,
-        y + Math.sin(angle - Math.PI / 8) * 20,
-        x + Math.cos(angle + Math.PI / 8) * 20,
-        y + Math.sin(angle + Math.PI / 8) * 20,
-        angle
-    )
+const NodeEdgeStepper = ({directed, color, edgePath}) => {
 
-    return <EdgeStepperLine stroke={color} d={path.curve} />
-}
-
-const NodeEdgeStepper = ({x0,y0,x1,y1,directed, color}) => {
-    let dirX = x1 - x0
-    let dirY = y1 - y0
-    if(!dirX && !dirY) {
-        dirX = 1
-        dirY = 0
-    }
-    const length2 = dirX*dirX + dirY*dirY
-    const length = Math.sqrt(length2)
-    const normX = dirX/length
-    const normY = dirY/length
-    const midX = (x0 + x1) / 2
-    const midY = (y0 + y1) / 2
-    const bend = directed ? 30 : 0
-
-    const cX = midX + bend * normY
-    const cY = midY - bend * normX
-
-    const cDirX = cX - x0
-    const cDirY = cY - y0
-    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
-    const cDirXNorm = cDirX / cDirLength
-    const cDirYNorm = cDirY / cDirLength
-
-    const cDirXr = cX - x1
-    const cDirYr = cY - y1
-    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
-    const cDirXNormr = cDirXr / cDirLengthr
-    const cDirYNormr = cDirYr / cDirLengthr
-
-    const path = edgePath(directed,
-        x0 + 20 * cDirXNorm,
-        y0 + 20 * cDirYNorm,
-        x1 + 20 * cDirXNormr,
-        y1 + 20 * cDirYNormr
-    )
-
-    return <EdgeStepperLine stroke={color} d={path.curve} />
+    return <EdgeStepperLine stroke={color} d={edgePath.string} />
 }
 
 const AlgorithmStepperNodeLabels = ({positions, nodeAttributes}) => {
@@ -2374,14 +2126,14 @@ const AlgorithmStepperLines = ({lines, length = 100}) => {
     </>
 }
 
-const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles, directed, verticalOffset}) => {
+const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles, edgePaths, directed, verticalOffset}) => {
     return <>
         {Object.keys(edgeAttributes).map((k, i, all) =>
             <g key={k}>
                 {nodes.map((neighbors, nodeId) =>
                     neighbors.map((neighbourId, edgeIdx) => {
-                        const p = edgePath(directed, positions[nodeId].x, positions[nodeId].y, positions[neighbourId].x, positions[neighbourId].y, angles[nodeId]);
-                        return <TransientEdgeLabel key={nodeId + '-' + edgeIdx} x={p.textX} y={p.textY} dy={20 * (1.5 + i - all.length / 2 + verticalOffset / 2)} orientation={p.orientation}>
+                        const p = edgePaths[nodeId][edgeIdx];
+                        return <TransientEdgeLabel key={nodeId + '-' + edgeIdx} x={p.median.x} y={p.median.y} dy={20 * (1.5 + i - all.length / 2 + verticalOffset / 2)} orientation={e.median.orientation}>
                             {k}: {edgeAttributes[k][nodeId][edgeIdx]}
                         </TransientEdgeLabel>
                     })
@@ -2391,7 +2143,7 @@ const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles, d
     </>
 }
 
-const AlgorithmStepperEdgeColoring = ({directed, positions, angles, nodes, colors}) => {
+const AlgorithmStepperEdgeColoring = ({directed, positions, angles, edgePaths, nodes, colors}) => {
     if(!colors) {
         return <></>;
     }
@@ -2401,30 +2153,18 @@ const AlgorithmStepperEdgeColoring = ({directed, positions, angles, nodes, color
                 neighbors.map((neighbourId, edgeIdx) => {
                     const color = colors[nodeId][edgeIdx]
 
-                    return nodeId===neighbourId ?
-                        <ReflexiveEdgeStepper
+                    return <NodeEdgeStepper
                             key={`${nodeId}-${edgeIdx}`}
-                            angle={angles[nodeId] + Math.PI}
-                            x={positions[nodeId].x}
-                            y={positions[nodeId].y}
+                            edgePath={edgePaths[nodeId][edgeIdx]}
                             directed={directed}
                             color={color}
-                        /> :
-                        <NodeEdgeStepper
-                            key={`${nodeId}-${edgeIdx}`}
-                            x0={positions[nodeId].x}
-                            y0={positions[nodeId].y}
-                            x1={positions[neighbourId].x}
-                            y1={positions[neighbourId].y}
-                            directed={directed}
-                            color={color}
-                        />;
+                        />
                 })
             )}
     </g>
 }
 
-const AlgorithmStepper = ({box, nodeAngles}) => {
+const AlgorithmStepper = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
 
     const flags = useSelector(state => state.present.graph.flags)
@@ -2453,8 +2193,8 @@ const AlgorithmStepper = ({box, nodeAngles}) => {
             <AlgorithmStepperLines lines={step.lines} />
             <AlgorithmStepperNodeColoring positions={positions} colors={nodeColors} />
             <AlgorithmStepperNodeLabels positions={positions} nodeAttributes={nodeAttributes} />
-            <AlgorithmStepperEdgeColoring angles={nodeAngles} directed={flags.directed} positions={positions} nodes={nodes} colors={edgeColors} />
-            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} angles={nodeAngles} directed={flags.directed} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
+            <AlgorithmStepperEdgeColoring angles={nodeAngles} directed={flags.directed} positions={positions} edgePaths={edgePaths} nodes={nodes} colors={edgeColors} />
+            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} angles={nodeAngles} edgePaths={edgePaths} directed={flags.directed} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
         </g>
     }
 }
@@ -2498,61 +2238,12 @@ const NodeSelection = ({x,y}) => {
     return <NodeCircleSelection cx={x} cy={y} r={20} />
 }
 
-const ReflexiveEdgeSelection = ({x,y,angle, directed}) => {
-    const path = edgePath(directed,
-        x + Math.cos(angle - Math.PI / 8) * 20,
-        y + Math.sin(angle - Math.PI / 8) * 20,
-        x + Math.cos(angle + Math.PI / 8) * 20,
-        y + Math.sin(angle + Math.PI / 8) * 20,
-        angle
-    )
 
-    return <EdgeSelectionLine d={path.curve} />
+const NodeEdgeSelection = ({edgePath,directed}) => {
+    return <EdgeSelectionLine d={edgePath.string} />
 }
 
-const NodeEdgeSelection = ({x0,y0,x1,y1,directed}) => {
-    let dirX = x1 - x0
-    let dirY = y1 - y0
-    if(!dirX && !dirY) {
-        dirX = 1
-        dirY = 0
-    }
-    const length2 = dirX*dirX + dirY*dirY
-    const length = Math.sqrt(length2)
-    const normX = dirX/length
-    const normY = dirY/length
-    const midX = (x0 + x1) / 2
-    const midY = (y0 + y1) / 2
-    const bend = directed ? 30 : 0
-
-    const cX = midX + bend * normY
-    const cY = midY - bend * normX
-
-    const cDirX = cX - x0
-    const cDirY = cY - y0
-    const cDirLength = Math.sqrt(cDirX*cDirX + cDirY*cDirY)
-    const cDirXNorm = cDirX / cDirLength
-    const cDirYNorm = cDirY / cDirLength
-
-    const cDirXr = cX - x1
-    const cDirYr = cY - y1
-    const cDirLengthr = Math.sqrt(cDirXr*cDirXr + cDirYr*cDirYr)
-    const cDirXNormr = cDirXr / cDirLengthr
-    const cDirYNormr = cDirYr / cDirLengthr
-
-    const path = edgePath(directed,
-        x0 + 20 * cDirXNorm,
-        y0 + 20 * cDirYNorm,
-        x1 + 20 * cDirXNormr,
-        y1 + 20 * cDirYNormr
-    )
-
-    return <EdgeSelectionLine d={path.curve} />
-}
-
-const GraphSelection = ({box, nodeAngles}) => {
-    const dispatch = useDispatch()
-
+const GraphSelection = ({box, nodeAngles, edgePaths}) => {
     const flags = useSelector(state => state.present.graph.flags)
     const selectedNodes = useSelector(state => state.present.selection.nodes)
     const selectedEdges = useSelector(state => state.present.selection.edges)
@@ -2568,21 +2259,11 @@ const GraphSelection = ({box, nodeAngles}) => {
             const edgeIdx = e[1];
             const to = nodes[from][edgeIdx];
 
-            return from===to ?
-                    <ReflexiveEdgeSelection
+            return <NodeEdgeSelection
                         key={`${from}-${edgeIdx}`}
-                        angle={nodeAngles[from] + Math.PI}
-                        x={positions[from].x}
-                        y={positions[from].y}
+                        edgePath={edgePaths[from][edgeIdx]}
                         directed={flags.directed}
-                    /> :
-                    <NodeEdgeSelection
-                        key={`${from}-${edgeIdx}`}
-                        x0={positions[from].x}
-                        y0={positions[from].y}
-                        x1={positions[to].x}
-                        y1={positions[to].y}
-                        directed={flags.directed}
+                        edgePath={edgePaths[from][edgeIdx]}
                     />;
         })}
     </g>
@@ -2643,6 +2324,192 @@ const GraphEditor = () => {
         })
     })
 
+    const edgePaths = useSelector(state => {
+        const positions = state.present.graph.attributes.nodes.position
+        const paths = state.present.graph.attributes.edges.path
+        const nodes = state.present.graph.nodes
+        const t = 0.8;
+
+        return nodes.map((neighbors, nodeId) =>
+            neighbors.map((neighbourId, edgeIdx) => {
+                if(neighbourId == nodeId) {
+                    const angle = nodeAngles[nodeId] + Math.PI;
+                    const normX = Math.cos(angle);
+                    const normY = Math.sin(angle);
+                    const orientation = Math.round(((Math.atan2(normX, normY) + Math.PI) / Math.PI + 0.5) * 2) % 4
+
+                    return {
+                        string: 'M 0 0',
+                        curve: [0,0],
+                        median: {
+                            x: positions[nodeId].x + normX * 50,
+                            y: positions[nodeId].y + normY * 50,
+                            normX: normX,
+                            normY: normY,
+                        },
+                        text: {
+                            x: positions[nodeId].x + normX * 50,
+                            y: positions[nodeId].y + normY * 50,
+                            normX: normX,
+                            normY: normY,
+                            orientation: orientation
+                        },
+                        tip: {
+                            x: positions[nodeId].x + normX * 50,
+                            y: positions[nodeId].y + normY * 50,
+                            angle: 0,
+                        }
+                    }
+                }
+
+                let controls = paths[nodeId][edgeIdx]
+                let points = [...controls]
+
+                const startPosition = positions[nodeId];
+                const endPosition = positions[neighbourId];
+
+                if(controls.length == 0) {
+                    const deltaX = startPosition.x - endPosition.x;
+                    const deltaY = startPosition.y - endPosition.y;
+                    const distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+                    const normX = deltaX / distance;
+                    const normY = deltaY / distance;
+                    points = [
+                        (startPosition.x + endPosition.x) / 2 + 20 * normY,
+                        (startPosition.y + endPosition.y) / 2 - 20 * normX,
+                    ]
+                }
+
+                const lastX = points[points.length-2]
+                const lastY = points[points.length-1]
+                const firstX = points[0]
+                const firstY = points[1]
+
+                const departX = firstX - startPosition.x
+                const departY = firstY - startPosition.y
+                const arivX = lastX - endPosition.x
+                const arivY = lastY - endPosition.y
+
+                const departLength = Math.sqrt(departX * departX + departY * departY)
+                const arivLength = Math.sqrt(arivX * arivX + arivY * arivY)
+                const departXNorm = departX / departLength
+                const departYNorm = departY / departLength
+                const arivXNorm = arivX / arivLength
+                const arivYNorm = arivY / arivLength
+
+                points.unshift(startPosition.y + departYNorm * 20)
+                points.unshift(startPosition.x + departXNorm * 20)
+
+                points.push(endPosition.x + arivXNorm * 20, endPosition.y + arivYNorm * 20)
+
+                const curvePath = [];
+                const stringPath = [];
+
+                curvePath.push(points[0], points[1]);
+                stringPath.push('M' + points[0] + ' ' + points[1]);
+
+                const cs = []
+
+                for (let i = 0; i < points.length - 3; i += 2)
+                {
+                    let p0x = (i > 0) ? points[i - 2] : points[0];
+                    let p0y = (i > 0) ? points[i - 1] : points[1];
+                    let p1x = points[i];
+                    let p1y = points[i+1];
+                    let p2x = points[i + 2];
+                    let p2y = points[i + 3];
+                    let p3x = (i != points.length - 4) ? points[i + 4] : p2x;
+                    let p3y = (i != points.length - 4) ? points[i + 5] : p2y;
+
+                    let cp1x = p1x + (p2x - p0x) / 6 * t;
+                    let cp1y = p1y + (p2y - p0y) / 6 * t;
+
+                    let cp2x = p2x - (p3x - p1x) / 6 * t;
+                    let cp2y = p2y - (p3y - p1y) / 6 * t;
+
+                    let cx = 0.125 * p1x + 0.75 * 0.5 * cp1x + 1.5 * 0.25 * cp2x + 0.125 * p2x;
+                    let cy = 0.125 * p1y + 0.75 * 0.5 * cp1y + 1.5 * 0.25 * cp2y + 0.125 * p2y;
+
+                    cs.push(cx,cy)
+
+                    curvePath.push(cp1x, cp1y, cp2x, cp2y, p2x, p2y);
+                    stringPath.push("C"+ cp1x +' '+ cp1y +' '+ cp2x +' '+ cp2y +' '+ p2x +' '+ p2y);
+                }
+
+                let mx, my, medianAngle, mNormX, mNormY
+
+                if(points.length%4 != 0) {
+                    mx = points[points.length / 2 - 1]
+                    my = points[points.length / 2]
+                    const p1x = cs[cs.length / 2 - 2]
+                    const p1y = cs[cs.length / 2 - 1]
+                    const p2x = cs[cs.length / 2]
+                    const p2y = cs[cs.length / 2+1]
+                    const d1x = p1x - mx
+                    const d1y = p1y - my
+                    const d2x = p2x - mx
+                    const d2y = p2y - my
+                    const l1 = Math.sqrt(d1x * d1x + d1y * d1y)
+                    const l2 = Math.sqrt(d2x * d2x + d2y * d2y)
+                    const dx = (d1x/l1 + d2x/l2) / 2
+                    const dy = (d1y/l1 + d2y/l2) / 2
+                    mNormX = -dx
+                    mNormY = -dy
+                } else {
+                    mx = cs[cs.length / 2 - 1]
+                    my = cs[cs.length / 2]
+                    const p1x = points[points.length / 2 - 2]
+                    const p1y = points[points.length / 2 - 1]
+                    const p2x = points[points.length / 2]
+                    const p2y = points[points.length / 2+1]
+                    const d1x = p1x - mx
+                    const d1y = p1y - my
+                    const d2x = p2x - mx
+                    const d2y = p2y - my
+                    const l1 = Math.sqrt(d1x * d1x + d1y * d1y)
+                    const l2 = Math.sqrt(d2x * d2x + d2y * d2y)
+                    const dx = (d1x/l1 + d2x/l2) / 2
+                    const dy = (d1y/l1 + d2y/l2) / 2
+                    mNormX = -dx
+                    mNormY = -dy
+                }
+
+                const norm = Math.sqrt(mNormX*mNormX + mNormY*mNormY);
+                mNormX /= norm
+                mNormY /= norm
+                const orientation = Math.round(((Math.atan2(mNormX, mNormY) + Math.PI) / Math.PI + 0.5) * 2) % 4
+
+                const angle = Math.atan2(
+                    curvePath[curvePath.length-1] - cs[cs.length-1],
+                    curvePath[curvePath.length-2] - cs[cs.length-2]
+                )
+
+                return {
+                    string: stringPath.join(" "),
+                    curve: curvePath,
+                    median: {
+                        x: mx,
+                        y: my,
+                        normX: mNormX,
+                        normY: mNormY,
+                    },
+                    text: {
+                        x: mx,
+                        y: my,
+                        normX: mNormX,
+                        normY: mNormY,
+                        orientation: orientation
+                    },
+                    tip: {
+                        x: endPosition.x + arivXNorm * 20,
+                        y: endPosition.y + arivYNorm * 20,
+                        angle: angle,
+                    }
+                }
+            })
+        )
+    })
+
     const nonInfBox = {
         minX: box.minX===Infinity ? -1*margin : box.minX,
         maxX: box.maxX===-Infinity ? 1*margin : box.maxX,
@@ -2674,18 +2541,22 @@ const GraphEditor = () => {
                 <Graph
                     box={nonInfBox}
                     nodeAngles={nodeAngles}
+                    edgePaths={edgePaths}
                 />
                 <GraphSelection
                     box={nonInfBox}
                     nodeAngles={nodeAngles}
+                    edgePaths={edgePaths}
                 />
                 <ToolComponent
                     box={nonInfBox}
                     nodeAngles={nodeAngles}
+                    edgePaths={edgePaths}
                 />
                 <AlgorithmStepper
                     box={nonInfBox}
                     nodeAngles={nodeAngles}
+                    edgePaths={edgePaths}
                 />
             </Canvas>
             <AlgorithmDetails />
