@@ -1127,12 +1127,12 @@ const PathHandle = styled.circle`
 
 const PathHandleDot = styled.circle`
 	fill: #396DF2;
-	pointer-events: none;
+	cursor: move;
 `
 
 const PathHandleDotSmall = styled.circle`
 	fill: #396DF2;
-	pointer-events: none;
+	cursor: move;
 `
 
 const EdgeHead = ({x,y, angle, disabled = false}) => {
@@ -1431,19 +1431,19 @@ const EdgePathManipulator = ({nodeId, edgeIdx, controls, startPosition, endPosit
         let cy = 0.125 * edgePath.curve[i-1] + 0.75 * 0.5 * edgePath.curve[i+1] + 1.5 * 0.25 * edgePath.curve[i+3] + 0.125 * edgePath.curve[i+5];
 
         if(controls.length) {
-            result.push(<PathHandle onMouseDown={mouseDownNew} data-c={(i-2)/6} data-x={cx} data-y={cy} key={"a"+i} cx={cx} cy={cy} r={7} />)
             result.push(<PathHandleDotSmall key={"b"+i} cx={cx} cy={cy} r={3} />)
+            result.push(<PathHandle onMouseDown={mouseDownNew} data-c={(i-2)/6} data-x={cx} data-y={cy} key={"a"+i} cx={cx} cy={cy} r={7} />)
         } else if(i === 2) {
-            result.push(<PathHandle onMouseDown={mouseDownNew} data-c={(i-2)/6}  data-x={edgePath.curve[i+4]} data-y={edgePath.curve[i+5]} key={"a"+i} cx={edgePath.curve[i+4]} cy={edgePath.curve[i+5]} r={7} />)
             result.push(<PathHandleDotSmall key={"b"+i} cx={edgePath.curve[i+4]} cy={edgePath.curve[i+5]} r={3} />)
+            result.push(<PathHandle onMouseDown={mouseDownNew} data-c={(i-2)/6}  data-x={edgePath.curve[i+4]} data-y={edgePath.curve[i+5]} key={"a"+i} cx={edgePath.curve[i+4]} cy={edgePath.curve[i+5]} r={7} />)
         }
     }
 
     for(let i=0; i<controls.length; i += 2) {
         const cx = controls[i];
         const cy = controls[i + 1];
-        result.push(<PathHandle onMouseDown={mouseDownExisting} onDoubleClick={doubleClick} data-c={i/2} data-x={cx} data-y={cy} key={"c"+i} cx={cx} cy={cy} r={7} />)
         result.push(<PathHandleDot  key={"d"+i} cx={cx} cy={cy} r={5} />)
+        result.push(<PathHandle onMouseDown={mouseDownExisting} onDoubleClick={doubleClick} data-c={i/2} data-x={cx} data-y={cy} key={"c"+i} cx={cx} cy={cy} r={7} />)
     }
 
     return result;
@@ -1517,23 +1517,24 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
                 return null;
             }
 
-            let controls = paths[nodeId][edgeIdx]
-            if(manipulation.nodeIdx === nodeId && manipulation.edgeIdx == edgeIdx) {
-                controls = manipulation.path;
-            }
-
-            return <EdgePathManipulator
-                key={nodeId + '-' + edgeIdx}
-                edgePath={edgePaths[nodeId][edgeIdx]}
-                controls={controls}
-                startPosition={positions[nodeId]}
-                endPosition={positions[neighbourId]}
-                nodeId={nodeId}
-                edgeIdx={edgeIdx}
-                mouseDownControl={mouseDownControl}
-                doubleClickControl={doubleClickControl}
-                directed={directed}
-                angle={nodeAngles[nodeId]} />
+            return <>
+                {
+                    (manipulation.nodeIdx === nodeId && manipulation.edgeIdx == edgeIdx) ?
+                    <PathHandleDot r="8" cx={manipulation.path[manipulation.controlIdx * 2]} cy={manipulation.path[manipulation.controlIdx * 2 + 1]} />
+                    : null }
+                    <EdgePathManipulator
+                        key={nodeId + '-' + edgeIdx}
+                        edgePath={edgePaths[nodeId][edgeIdx]}
+                        controls={paths[nodeId][edgeIdx]}
+                        startPosition={positions[nodeId]}
+                        endPosition={positions[neighbourId]}
+                        nodeId={nodeId}
+                        edgeIdx={edgeIdx}
+                        mouseDownControl={mouseDownControl}
+                        doubleClickControl={doubleClickControl}
+                        directed={directed}
+                        angle={nodeAngles[nodeId]} />
+            </>
         })}
     </>
 }
@@ -1662,7 +1663,7 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
                 manipulation.y+manipulation.offsetY,
                 manipulation.connectionStart,
                 manipulation.edgeIndex,
-                evt.shiftKey,
+                !evt.altKey,
                 manipulation.control
             ))
         } else if(manipulation.movingNode !== null) {
@@ -1893,7 +1894,7 @@ const EdgeSelectorLine = styled.path`
     fill: none;
     stroke: none;
     stroke-width: 20;
-    pointer-events: all;
+    pointer-events: stroke;
     cursor: default;
 `
 
