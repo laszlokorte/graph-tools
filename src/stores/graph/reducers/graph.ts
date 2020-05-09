@@ -2,32 +2,54 @@ const initialState = {
   "nodes": [
     [
       1,
-      0
+      3
     ],
     [
       2
     ],
     [
-      0
-    ]
+      3
+    ],
+    []
   ],
   "attributes": {
     "edges": {
       "path": [
         [
-          [-200,-150, 0, -200, 100,-150],
-          []
+          [
+            -14.501953125,
+            -158.509033203125,
+            91.4398193359375,
+            -142.387451171875
+          ],
+          [
+            -262.40167236328125,
+            -41.37188720703125,
+            -223.26171875,
+            72.48965454101562,
+            -86.2720947265625,
+            51.140625,
+            -241.0526123046875,
+            198.8048095703125
+          ]
         ],
         [
-          [50, 50]
+          [
+            252.6556396484375,
+            60.283843994140625
+          ]
         ],
         [
-          []
-        ]
+          [
+            33.86279296875,
+            283.6828308105469
+          ]
+        ],
+        []
       ],
       "label": [
         [
-          "asdasd",
+          "",
           ""
         ],
         [
@@ -35,7 +57,8 @@ const initialState = {
         ],
         [
           ""
-        ]
+        ],
+        []
       ],
       "cost": [
         [
@@ -43,11 +66,12 @@ const initialState = {
           1
         ],
         [
-          -1
+          1
         ],
         [
           1
-        ]
+        ],
+        []
       ],
       "capacity": [
         [
@@ -59,7 +83,8 @@ const initialState = {
         ],
         [
           1
-        ]
+        ],
+        []
       ],
       "weight": [
         [
@@ -71,25 +96,31 @@ const initialState = {
         ],
         [
           1
-        ]
+        ],
+        []
       ]
     },
     "nodes": {
       "position": [
         {
-          "x": -114.7032470703125,
-          "y": -100.0654296875
+          "x": -134.2623291015625,
+          "y": -75.59805297851562
         },
         {
-          "x": 162.790283203125,
-          "y": -104.614501953125
+          "x": 167.441650390625,
+          "y": -68.68881225585938
         },
         {
-          "x": -8.5582275390625,
-          "y": 192.5916748046875
+          "x": 167.441650390625,
+          "y": 166.22564697265625
+        },
+        {
+          "x": -148.0806884765625,
+          "y": 191.5595703125
         }
       ],
       "label": [
+        "new",
         "new",
         "new",
         "new"
@@ -97,9 +128,11 @@ const initialState = {
       "color": [
         null,
         null,
+        null,
         null
       ],
       "initial": [
+        false,
         false,
         false,
         false
@@ -107,14 +140,17 @@ const initialState = {
       "final": [
         false,
         false,
+        false,
         false
       ],
       "source": [
         false,
         false,
+        false,
         false
       ],
       "sink": [
+        false,
         false,
         false,
         false
@@ -378,8 +414,27 @@ const thisReducer = (state = initialState, action) => {
                         toNodeId: withEdge.nodes[action.attributes.connectTo][action.attributes.onEdge],
                     })
 
+
+
                     if(!action.attributes.keepEdge) {
-                        return thisReducer(bothEdges, {
+                        const basePath = bothEdges.attributes.edges['path'][action.attributes.connectTo][action.attributes.onEdge];
+                        const mergedControls = (action.attributes.splitPathControl !== null) ?
+                        thisReducer(thisReducer(bothEdges, {
+                            type: 'SET_EDGE_ATTRIBUTE',
+                            nodeId: action.attributes.connectTo,
+                            edgeIndex: withEdge.nodes[action.attributes.connectTo].length - 1,
+                            attribute: 'path',
+                            value: basePath.slice(0, action.attributes.splitPathControl * 2),
+                        }), {
+                            type: 'SET_EDGE_ATTRIBUTE',
+                            nodeId: withEdge.nodes.length - 1,
+                            edgeIndex: withEdge.nodes[withEdge.nodes.length - 1].length - 1,
+                            attribute: 'path',
+                            value: basePath.slice(action.attributes.splitPathControl * 2 + 2),
+                        })
+                        : bothEdges
+
+                        return thisReducer(mergedControls, {
                             type: 'DELETE_EDGE',
                             nodeId: action.attributes.connectTo,
                             edgeIndex: action.attributes.onEdge,
@@ -512,6 +567,7 @@ const thisReducer = (state = initialState, action) => {
         }
         case 'NODE_AUTO_LAYOUT': {
             const positionAttribute = 'position';
+            const pathAttribute = 'path';
             const nodeCount = state.nodes.length;
 
             const count = state.nodes.length;
@@ -534,6 +590,10 @@ const thisReducer = (state = initialState, action) => {
                 ...state,
                 attributes: {
                     ...state.attributes,
+                    edges: {
+                        ...state.attributes.edges,
+                        [pathAttribute]: state.attributes.edges[pathAttribute].map((paths) => paths.map(() => [])),
+                    },
                     nodes: {
                         ...state.attributes.nodes,
                         [positionAttribute]: state.attributes.nodes[positionAttribute].map(({x,y}, i) => ({

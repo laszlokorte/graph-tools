@@ -1096,6 +1096,13 @@ const EdgeHandle = styled.circle`
     opacity: 0.5;
 `;
 
+const EdgeHandleAdvanced = styled.circle`
+    cursor: default;
+    fill: #84DBDB;
+    opacity: 0.5;
+    cursor: alias;
+`;
+
 const NodeConnector = styled.path`
     cursor: alias;
     fill: ${p => p.snapped ? '#FD9B1C' : p.active ? '#6EAEAE':'#84DBDB'};
@@ -1110,6 +1117,23 @@ const NodeConnectorTarget = styled.path`
         fill: #895440
     }
 `;
+
+const PathHandle = styled.circle`
+	stroke: none;
+	fill: none;
+	pointer-events: all;
+	cursor: move;
+`
+
+const PathHandleDot = styled.circle`
+	fill: #396DF2;
+	pointer-events: none;
+`
+
+const PathHandleDotSmall = styled.circle`
+	fill: #396DF2;
+	pointer-events: none;
+`
 
 const EdgeHead = ({x,y, angle, disabled = false}) => {
 	const size = 12
@@ -1173,7 +1197,7 @@ const NodeEdge = ({nodeId, edgeIndex, edgePath, onClick = null, onDoubleClick = 
 
 const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false, angle = 0}) => {
 
-    return null;
+    return <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="black" />;
 }
 
 const NewNode = ({x, y}) => {
@@ -1234,15 +1258,10 @@ const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onD
     </g>
 }
 
-const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, directed, nodeAngle, edgePath, neighbourId, mouseDown}) => {
-    const mouseDownCallback = useCallback(mouseDown ? (evt) => {
-        mouseDown(evt, nodeId, edgeIdx, edgePath.median.x, edgePath.median.y)
-    } : null, [nodeId, mouseDown, edgePath.median])
-
+const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath}) => {
     const onClickCallback = useCallback((evt) => {
         evt.preventDefault();
         selectEdge(evt, nodeId, edgeIdx)
-
     }, [deleteEdge, nodeId, edgeIdx])
 
     const onDoubleCallback = useCallback((evt) => {
@@ -1250,10 +1269,45 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, positions, di
         deleteEdge(evt, nodeId, edgeIdx)
     }, [deleteEdge, nodeId, edgeIdx])
 
-    return <EdgeHandle onMouseDown={mouseDownCallback} onClick={onClickCallback} onDoubleClick={onDoubleCallback} key={nodeId+' '+neighbourId} cx={edgePath.median.x} cy={edgePath.median.y} r={10} />
+
+    return <EdgeSelectorLine
+        onMouseDown={onClickCallback}
+        onDoubleClick={onDoubleCallback}
+        d={edgePath.string}
+    />
 }
 
-const EdgesManipulator = ({nodes, directed, positions, nodeAngles, edgePaths, selectEdge, deleteEdge, grabEdge}) => {
+const EdgeGrabber = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath, mouseDown}) => {
+    const mouseDownCallback = useCallback(mouseDown ? (evt) => {
+        const nodeId = 1*evt.target.getAttribute('data-node-id')
+        const x = 1*evt.target.getAttribute('data-x')
+        const y = 1*evt.target.getAttribute('data-y')
+        const control = 1*evt.target.getAttribute('data-control')
+        mouseDown(evt, nodeId, edgeIdx, x, y, control)
+    } : null, [mouseDown])
+
+    const handles = []
+
+    for(let i=0;i<edgePath.anchors.length;i+=2) {
+        handles.push(<EdgeHandleAdvanced
+            onMouseDown={mouseDownCallback}
+            key={"a" + i}
+            cx={edgePath.anchors[i]}
+            cy={edgePath.anchors[i+1]}
+            data-x={edgePath.anchors[i]}
+            data-y={edgePath.anchors[i+1]}
+            data-node-id={nodeId}
+            data-control={i/2}
+            r={20} />
+        )
+    }
+
+    return <>
+        {handles}
+    </>
+}
+
+const EdgesManipulator = ({nodes, nodeAngles, edgePaths, selectEdge, deleteEdge}) => {
     return <>
     {nodes.map((neighbors, nodeId) =>
         neighbors.map((neighbourId, edgeIdx) => {
@@ -1265,17 +1319,40 @@ const EdgesManipulator = ({nodes, directed, positions, nodeAngles, edgePaths, se
                 key={nodeId + '-' + edgeIdx}
                 deleteEdge={deleteEdge}
                 selectEdge={selectEdge}
-                mouseDown={grabEdge}
                 nodeId={nodeId}
                 edgeIdx={edgeIdx}
-                positions={positions}
-                directed={directed}
                 neighbourId={neighbourId}
                 nodeAngle ={nodeAngles[nodeId]}
                 edgePath={edgePaths[nodeId][edgeIdx]}
             />
         })
     )}
+    </>
+}
+
+
+
+const EdgesGrabber = ({nodes, nodeAngles, edgePaths, grabEdge, selectedEdges}) => {
+    return <>
+        {selectedEdges.map((e) => {
+            const nodeId = e[0];
+            const edgeIdx = e[1];
+            const neighbourId = nodes[nodeId][edgeIdx];
+
+            if(nodeId === neighbourId) {
+                return null
+            }
+
+            return <EdgeGrabber
+                key={nodeId + '-' + edgeIdx}
+                mouseDown={grabEdge}
+                nodeId={nodeId}
+                edgeIdx={edgeIdx}
+                neighbourId={neighbourId}
+                nodeAngle ={nodeAngles[nodeId]}
+                edgePath={edgePaths[nodeId][edgeIdx]}
+            />
+        })}
     </>
 }
 
@@ -1354,16 +1431,19 @@ const EdgePathManipulator = ({nodeId, edgeIdx, controls, startPosition, endPosit
         let cy = 0.125 * edgePath.curve[i-1] + 0.75 * 0.5 * edgePath.curve[i+1] + 1.5 * 0.25 * edgePath.curve[i+3] + 0.125 * edgePath.curve[i+5];
 
         if(controls.length) {
-            result.push(<circle onMouseDown={mouseDownNew} data-c={(i-2)/6} data-x={cx} data-y={cy} key={"a"+i} cx={cx} fill="orange" cy={cy} r={7} />)
+            result.push(<PathHandle onMouseDown={mouseDownNew} data-c={(i-2)/6} data-x={cx} data-y={cy} key={"a"+i} cx={cx} cy={cy} r={7} />)
+            result.push(<PathHandleDotSmall key={"b"+i} cx={cx} cy={cy} r={3} />)
         } else if(i === 2) {
-            result.push(<circle onMouseDown={mouseDownNew} data-c={(i-2)/6}  data-x={edgePath.curve[i+4]} data-y={edgePath.curve[i+5]} key={"a"+i} cx={edgePath.curve[i+4]} fill="cyan" cy={edgePath.curve[i+5]} r={7} />)
+            result.push(<PathHandle onMouseDown={mouseDownNew} data-c={(i-2)/6}  data-x={edgePath.curve[i+4]} data-y={edgePath.curve[i+5]} key={"a"+i} cx={edgePath.curve[i+4]} cy={edgePath.curve[i+5]} r={7} />)
+            result.push(<PathHandleDotSmall key={"b"+i} cx={edgePath.curve[i+4]} cy={edgePath.curve[i+5]} r={3} />)
         }
     }
 
     for(let i=0; i<controls.length; i += 2) {
         const cx = controls[i];
         const cy = controls[i + 1];
-        result.push(<circle onMouseDown={mouseDownExisting} onDoubleClick={doubleClick} data-c={i/2} data-x={cx} data-y={cy} key={"b"+i} cx={cx} cy={cy} r={7} />)
+        result.push(<PathHandle onMouseDown={mouseDownExisting} onDoubleClick={doubleClick} data-c={i/2} data-x={cx} data-y={cy} key={"c"+i} cx={cx} cy={cy} r={7} />)
+        result.push(<PathHandleDot  key={"d"+i} cx={cx} cy={cy} r={5} />)
     }
 
     return result;
@@ -1471,6 +1551,7 @@ const manipulationReducer = (state, action) => {
                 offsetY: 0,
                 movingNode: null,
                 edgeIndex: null,
+                control: null,
             };
         case 'move':
             if(state.connectionStart!==null || state.movingNode !== null || (state.x !== null && state.y !== null)) {
@@ -1484,6 +1565,7 @@ const manipulationReducer = (state, action) => {
             }
         case 'startConnect':
             const hasEdge = typeof action.edgeIndex !== 'undefined';
+            const hasControl = typeof action.control !== 'undefined';
 
             return {
                 ...state,
@@ -1494,6 +1576,7 @@ const manipulationReducer = (state, action) => {
                 offsetY: action.offsetY,
                 connectionSnap: hasEdge ? null : action.nodeId,
                 edgeIndex: hasEdge ? action.edgeIndex : null,
+                control: hasControl ? action.control : null,
             }
         case 'startCreate':
             return {
@@ -1505,6 +1588,7 @@ const manipulationReducer = (state, action) => {
                 offsetY: 0,
                 connectionSnap: null,
                 edgeIndex: null,
+                control: null,
             }
         case 'snapConnect':
             if(state.connectionStart === null) {
@@ -1515,6 +1599,7 @@ const manipulationReducer = (state, action) => {
                 x: null,
                 y: null,
                 connectionSnap:action.nodeId,
+                control: null,
             }
         case 'unsnapConnect':
             if(state.connectionStart === null) {
@@ -1525,6 +1610,7 @@ const manipulationReducer = (state, action) => {
                 x: action.x,
                 y: action.y,
                 connectionSnap:null,
+                control: null,
             }
         case 'startMove':
             return {
@@ -1535,6 +1621,7 @@ const manipulationReducer = (state, action) => {
                 offsetY: action.offsetY,
                 movingNode: action.nodeId,
                 edgeIndex: null,
+                control: null,
             }
     }
     return state;
@@ -1560,6 +1647,7 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
         movingNode: null,
         offsetX: 0,
         offsetY: 0,
+        control: null,
     });
 
     const onMouseUp = useCallback((evt) => {
@@ -1574,7 +1662,8 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
                 manipulation.y+manipulation.offsetY,
                 manipulation.connectionStart,
                 manipulation.edgeIndex,
-                evt.shiftKey
+                evt.shiftKey,
+                manipulation.control
             ))
         } else if(manipulation.movingNode !== null) {
             dispatch(actions.setNodeAttribute(
@@ -1666,14 +1755,11 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
         dispatchManipulation({type: 'startCreate', ...pos})
     }, [canvasPos, dispatchManipulation])
 
-    const onGrabEdge = useCallback((evt, nodeId, edgeIndex, cx, cy) => {
-        if(!evt.altKey) {
-            return;
-        }
+    const onGrabEdge = useCallback((evt, nodeId, edgeIndex, cx, cy, control) => {
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchManipulation({type: 'startConnect', ...pos, nodeId, edgeIndex, offsetX: cx - pos.x, offsetY: cy - pos.y,})
+        dispatchManipulation({type: 'startConnect', ...pos, nodeId, edgeIndex, offsetX: cx - pos.x, offsetY: cy - pos.y, control})
     }, [canvasPos, dispatchManipulation])
 
     return <g>
@@ -1697,14 +1783,20 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
             manipulation.connectionStart === null && manipulation.movingNode === null ?
             <EdgesManipulator
                 nodes={nodes}
-                directed={flags.directed}
-                positions={positions}
                 nodeAngles={nodeAngles}
                 edgePaths={edgePaths}
                 selectEdge={selectEdge}
                 deleteEdge={deleteEdge}
-                grabEdge={onGrabEdge}
             /> : null
+        }
+        {
+            <EdgesGrabber
+                nodes={nodes}
+                grabEdge={onGrabEdge}
+                nodeAngles ={nodeAngles}
+                edgePaths={edgePaths}
+                selectedEdges={selectedEdges}
+            />
         }
         {
             manipulation.x === null && manipulation.y === null &&
@@ -1800,12 +1892,12 @@ const NodeSelector = ({nodeId, x, y, onMouseDown}) => {
 const EdgeSelectorLine = styled.path`
     fill: none;
     stroke: none;
-    stroke-width: 8;
+    stroke-width: 20;
     pointer-events: all;
+    cursor: default;
 `
 
 const NodeEdgeSelector = ({nodeId,edgeIndex,edgePath,onMouseDown,directed}) => {
-
     const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
         onMouseDown(evt, nodeId, edgeIndex)
     } : null, [nodeId, edgeIndex, onMouseDown])
@@ -1969,8 +2061,7 @@ const GraphSelector = ({box, nodeAngles, edgePaths}) => {
         )}
         {nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) => {
-                return
-                    <NodeEdgeSelector
+                return <NodeEdgeSelector
                         nodeId={nodeId}
                         edgeIndex={edgeIdx}
                         key={`${nodeId}-${edgeIdx}`}
@@ -2076,10 +2167,23 @@ const EdgeStepperLine = styled.path`
     pointer-events: none;
     opacity: 0.6;
     stroke-width: 6;
+    stroke-linecap: round;
+`
+
+const AlgorithmStepperLine = styled.line`
+    pointer-events: none;
+    stroke-width: 1;
+    stroke-linecap: round;
+`
+
+const AlgorithmStepperPolygon = styled.polygon`
+    pointer-events: none;
+    fill-opacity: 0.3;
+    stroke-width: 2;
+    stroke-linecap: round;
 `
 
 const NodeEdgeStepper = ({directed, color, edgePath}) => {
-
     return <EdgeStepperLine stroke={color} d={edgePath.string} />
 }
 
@@ -2113,7 +2217,7 @@ const AlgorithmStepperNodeColoring = ({positions, colors}) => {
 const AlgorithmStepperPolygons = ({polygons}) => {
     return <>
         {polygons ? polygons.map(({points, stroke, fill}, i) => {
-            return <polygon key={i} stroke={stroke||'green'} fill={fill||'lightgreen'} fillOpacity="0.3" points={points.map(({x,y}) => `${x} ${y},`).join(' ')} />
+            return <AlgorithmStepperPolygon key={i} stroke={stroke||'green'} fill={fill||'lightgreen'} points={points.map(({x,y}) => `${x} ${y},`).join(' ')} />
         }) : null}
     </>
 }
@@ -2121,7 +2225,7 @@ const AlgorithmStepperPolygons = ({polygons}) => {
 const AlgorithmStepperLines = ({lines, length = 100}) => {
     return <>
         {lines ? lines.map(({dashArray = null, points, stroke, x, y, dx, dy}, i) => {
-            return <line strokeDasharray={dashArray} key={i} strokeWidth="5" stroke={stroke||'green'} x1={x - dx * length} y1={y - dy * length} x2={x + dx * length} y2={y + dy * length} />
+            return <AlgorithmStepperLine strokeDasharray={dashArray} key={i} stroke={stroke||'green'} x1={x - dx * length} y1={y - dy * length} x2={x + dx * length} y2={y + dy * length} />
         }) : null}
     </>
 }
@@ -2133,7 +2237,7 @@ const AlgorithmStepperEdgeLabels = ({positions, nodes, edgeAttributes, angles, e
                 {nodes.map((neighbors, nodeId) =>
                     neighbors.map((neighbourId, edgeIdx) => {
                         const p = edgePaths[nodeId][edgeIdx];
-                        return <TransientEdgeLabel key={nodeId + '-' + edgeIdx} x={p.median.x} y={p.median.y} dy={20 * (1.5 + i - all.length / 2 + verticalOffset / 2)} orientation={e.median.orientation}>
+                        return <TransientEdgeLabel key={nodeId + '-' + edgeIdx} x={p.median.x} y={p.median.y} dy={20 * (1.5 + i - all.length / 2 + verticalOffset / 2)} orientation={p.text.orientation}>
                             {k}: {edgeAttributes[k][nodeId][edgeIdx]}
                         </TransientEdgeLabel>
                     })
@@ -2257,14 +2361,12 @@ const GraphSelection = ({box, nodeAngles, edgePaths}) => {
         {selectedEdges.map((e) => {
             const from = e[0];
             const edgeIdx = e[1];
-            const to = nodes[from][edgeIdx];
 
             return <NodeEdgeSelection
-                        key={`${from}-${edgeIdx}`}
-                        edgePath={edgePaths[from][edgeIdx]}
-                        directed={flags.directed}
-                        edgePath={edgePaths[from][edgeIdx]}
-                    />;
+                key={`${from}-${edgeIdx}`}
+                edgePath={edgePaths[from][edgeIdx]}
+                directed={flags.directed}
+            />;
         })}
     </g>
 }
@@ -2341,6 +2443,8 @@ const GraphEditor = () => {
                     return {
                         string: 'M 0 0',
                         curve: [0,0],
+                        midpoints: [],
+                        anchors: [],
                         median: {
                             x: positions[nodeId].x + normX * 50,
                             y: positions[nodeId].y + normY * 50,
@@ -2487,6 +2591,8 @@ const GraphEditor = () => {
                 return {
                     string: stringPath.join(" "),
                     curve: curvePath,
+                    midpoints: cs,
+                    anchors: points.slice(2, -2),
                     median: {
                         x: mx,
                         y: my,
