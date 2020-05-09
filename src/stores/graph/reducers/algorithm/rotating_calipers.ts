@@ -16,7 +16,11 @@ const run = (graph) => {
 
     const state = init(graph)
 
+    const xs = positioning.map(({x}) => x)
+    const ys = positioning.map(({y}) => y)
 
+    const lineLength = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2
+    
     state.polygons = [
         {
             points: hull.map((i) => positioning[i]),
@@ -54,14 +58,16 @@ const run = (graph) => {
                 x: positioning[hull[p1]].x,
                 y: positioning[hull[p1]].y,
                 dx: Math.cos(a),
-                dy: Math.sin(a)
+                dy: Math.sin(a),
+                length: lineLength,
             },
             {
                 dashArray: '10 10',
                 x: positioning[hull[p2]].x,
                 y: positioning[hull[p2]].y,
                 dx: Math.cos(a),
-                dy: Math.sin(a)
+                dy: Math.sin(a),
+                length: lineLength,
             },
         ]
         track(state)
@@ -82,6 +88,7 @@ const run = (graph) => {
             y: positioning[hull[maxPair[0]]].y,
             dx: finalDy / finalDist,
             dy: -finalDx / finalDist,
+            length: lineLength,
         },
         {
             dashArray: '10 10',
@@ -89,6 +96,7 @@ const run = (graph) => {
             y: positioning[hull[maxPair[1]]].y,
             dx: finalDy / finalDist,
             dy: -finalDx / finalDist,
+            length: lineLength,
         },
     ]
 

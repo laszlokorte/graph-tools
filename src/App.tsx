@@ -1101,6 +1101,13 @@ const EdgeHandleAdvanced = styled.circle`
     fill: #84DBDB;
     opacity: 0.5;
     cursor: alias;
+    pointer-events: fill;
+    stroke: none;
+    stroke-width: 3;
+
+    &:hover {
+      stroke: #84DBDB;
+    }
 `;
 
 const NodeConnector = styled.path`
@@ -1286,25 +1293,16 @@ const EdgeGrabber = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath, mouseDo
         mouseDown(evt, nodeId, edgeIdx, x, y, control)
     } : null, [mouseDown])
 
-    const handles = []
 
-    for(let i=0;i<edgePath.anchors.length;i+=2) {
-        handles.push(<EdgeHandleAdvanced
-            onMouseDown={mouseDownCallback}
-            key={"a" + i}
-            cx={edgePath.anchors[i]}
-            cy={edgePath.anchors[i+1]}
-            data-x={edgePath.anchors[i]}
-            data-y={edgePath.anchors[i+1]}
-            data-node-id={nodeId}
-            data-control={i/2}
-            r={20} />
-        )
-    }
-
-    return <>
-        {handles}
-    </>
+    return <EdgeHandleAdvanced
+        onMouseDown={mouseDownCallback}
+        cx={edgePath.median.x - 20 * edgePath.median.normX}
+        cy={edgePath.median.y - 20 * edgePath.median.normY}
+        data-x={edgePath.median.x - 20 * edgePath.median.normX}
+        data-y={edgePath.median.y - 20 * edgePath.median.normY}
+        data-node-id={nodeId}
+        data-control={Math.floor(edgePath.anchors.length / 4)}
+        r={10} />
 }
 
 const EdgesManipulator = ({nodes, nodeAngles, edgePaths, selectEdge, deleteEdge}) => {
@@ -1453,9 +1451,6 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const pathattr = useSelector(state => state.present.graph.attributeTypes.edges.path)
-    const visible = pathattr && pathattr.visible
-
     const [manipulation, dispatchManipulation] = useReducer(pathManipulationReducer, {
         nodeIdx: null,
         edgeIdx: null,
@@ -1503,10 +1498,6 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
         dispatch(actions.setEdgeAttribute(n, e, 'path', newPath))
     }, [paths, dispatch])
 
-    if(!visible) {
-        return null
-    }
-
     return <>
         {selectedEdges.map((e) => {
             const nodeId = e[0];
@@ -1517,7 +1508,7 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
                 return null;
             }
 
-            return <>
+            return <g key={nodeId + '-' + edgeIdx}>
                 {
                     (manipulation.nodeIdx === nodeId && manipulation.edgeIdx == edgeIdx) ?
                     <PathHandleDot r="8" cx={manipulation.path[manipulation.controlIdx * 2]} cy={manipulation.path[manipulation.controlIdx * 2 + 1]} />
@@ -1534,7 +1525,7 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
                         doubleClickControl={doubleClickControl}
                         directed={directed}
                         angle={nodeAngles[nodeId]} />
-            </>
+            </g>
         })}
     </>
 }
@@ -1663,7 +1654,7 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
                 manipulation.y+manipulation.offsetY,
                 manipulation.connectionStart,
                 manipulation.edgeIndex,
-                !evt.altKey,
+                evt.altKey,
                 manipulation.control
             ))
         } else if(manipulation.movingNode !== null) {
@@ -2223,9 +2214,9 @@ const AlgorithmStepperPolygons = ({polygons}) => {
     </>
 }
 
-const AlgorithmStepperLines = ({lines, length = 100}) => {
+const AlgorithmStepperLines = ({lines}) => {
     return <>
-        {lines ? lines.map(({dashArray = null, points, stroke, x, y, dx, dy}, i) => {
+        {lines ? lines.map(({dashArray = null, length=100, points, stroke, x, y, dx, dy}, i) => {
             return <AlgorithmStepperLine strokeDasharray={dashArray} key={i} stroke={stroke||'green'} x1={x - dx * length} y1={y - dy * length} x2={x + dx * length} y2={y + dy * length} />
         }) : null}
     </>
