@@ -20,7 +20,7 @@ const run = (graph) => {
     const ys = positioning.map(({y}) => y)
 
     const lineLength = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2
-    
+
     state.polygons = [
         {
             points: hull.map((i) => positioning[i]),

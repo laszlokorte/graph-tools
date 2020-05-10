@@ -1045,6 +1045,8 @@ const EdgeLine = styled.path`
 	fill: none;
 	stroke:currentColor;
 	stroke-width: 1;
+	stroke-linejoin: round;
+	stroke-linecap: round;
 	pointer-events: ${({disabled}) => disabled ? 'none':'stroke'};
 `
 
@@ -1087,12 +1089,6 @@ const ArrowHeadSelection = styled.polygon`
 const NodeDragger = styled.path`
     cursor: move;
     fill: #333;
-    opacity: 0.5;
-`;
-
-const EdgeHandle = styled.circle`
-    cursor: default;
-    fill: #c0c0c0;
     opacity: 0.5;
 `;
 
@@ -1202,9 +1198,95 @@ const NodeEdge = ({nodeId, edgeIndex, edgePath, onClick = null, onDoubleClick = 
     />
 }
 
-const NewEdge = ({nodeId, x0, y0, x1, y1, directed = true,offset=false, angle = 0}) => {
+const NewEdge = ({loop = false, x0, y0, x1, y1, directed = true, offset=false, angle = 0}) => {
 
-    return <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="black" />;
+    if(loop) {
+        const nodeRadius = 20
+        const bow = 50
+        const gap = 5
+        const normX = Math.cos(angle + Math.PI);
+        const normY = Math.sin(angle + Math.PI);
+
+        const tangX = normY
+        const tangY = -normX
+
+        const startX = x0 + nodeRadius * normX - gap * tangX
+        const startY = y0 + nodeRadius * normY - gap * tangY
+
+        const endX = x0 + nodeRadius * normX + gap * tangX
+        const endY = y0 + nodeRadius * normY + gap * tangY
+
+        const cp1x = x0 + nodeRadius * normX + bow * normX - bow * tangX
+        const cp1y = y0 + nodeRadius * normY + bow * normY - bow * tangY
+
+        const cp2x = x0 + nodeRadius * normX + bow * normX + bow * tangX
+        const cp2y = y0 + nodeRadius * normY + bow * normY + bow * tangY
+
+        const tipAngle = Math.atan2(endY - cp2y, endX - cp2x);
+
+        return <>
+            <path pointerEvents="none" fill="none" d={
+                "M" + startX + ' ' + startY +
+                'C ' + cp1x + ' ' + cp1y + ' ' + cp2x + ' ' + cp2y + ' ' + endX + ' ' + endY
+            } stroke="black" />
+            {directed ? <EdgeHead angle={tipAngle} x={endX} y={endY} disabled={true} /> : null}
+        </>;
+    }
+
+    const dirX = x0 - x1
+    const dirY = y0 - y1
+    const length = Math.sqrt(dirX*dirX + dirY*dirY)
+    const normX = dirX / length
+    const normY = dirY / length
+    const perpX = normY
+    const perpY = -normX
+
+    const cX = (x0 + x1) / 2 + (directed ? 20 * perpX : 0)
+    const cY = (y0 + y1) / 2 + (directed ? 20 * perpY : 0)
+
+    const departX = cX - x0
+    const departY = cY - y0
+    const arivX = cX - x1
+    const arivY = cY - y1
+
+    const departLength = Math.sqrt(departX * departX + departY * departY)
+    const arivLength = Math.sqrt(arivX * arivX + arivY * arivY)
+    const departXNorm = departX / departLength
+    const departYNorm = departY / departLength
+    const arivXNorm = arivX / arivLength
+    const arivYNorm = arivY / arivLength
+
+    const startX = x0 + departXNorm * 20
+    const startY = y0 + departYNorm * 20
+    const endX = x1 + arivXNorm * 20
+    const endY = y1 + arivYNorm * 20
+
+    const t = 0.8;
+
+    let cp1x = startX + (cX - startX) / 6 * t;
+    let cp1y = startY + (cY - startY) / 6 * t;
+
+    let cp2x = cX - (endX - startX) / 6 * t;
+    let cp2y = cY - (endY - startY) / 6 * t;
+
+    let cp3x = cX + (endX - startX) / 6 * t;
+    let cp3y = cY + (endY - startY) / 6 * t;
+
+    let cp4x = endX - (endX - cX) / 6 * t;
+    let cp4y = endY - (endY - cY) / 6 * t;
+
+    const realX = (offset ? endX : x1)
+    const realY = (offset ? endY : y1)
+    const tipAngle = Math.atan2(endY - cY, endX - cX);
+
+    return <>
+        <path pointerEvents="none" fill="none" d={
+            "M" + startX + ' ' + startY +
+            'C ' + cp1x + ' ' + cp1y + ' ' + cp2x + ' ' + cp2y + ' ' + cX + ' ' + cY  +
+            'C ' + cp3x + ' ' + cp3y + ' ' + cp4x + ' ' + cp4y + ' ' + realX + ' ' + realY
+        } stroke="black" />
+        {directed ? <EdgeHead angle={tipAngle} x={realX} y={realY} disabled={true} /> : null}
+    </>;
 }
 
 const NewNode = ({x, y}) => {
@@ -1284,7 +1366,7 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath}) =>
     />
 }
 
-const EdgeGrabber = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath, mouseDown}) => {
+const EdgeGrabber = ({nodeId, neighbourId, edgeIdx, edgePath, mouseDown}) => {
     const mouseDownCallback = useCallback(mouseDown ? (evt) => {
         const nodeId = 1*evt.target.getAttribute('data-node-id')
         const x = 1*evt.target.getAttribute('data-x')
@@ -1294,6 +1376,17 @@ const EdgeGrabber = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath, mouseDo
     } : null, [mouseDown])
 
 
+    if(neighbourId == nodeId) {
+        return <EdgeHandleAdvanced
+        onMouseDown={mouseDownCallback}
+        cx={edgePath.median.x - 3 * edgePath.median.normX}
+        cy={edgePath.median.y - 3 * edgePath.median.normY}
+        data-x={edgePath.median.x - 3 * edgePath.median.normX}
+        data-y={edgePath.median.y - 3 * edgePath.median.normY}
+        data-node-id={nodeId}
+        data-control={Math.floor(edgePath.anchors.length / 4)}
+        r={7} />
+    } else {
     return <EdgeHandleAdvanced
         onMouseDown={mouseDownCallback}
         cx={edgePath.median.x - 20 * edgePath.median.normX}
@@ -1303,15 +1396,13 @@ const EdgeGrabber = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath, mouseDo
         data-node-id={nodeId}
         data-control={Math.floor(edgePath.anchors.length / 4)}
         r={10} />
+    }
 }
 
 const EdgesManipulator = ({nodes, nodeAngles, edgePaths, selectEdge, deleteEdge}) => {
     return <>
     {nodes.map((neighbors, nodeId) =>
         neighbors.map((neighbourId, edgeIdx) => {
-            if(nodeId === neighbourId) {
-                return null
-            }
 
             return <EdgeManipulator
                 key={nodeId + '-' + edgeIdx}
@@ -1319,7 +1410,6 @@ const EdgesManipulator = ({nodes, nodeAngles, edgePaths, selectEdge, deleteEdge}
                 selectEdge={selectEdge}
                 nodeId={nodeId}
                 edgeIdx={edgeIdx}
-                neighbourId={neighbourId}
                 nodeAngle ={nodeAngles[nodeId]}
                 edgePath={edgePaths[nodeId][edgeIdx]}
             />
@@ -1337,17 +1427,13 @@ const EdgesGrabber = ({nodes, nodeAngles, edgePaths, grabEdge, selectedEdges}) =
             const edgeIdx = e[1];
             const neighbourId = nodes[nodeId][edgeIdx];
 
-            if(nodeId === neighbourId) {
-                return null
-            }
 
             return <EdgeGrabber
                 key={nodeId + '-' + edgeIdx}
                 mouseDown={grabEdge}
                 nodeId={nodeId}
-                edgeIdx={edgeIdx}
                 neighbourId={neighbourId}
-                nodeAngle ={nodeAngles[nodeId]}
+                edgeIdx={edgeIdx}
                 edgePath={edgePaths[nodeId][edgeIdx]}
             />
         })}
@@ -1811,7 +1897,7 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
                 />
         ) : manipulation.connectionSnap !== null ?
             <NewEdge
-                    nodeId={0}
+                    loop={manipulation.connectionStart == manipulation.connectionSnap}
                     x0={positions[manipulation.connectionStart].x}
                     y0={positions[manipulation.connectionStart].y}
                     x1={positions[manipulation.connectionSnap].x}
@@ -1822,7 +1908,6 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
                 />
          :
             <NewEdge
-                    nodeId={manipulation.connectionStart}
                     x0={positions[manipulation.connectionStart].x}
                     y0={positions[manipulation.connectionStart].y}
                     x1={manipulation.x}
@@ -1840,7 +1925,6 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
             />,
             <NewEdge
                 key="midpoint-pre-edge"
-                nodeId={0}
                 x0={positions[manipulation.connectionStart].x}
                 y0={positions[manipulation.connectionStart].y}
                 x1={manipulation.x + manipulation.offsetX}
@@ -1851,7 +1935,6 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
             />,
             <NewEdge
                 key="midpoint-post-edge"
-                nodeId={0}
                 x0={manipulation.x + manipulation.offsetX}
                 y0={manipulation.y + manipulation.offsetY}
                 x1={positions[nodes[manipulation.connectionStart][manipulation.edgeIndex]].x}
@@ -2335,7 +2418,7 @@ const NodeSelection = ({x,y}) => {
 }
 
 
-const NodeEdgeSelection = ({edgePath,directed}) => {
+const NodeEdgeSelection = ({edgePath}) => {
     return <EdgeSelectionLine d={edgePath.string} />
 }
 
@@ -2357,7 +2440,6 @@ const GraphSelection = ({box, nodeAngles, edgePaths}) => {
             return <NodeEdgeSelection
                 key={`${from}-${edgeIdx}`}
                 edgePath={edgePaths[from][edgeIdx]}
-                directed={flags.directed}
             />;
         })}
     </g>
@@ -2402,11 +2484,37 @@ const GraphEditor = () => {
 
     const nodeAngles = useSelector(state => {
         const positions = state.present.graph.attributes.nodes.position
+        const paths = state.present.graph.attributes.edges.path
 
         return state.present.graph.nodes.map((neighbours, idx) => {
             const ownPos = positions[idx]
-            const outgoing = neighbours.map((n) => n !== idx ? Math.atan2(positions[n].y - ownPos.y, positions[n].x - ownPos.x) : null).filter(a => a !== null)
-            const incoming = state.present.graph.nodes.map((others, o) => (o !== idx && others.includes(idx)) ? Math.atan2(positions[o].y - ownPos.y, positions[o].x - ownPos.x) : null).filter(a => a !== null)
+            const outgoing = neighbours.map((n, edx) => {
+                if(n === idx) {
+                    return null;
+                }
+
+                const p = paths[idx][edx]
+                if(p && p.length) {
+                    return Math.atan2(p[1] - ownPos.y, p[0] - ownPos.x)
+                } else {
+                    return Math.atan2(positions[n].y - ownPos.y, positions[n].x - ownPos.x)
+                }
+
+            }).filter(a => a !== null)
+
+            const incoming = state.present.graph.nodes.map((others, o) => {
+                const edx = others.indexOf(idx)
+                if (o === idx || edx < 0) {
+                   return null;
+                }
+
+                const p = paths[o][edx]
+                if(p && p.length) {
+                    return Math.atan2(p[p.length-1] - ownPos.y, p[p.length-2] - ownPos.x)
+                } else {
+                    return Math.atan2(positions[o].y - ownPos.y, positions[o].x - ownPos.x)
+                }
+            }).filter(a => a !== null)
 
             const cosSum = outgoing.reduce((acc, angle) => acc + Math.cos(angle), 0) +
                 incoming.reduce((acc, angle) => acc + Math.cos(angle), 0)
@@ -2419,6 +2527,7 @@ const GraphEditor = () => {
     })
 
     const edgePaths = useSelector(state => {
+        const directed = state.present.graph.flags.directed
         const positions = state.present.graph.attributes.nodes.position
         const paths = state.present.graph.attributes.edges.path
         const nodes = state.present.graph.nodes
@@ -2427,33 +2536,52 @@ const GraphEditor = () => {
         return nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) => {
                 if(neighbourId == nodeId) {
-                    const angle = nodeAngles[nodeId] + Math.PI;
-                    const normX = Math.cos(angle);
-                    const normY = Math.sin(angle);
+                    const nodeRadius = 20
+                    const bow = 50
+                    const gap = 5
+                    const center = positions[nodeId]
+                    const angle = nodeAngles[nodeId];
+                    const normX = Math.cos(angle + Math.PI);
+                    const normY = Math.sin(angle + Math.PI);
                     const orientation = Math.round(((Math.atan2(normX, normY) + Math.PI) / Math.PI + 0.5) * 2) % 4
 
+                    const tangX = normY
+                    const tangY = -normX
+
+                    const startX = center.x + nodeRadius * normX - gap * tangX
+                    const startY = center.y + nodeRadius * normY - gap * tangY
+
+                    const endX = center.x + nodeRadius * normX + gap * tangX
+                    const endY = center.y + nodeRadius * normY + gap * tangY
+
+                    const c1x = center.x + nodeRadius * normX + bow * normX - bow * tangX
+                    const c1y = center.y + nodeRadius * normY + bow * normY - bow * tangY
+
+                    const c2x = center.x + nodeRadius * normX + bow * normX + bow * tangX
+                    const c2y = center.y + nodeRadius * normY + bow * normY + bow * tangY
+
                     return {
-                        string: 'M 0 0',
-                        curve: [0,0],
+                        string: 'M ' + startX + ' ' + startY + 'C '+ c1x + ' ' + c1y + ' ' + c2x + ' ' + c2y + ' ' + endX + ' ' + endY,
+                        curve: [startX, startY, c1x, c1y, c2x, c2y, endX, endY],
                         midpoints: [],
                         anchors: [],
                         median: {
-                            x: positions[nodeId].x + normX * 50,
-                            y: positions[nodeId].y + normY * 50,
+                            x: positions[nodeId].x + normX * bow,
+                            y: positions[nodeId].y + normY * bow,
                             normX: normX,
                             normY: normY,
                         },
                         text: {
-                            x: positions[nodeId].x + normX * 50,
-                            y: positions[nodeId].y + normY * 50,
+                            x: positions[nodeId].x + normX * bow,
+                            y: positions[nodeId].y + normY * bow,
                             normX: normX,
                             normY: normY,
                             orientation: orientation
                         },
                         tip: {
-                            x: positions[nodeId].x + normX * 50,
-                            y: positions[nodeId].y + normY * 50,
-                            angle: 0,
+                            x: endX,
+                            y: endY,
+                            angle: Math.atan2(endY - c2y, endX - c2x),
                         }
                     }
                 }
@@ -2471,8 +2599,8 @@ const GraphEditor = () => {
                     const normX = deltaX / distance;
                     const normY = deltaY / distance;
                     points = [
-                        (startPosition.x + endPosition.x) / 2 + 20 * normY,
-                        (startPosition.y + endPosition.y) / 2 - 20 * normX,
+                        (startPosition.x + endPosition.x) / 2 + (directed ? 20 * normY : 0),
+                        (startPosition.y + endPosition.y) / 2 - (directed ? 20 * normX : 0),
                     ]
                 }
 
@@ -2551,6 +2679,11 @@ const GraphEditor = () => {
                     const dy = (d1y/l1 + d2y/l2) / 2
                     mNormX = -dx
                     mNormY = -dy
+
+                    if(mNormX*mNormX + mNormY*mNormY < 0.001) {
+                        mNormX = -d2y/l2
+                        mNormY = d2x/l2
+                    }
                 } else {
                     mx = cs[cs.length / 2 - 1]
                     my = cs[cs.length / 2]
@@ -2568,6 +2701,11 @@ const GraphEditor = () => {
                     const dy = (d1y/l1 + d2y/l2) / 2
                     mNormX = -dx
                     mNormY = -dy
+
+                    if(mNormX*mNormX + mNormY*mNormY < 0.001) {
+                        mNormX = -d2y/l2
+                        mNormY = d2x/l2
+                    }
                 }
 
                 const norm = Math.sqrt(mNormX*mNormX + mNormY*mNormY);
