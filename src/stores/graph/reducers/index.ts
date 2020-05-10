@@ -18,7 +18,7 @@ export default undoable((state, action) => {
 
     return {
         ...intermediateState,
-        selection: graphSelection(intermediateState.graph, intermediateState.selection, action),
+        selection: graphSelection(intermediateState.graph, state && state.graph, intermediateState.selection, action),
         algorithm: algorithm(state ? state.algorithm : undefined, intermediateState.graph, action),
         properties: properties(state ? state.properties : undefined, intermediateState.graph, action),
     };

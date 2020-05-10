@@ -1637,6 +1637,7 @@ const manipulationReducer = (state, action) => {
                     ...state,
                     x: action.x,
                     y: action.y,
+                    hasMoved: true,
                 }
             } else {
                 return state;
@@ -1700,6 +1701,7 @@ const manipulationReducer = (state, action) => {
                 movingNode: action.nodeId,
                 edgeIndex: null,
                 control: null,
+                hasMoved: false,
             }
     }
     return state;
@@ -1726,6 +1728,7 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
         offsetX: 0,
         offsetY: 0,
         control: null,
+        hasMoved: false,
     });
 
     const onMouseUp = useCallback((evt) => {
@@ -1744,11 +1747,15 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
                 manipulation.control
             ))
         } else if(manipulation.movingNode !== null) {
-            dispatch(actions.setNodeAttribute(
-                manipulation.movingNode,
-                'position',
-                {x:manipulation.x+manipulation.offsetX, y:manipulation.y+manipulation.offsetY}
-            ))
+            if(manipulation.hasMoved) {
+                dispatch(actions.setNodeAttribute(
+                    manipulation.movingNode,
+                    'position',
+                    {x:manipulation.x+manipulation.offsetX, y:manipulation.y+manipulation.offsetY}
+                ))
+            } else {
+                dispatch(actions.selectNode(manipulation.movingNode, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
+            }
         } else if(manipulation.x !== null && manipulation.y !== null) {
             dispatch(actions.createNode(
                 manipulation.x+manipulation.offsetX,

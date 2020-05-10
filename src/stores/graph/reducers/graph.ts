@@ -11,6 +11,7 @@ const initialState = {
     "nodes": {
       "position": [],
       "label": [],
+      "type": [],
       "color": [],
       "initial": [],
       "final": [],
@@ -64,6 +65,15 @@ const initialState = {
         "type": "text",
         "visible": false
       },
+      "type": {
+        "default": "round",
+        "type": "enum",
+        "options": [
+            "place", "transition"
+        ],
+        "required": true,
+        "partition": true,
+      },
       "color": {
         "default": null,
         "type": "color",
@@ -103,7 +113,7 @@ const castAttributeType = (attr, val) => {
             if(attr.options.indexOf(val) > -1) {
                 return val
             } else if(attr.required) {
-                return attr.options[0];
+                return attr.default || attr.options[0];
             } else {
                 return null;
             }
