@@ -1,4 +1,4 @@
-export default (graphState, prevGraphState, selectionState, action) => {
+export default (selectionState, graphState, prevGraphState, action) => {
     switch(action.type) {
         case 'STORAGE_LOAD':
         case 'SET_GRAPH_FLAG':

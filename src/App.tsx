@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {useReducer, useRef, useMemo, useEffect, useContext, useCallback, useState} from 'react';
+import {useRef, useMemo, useEffect, useContext, useCallback, useState} from 'react';
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
@@ -10,6 +10,18 @@ import { ActionCreators } from 'redux-undo';
 import {ALGORITHMS} from './stores/graph/reducers/algorithm/index';
 
 import * as actions from './actions'
+
+const useGraphSelector = () => {
+    return useSelector(state => state.data.present.graph)
+}
+
+const useSelectionSelector = () => {
+    return useSelector(state => state.data.present.selection)
+}
+
+const useAlgorithmSelector = () => {
+    return useSelector(state => state.data.present.algorithm)
+}
 
 const Title = styled.h1`
     margin: 0;
@@ -123,11 +135,12 @@ const SectionTitle = styled.h2`
 `
 
 const SubSectionTitle = styled.h3`
-    padding: 6px 1px;
+    padding: 6px 6px 0 6px;
     margin: 0;
     font-size: 1em;
-    font-weight: 600;
+    font-weight: 400;
     color: #000;
+    font-size: 0.9em;
 `
 
 const SubSubSectionTitle = styled.h4`
@@ -140,7 +153,30 @@ const SubSubSectionTitle = styled.h4`
 `
 
 const SectionBody = styled.div`
-    padding: 0.5em;
+    padding: 0;
+`
+
+const DetailsBox = styled.div`
+    border-radius: 5px;
+    margin: 5px;
+    padding: 3px;
+    background: #CEEBFC;
+    border: 1px solid #2369B5;
+`
+
+const DetailsBoxButton = styled.button`
+    border-radius: 3px;
+    padding: 3px 5px;
+    background: #2D69B3;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+`
+
+const DetailsBoxHead = styled.div`
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5em;
 `
 
 const Toolbar = styled.div`
@@ -202,13 +238,17 @@ const ToolButton = styled.button`
 `
 
 const CheckboxList = styled.ul`
-    padding: 0;
     margin: 0;
+    padding: 0.2em;
     list-style: none;
 `
 
-const DefinitionList = styled.ul`
-    padding: 0;
+const CheckboxListItem = styled.li`
+    padding: 0.1em;
+`
+
+const DefinitionList = styled.dl`
+    padding: 0.3em;
     margin: 0;
     list-style: none;
     display: grid;
@@ -228,8 +268,8 @@ const PlainButton = styled.button`
 
 const NodeAttribute = ({nodeId, attrKey}) => {
     const dispatch = useDispatch()
-    const value = useSelector(state => state.present.graph.attributes.nodes[attrKey][nodeId])
-    const type = useSelector(state => state.present.graph.attributeTypes.nodes[attrKey])
+    const value = (useGraphSelector().attributes.nodes[attrKey][nodeId])
+    const type = (useGraphSelector().attributeTypes.nodes[attrKey])
     const typeName = type.type
 
     const onChange = useCallback(
@@ -273,15 +313,18 @@ const NodeAttribute = ({nodeId, attrKey}) => {
 const NodeDetails = ({nodeId}) => {
     const dispatch = useDispatch()
 
-    const neighbours = useSelector(state => state.present.graph.nodes[nodeId])
-    const attributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes))
+    const graph = useGraphSelector()
+    const neighbours = (useGraphSelector().nodes[nodeId])
+    const attributes = Object.keys(graph.attributeTypes.nodes)
 
 
     const onClick = useCallback(() => dispatch(actions.deleteNode(nodeId)), [nodeId]);
 
-    return <div>
+    return <DetailsBox>
+        <DetailsBoxHead>
         <SubSectionTitle>Node (#{nodeId})</SubSectionTitle>
-        <button onClick={onClick}>Delete</button>
+        <DetailsBoxButton onClick={onClick}>Delete</DetailsBoxButton>
+        </DetailsBoxHead>
         <SubSubSectionTitle>Attributes</SubSubSectionTitle>
         <DefinitionList>
             {attributes.map((attrKey) =>
@@ -290,19 +333,20 @@ const NodeDetails = ({nodeId}) => {
         </DefinitionList>
         <SubSubSectionTitle>Neighbourhood</SubSubSectionTitle>
         <LinkList>
-            {neighbours.map((neighbour, idx) =>
-               neighbour === nodeId ?
-                <li key={idx}><BadgeLink onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>↩</BadgeLink> self</li> :
-                <li key={idx}><BadgeLink onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>→</BadgeLink><Link onClick={() => dispatch(actions.selectNode(neighbour))}>Node #{neighbour}</Link></li>
+            {neighbours.length === 0 ? <li>No outgoing edges</li> :
+                neighbours.map((neighbour, idx) =>
+                    neighbour === nodeId ?
+                    <li key={idx}><BadgeLink onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>↩</BadgeLink> self</li> :
+                    <li key={idx}><BadgeLink onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>→</BadgeLink><Link onClick={() => dispatch(actions.selectNode(neighbour))}>Node #{neighbour}</Link></li>
             )}
         </LinkList>
-    </div>
+    </DetailsBox>
 }
 
 const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     const dispatch = useDispatch()
-    const value = useSelector(state => state.present.graph.attributes.edges[attrKey][nodeId][edgeIndex])
-    const type = useSelector(state => state.present.graph.attributeTypes.edges[attrKey].type)
+    const value = (useGraphSelector().attributes.edges[attrKey][nodeId][edgeIndex])
+    const type = (useGraphSelector().attributeTypes.edges[attrKey].type)
 
     if(['text','color','numeric'].includes(type)) {
         return <>
@@ -325,15 +369,18 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
 const EdgeDetails = ({nodeId, edgeIndex}) => {
     const dispatch = useDispatch()
 
-    const target = useSelector(state => state.present.graph.nodes[nodeId][edgeIndex])
-    const attributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges))
-    const flags = useSelector(state => state.present.graph.flags)
-    const prev = useSelector(state => edgeIndex > 0 && state.present.graph.nodes[nodeId][edgeIndex - 1] === target ? edgeIndex - 1 : null)
-    const next = useSelector(state => edgeIndex < state.present.graph.nodes[nodeId].length && state.present.graph.nodes[nodeId][edgeIndex + 1] === target ? edgeIndex + 1 : null)
+    const graph = useGraphSelector()
+    const target = (useGraphSelector().nodes[nodeId][edgeIndex])
+    const attributes =  Object.keys(graph.attributeTypes.edges)
+    const flags = (useGraphSelector().flags)
+    const prev = edgeIndex > 0 && graph.nodes[nodeId][edgeIndex - 1] === target ? edgeIndex - 1 : null
+    const next = edgeIndex < graph.nodes[nodeId].length && graph.nodes[nodeId][edgeIndex + 1] === target ? edgeIndex + 1 : null
 
-    return <div>
+    return <DetailsBox>
+        <DetailsBoxHead>
         <SubSectionTitle>Edge</SubSectionTitle>
-        <button onClick={() => dispatch(actions.deleteEdge(nodeId, edgeIndex))}>Delete</button>
+        <DetailsBoxButton onClick={() => dispatch(actions.deleteEdge(nodeId, edgeIndex))}>Delete</DetailsBoxButton>
+        </DetailsBoxHead>
         <DefinitionList>
         <dt>From</dt>
         <dd><Link onClick={() => dispatch(actions.selectNode(nodeId))}>Node #{nodeId}</Link></dd>
@@ -354,21 +401,21 @@ const EdgeDetails = ({nodeId, edgeIndex}) => {
             {next === null ? 'Next' :
             <Link onClick={() => dispatch(actions.selectEdge(nodeId, next))}>Next</Link>}
         </div>}
-    </div>
+    </DetailsBox>
 }
 
 const GraphOptions = () => {
     const dispatch = useDispatch()
 
-    const flags = useSelector(state => state.present.graph.flags)
+    const flags = (useGraphSelector().flags)
 
     return <CheckboxList>
         {Object.keys(flags).map((flagKey) =>
-            <li key={flagKey}>
+            <CheckboxListItem key={flagKey}>
                 <label>
                     <input type="checkbox" onChange={(e) => dispatch(actions.setFlag(flagKey, e.target.checked))} checked={flags[flagKey]} /> {flagKey}
                 </label>
-            </li>
+            </CheckboxListItem>
         )}
     </CheckboxList>
 }
@@ -376,28 +423,28 @@ const GraphOptions = () => {
 const ViewOptions = () => {
     const dispatch = useDispatch()
 
-    const edgeAttributes = useSelector(state => state.present.graph.attributeTypes.edges)
-    const nodeAttributes = useSelector(state => state.present.graph.attributeTypes.nodes)
+    const edgeAttributes = (useGraphSelector().attributeTypes.edges)
+    const nodeAttributes = (useGraphSelector().attributeTypes.nodes)
 
     return <div>
         <SubSectionTitle>Visible Edge Attributes</SubSectionTitle>
         <CheckboxList>
             {Object.keys(edgeAttributes).map((attrKey) =>
-                <li key={attrKey}>
+                <CheckboxListItem key={attrKey}>
                     <label>
                     <input type="checkbox" onChange={(e) => dispatch(actions.setEdgeAttributeVisible(attrKey, e.target.checked))} checked={edgeAttributes[attrKey].visible === true} /> {attrKey}
                     </label>
-                </li>
+                </CheckboxListItem>
             )}
         </CheckboxList>
         <SubSectionTitle>Visible Node Attributes</SubSectionTitle>
         <CheckboxList>
         {Object.keys(nodeAttributes).map((attrKey) =>
-            <li key={attrKey}>
+            <CheckboxListItem key={attrKey}>
                 <label>
                 <input type="checkbox" onChange={(e) => dispatch(actions.setNodeAttributeVisible(attrKey, e.target.checked))} checked={nodeAttributes[attrKey].visible === true} /> {attrKey}
                 </label>
-            </li>
+            </CheckboxListItem>
         )}
         </CheckboxList>
     </div>
@@ -405,8 +452,8 @@ const ViewOptions = () => {
 
 const Tools = ({tools, currentTool, onSelectTool}) => {
     const dispatch = useDispatch();
-    const canUndo = useSelector(state => state.past.length > 0)
-    const canRedo = useSelector(state => state.future.length > 0)
+    const canUndo = useSelector(state => state.data.past.length > 0)
+    const canRedo = useSelector(state => state.data.future.length > 0)
     const savedGraphs = useProjectsSelector(state => state)
     const savedGraphNames = Object.keys(savedGraphs)
 
@@ -415,7 +462,7 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     const layout = useCallback(() => dispatch(actions.autoLayout()), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
-    const openGraph = useCallback((evt) => dispatch(actions.loadGraph(savedGraphs[evt.target.value])), [savedGraphs])
+    const openGraph = useCallback((evt) => (console.log(savedGraphs, evt.target.value), dispatch(actions.loadGraph(savedGraphs[evt.target.value]))), [savedGraphs])
 
     return <Toolbar>
         <ToolbarSection>
@@ -458,12 +505,12 @@ const castAlgorithmParameter = (parameter, value) => {
 
 const AlgorithmOptions = ({algorithm}) => {
     const dispatch = useDispatch();
-    const graph = useSelector(state => state.present.graph)
+    const graph = useGraphSelector()
     const alg = ALGORITHMS.find((a) => a.key === algorithm)
     const canRun = alg !== null && meetRequirements(alg, graph)
-    const nodes = useSelector(state => state.present.graph.nodes)
-    const edgeAttributes = useSelector(state => state.present.graph.attributeTypes.edges)
-    const nodeAttributes = useSelector(state => state.present.graph.attributeTypes.edges)
+    const nodes = (useGraphSelector().nodes)
+    const edgeAttributes = (useGraphSelector().attributeTypes.edges)
+    const nodeAttributes = (useGraphSelector().attributeTypes.edges)
 
     const run = useCallback((evt) => {
         evt.preventDefault();
@@ -523,8 +570,9 @@ const AlgorithmOptions = ({algorithm}) => {
 const AlgorithmRunner = () => {
     const dispatch = useDispatch();
     const selectBox = useRef();
-    const algorithmType = useSelector(state => state.present.algorithm.type)
-    const flags = useSelector(state => state.present.graph.flags)
+    const algorithm = useAlgorithmSelector();
+    const algorithmType = algorithm.type
+    const flags = (useGraphSelector().flags)
     const [alg, setAlg] = useState(ALGORITHMS[0].key);
 
     const run = useCallback(() => {
@@ -565,7 +613,7 @@ const AlgorithmRunner = () => {
 
 const AlgorithmResult = () => {
     const dispatch = useDispatch();
-    const algorithm = useSelector(state => state.present.algorithm)
+    const algorithm = useAlgorithmSelector()
 
 
     const stepFoward = useCallback(() => {
@@ -592,12 +640,13 @@ const AlgorithmResult = () => {
 
 const Menu = () => {
     const dispatch = useDispatch();
-    const present = useSelector((state) => state.present)
-    const nodes = useSelector(state => state.present.selection.nodes)
-    const edges = useSelector(state => state.present.selection.edges)
-    const empty = useSelector(state => state.present.selection.edges.length < 1 && state.present.selection.nodes.length < 1)
+    const present = useSelector((state) => state.data.present)
+    const nodes = (useSelectionSelector().nodes)
+    const edges = (useSelectionSelector().edges)
+    const selection = useSelectionSelector()
+    const empty = (selection.edges.length < 1 && present.selection.nodes.length < 1)
 
-    const properties = useSelector(state => state.present.properties)
+    const properties = present.properties
 
     return <Scroller>
             <Section>
@@ -694,202 +743,34 @@ const useCanvasPos = () => {
     return useContext(CanvasContext);
 }
 
-const CameraContext = React.createContext(null);
-const useCamera = () => {
-    return useContext(CameraContext);
-}
-
-const softClamp = (val, newVal, min, max) => {
-    if(newVal > max && val > max) {
-        return Math.min(newVal, val);
-    } else if(newVal < min && val < min) {
-        return Math.max(newVal, val);
-    } else {
-        return Math.min(Math.max(min, newVal), max);
-    }
-}
-
-const clamp = (val, min, max) => {
-    return Math.min(Math.max(min, val), max);
-}
-
-const cameraReducer = (camera, action) => {
-    const bounds = camera.bounds;
-
-    switch(action.type) {
-        case 'clamp':
-            return {
-                ...camera,
-                bounds: {
-                    minX: action.box.minX,
-                    maxX: action.box.maxX,
-                    minY: action.box.minY,
-                    maxY: action.box.maxY,
-                    defaultZoom: Math.min(
-                      action.screen.width/(action.box.maxX - action.box.minX),
-                      action.screen.height/(action.box.maxY - action.box.minY),
-                      20
-                    ),
-                    minZoom: Math.min(
-                      action.screen.width / (action.box.maxX - action.box.minX),
-                      action.screen.height / (action.box.maxY - action.box.minY),
-                      0.8
-                    ),
-                    maxZoom: 6,
-                },
-            };
-        case 'zoom':
-            const newZoom = softClamp(camera.zoom, camera.zoom * action.factor, bounds.minZoom, bounds.maxZoom)
-            const realFactor = newZoom / camera.zoom;
-            const panFactor = 1 - 1 / realFactor;
-
-            const newX = softClamp(camera.center.x, camera.center.x + (action.pivot.x - camera.center.x) * panFactor, bounds.minX, bounds.maxX)
-            const newY = softClamp(camera.center.y, camera.center.y + (action.pivot.y - camera.center.y) * panFactor, bounds.minY, bounds.maxY)
-
-            return {
-              ...camera,
-              zoom: newZoom,
-              center: {
-                  ...camera.center,
-                  x: newX,
-                  y: newY,
-              },
-            };
-        case 'jumpZoom': {
-            if(camera.rotation != 0) {
-                return cameraReducer(camera, {type: 'reset'})
-            } else if(Math.abs(camera.zoom / camera.bounds.defaultZoom) < 1.05) {
-                return cameraReducer(camera, {type:'zoom', pivot: action.pivot, factor: camera.bounds.maxZoom / 2})
-            } else {
-                return cameraReducer(camera, {type: 'reset'})
-                //cameraReducer(camera, {typ:'zoom', pivot:action.pivot,factor:bounds.defaultZoom / camera.zoom})
-            }
-        }
-        case 'rotate':
-            const pivot = action.pivot;
-            const deltaAngle = action.deltaAngle;
-            const dx = camera.center.x - pivot.x;
-            const dy = camera.center.y - pivot.y;
-            const rad = Math.PI * deltaAngle / 180;
-            const sin = Math.sin(-rad)
-            const cos = Math.cos(-rad)
-
-            return {
-              ...camera,
-              center: {
-                  ...camera.center,
-                  x: pivot.x + cos * dx - sin * dy, //softClamp(camera.center.x, , bounds.minX, bounds.maxX),
-                  y: pivot.y + sin * dx + cos * dy, //softClamp(camera.center.y, , bounds.minY, bounds.maxY),
-              },
-              rotation: (camera.rotation + deltaAngle) % 360,
-            };
-        case 'pan': {
-            const sin = Math.sin(camera.rotation * Math.PI / 180)
-            const cos = Math.cos(camera.rotation * Math.PI / 180)
-            const dx = (cos * action.deltaX + sin * action.deltaY)  / camera.zoom
-            const dy = (-sin * action.deltaX + cos * action.deltaY) / camera.zoom
-            return {
-              ...camera,
-                center: {
-                    ...camera.center,
-                    x: softClamp(camera.center.x, camera.center.x + dx, bounds.minX, bounds.maxX),
-                    y: softClamp(camera.center.y, camera.center.y + dy, bounds.minY, bounds.maxY),
-                },
-            }
-        }
-        case 'reset':
-            return {
-                ...camera,
-                center: {
-                    ...camera.center,
-                    x: (bounds.minX + bounds.maxX) / 2,
-                    y: (bounds.minY + bounds.maxY) / 2,
-                },
-                rotation: 0,
-                zoom: bounds.defaultZoom,
-            }
-        case 'startPan':
-            return {
-                ...camera,
-                panX: action.x,
-                panY: action.y,
-            }
-        case 'stopPan':
-            return {
-                ...camera,
-                panX: null,
-                panY: null,
-            }
-        case 'movePan':
-            if(camera.panX === null || camera.panY === null) {
-                return camera;
-            }
-            const deltaX = action.x - camera.panX;
-            const deltaY = action.y - camera.panY;
-            return {
-              ...camera,
-                center: {
-                    ...camera.center,
-                    x: softClamp(camera.center.x, camera.center.x - deltaX, bounds.minX, bounds.maxX),
-                    y: softClamp(camera.center.y, camera.center.y - deltaY, bounds.minY, bounds.maxY),
-                },
-            }
-
-    }
-    return camera;
-}
 
 const Canvas = ({children, box}) => {
     const screenRef = useRef();
-    const cameraRef = useRef();
     const screen = useSize(screenRef, 100, 100);
     const posRef = useRef();
     const svgPos = useSVGPosition(posRef);
+    const dispatch = useDispatch();
 
-    const [camera, dispatchCamera] = useReducer(cameraReducer, {
-        center: {x: 0, y:0},
-        rotation: 0,
-        zoom: 1,
-        bounds: {
-            minX: 0,
-            maxX: 0,
-            minY: 0,
-            maxY: 0,
-            defaultZoom: 1,
-            minZoom: 1,
-            maxZoom: 1,
-        },
-        panX: null,
-        panY: null,
-    })
+    const camera = useSelector((state) => state.camera)
 
-    useEffect(() => {
-        cameraRef.current = camera;
-    }, [camera])
-
-    const bounds = useEffect(() => dispatchCamera({
-        type: 'clamp',
-        box, screen,
-    }), [box, screen]);
+    const bounds = useEffect(() => {
+        dispatch(actions.cameraClamp(box, screen))
+    }, [box, screen]);
 
     const viewBox = viewboxString(bounds, screen, camera);
 
     const onMouseMoveHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
-        dispatchCamera({type: 'movePan', ...pos})
-    }, [svgPos])
-
-    const onClickHandler = useCallback((e) => {
-        const pos = svgPos({x: e.clientX, y: e.clientY})
-
-    }, [svgPos])
+        if(camera.panX !== null) {
+            dispatch(actions.cameraMovePan(pos.x, pos.y))
+        }
+    }, [svgPos, camera])
 
      const onDoubleClickHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
-
-        dispatchCamera({type: 'jumpZoom', pivot: pos})
+         dispatch(actions.cameraJumpZoom(pos.x, pos.y))
     }, [svgPos])
 
     const onMouseDownHandler = useCallback((e) => {
@@ -897,7 +778,7 @@ const Canvas = ({children, box}) => {
 
         e.preventDefault();
         e.stopPropagation();
-        dispatchCamera({type: 'startPan', ...pos})
+        dispatch(actions.cameraStartPan(pos.x, pos.y))
     }, [svgPos])
 
     const onMouseUpHandler = useCallback((e) => {
@@ -905,7 +786,7 @@ const Canvas = ({children, box}) => {
 
         e.preventDefault();
 
-        dispatchCamera({type: 'stopPan'})
+        dispatch(actions.cameraStopPan())
     }, [svgPos])
 
     const onWheelHandler = useCallback((e) => {
@@ -916,13 +797,13 @@ const Canvas = ({children, box}) => {
         const factor = wheelFactor(e);
 
         if(e.shiftKey) {
-            dispatchCamera({type: 'pan', deltaX: e.deltaX, deltaY: e.deltaY})
+            dispatch(actions.cameraPan(e.deltaX, e.deltaY))
         } else if(e.altKey) {
-            dispatchCamera({type: 'rotate', pivot, deltaAngle: 10 * Math.log2(factor)})
+            dispatch(actions.cameraRotate(pivot.x, pivot.y, 10 * Math.log2(factor)))
         } else {
-            dispatchCamera({type: 'zoom', pivot, factor})
+            dispatch(actions.cameraZoom(pivot.x, pivot.y, factor))
         }
-    }, [svgPos])
+    }, [dispatch, svgPos])
 
     const [left,top,width,height] = viewBox.split(' ');
 
@@ -955,7 +836,6 @@ const Canvas = ({children, box}) => {
 	return <Svg
         ref={screenRef}
         onMouseDown={onMouseDownHandler}
-        onClick={onClickHandler}
         onDoubleClick={onDoubleClickHandler}
         onWheel={onWheelHandler}
         viewBox={viewBox}
@@ -968,7 +848,6 @@ const Canvas = ({children, box}) => {
             fill="#ccc" />
 		<g ref={posRef} transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
             <CanvasContext.Provider value={svgPos}>
-                <CameraContext.Provider value={cameraRef}>
                 <rect
                     x={camera.bounds.minX}
                     y={camera.bounds.minY}
@@ -976,7 +855,6 @@ const Canvas = ({children, box}) => {
                     height={camera.bounds.maxY - camera.bounds.minY}
                     fill="#fff" />
     			{children}
-                </CameraContext.Provider>
             </CanvasContext.Provider>
 		</g>
 	</Svg>;
@@ -1440,50 +1318,7 @@ const EdgesGrabber = ({nodes, nodeAngles, edgePaths, grabEdge, selectedEdges}) =
     </>
 }
 
-const pathManipulationReducer = (state, action) => {
-    switch(action.type) {
-        case 'stop':
-            return {
-                ...state,
-                nodeIdx: null,
-                edgeIdx: null,
-                controlIdx: null,
-                path:null,
-                offsetX: 0,
-                offsetY: 0,
-            };
-        case 'move':
-            if(state.nodeIdx != null) {
-                return {
-                    ...state,
-                    path: [...state.path.slice(0, state.controlIdx*2), action.x, action.y, ...state.path.slice(state.controlIdx*2 + 2)],
-                }
-            } else {
-                return state;
-            }
-        case 'startCreate':
-            return {
-                ...state,
-                nodeIdx: action.nodeIdx,
-                edgeIdx: action.edgeIdx,
-                controlIdx: action.controlIdx,
-                path: [...action.path.slice(0, action.controlIdx*2), action.x, action.y, ...action.path.slice(action.controlIdx*2)],
-                offsetX: 0,
-                offsetY: 0,
-            }
-        case 'startMove':
-            return {
-                ...state,
-                nodeIdx: action.nodeIdx,
-                edgeIdx: action.edgeIdx,
-                controlIdx: action.controlIdx,
-                path: [...action.path.slice(0, action.controlIdx*2), action.x, action.y, ...action.path.slice(action.controlIdx*2 + 2)],
-                offsetX: 0,
-                offsetY: 0,
-            }
-    }
-    return state;
-}
+
 
 const EdgePathManipulator = ({nodeId, edgeIdx, controls, startPosition, endPosition, directed, angle, edgePath, mouseDownControl, doubleClickControl}) => {
     const result = [];
@@ -1537,26 +1372,21 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const [manipulation, dispatchManipulation] = useReducer(pathManipulationReducer, {
-        nodeIdx: null,
-        edgeIdx: null,
-        controlIdx: null,
-        path: null,
-        offsetX: 0,
-        offsetY: 0,
-    });
+    const manipulation = useSelector((state) => state.pathManipulator)
 
     const onMouseUp = useCallback((evt) => {
         if(manipulation.nodeIdx != null) {
             dispatch(actions.setEdgeAttribute(manipulation.nodeIdx, manipulation.edgeIdx, 'path', manipulation.path))
         }
-        dispatchManipulation({type: 'stop'})
-    }, [manipulation, dispatchManipulation, dispatch])
+        dispatch(actions.pathManipulatorStop())
+    }, [manipulation, dispatch, dispatch])
 
     const onMouseMove = useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        dispatchManipulation({type: 'move', ...pos})
-    }, [dispatchManipulation, canvasPos])
+        if(manipulation.nodeIdx !== null) {
+            dispatch(actions.pathManipulatorMove(pos.x, pos.y))
+        }
+    }, [dispatch, canvasPos, manipulation])
 
     useEffect(() => {
         window.addEventListener('mousemove', onMouseMove)
@@ -1571,9 +1401,9 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
     const mouseDownControl = useCallback((nodeIdx, edgeIdx, controlIdx, x, y, init) => {
         const oldPath = paths[nodeIdx][edgeIdx];
         if(init) {
-            dispatchManipulation({type: 'startCreate', nodeIdx, edgeIdx, controlIdx, path: oldPath, x, y})
+            dispatch(actions.pathManipulatorCreate(nodeIdx, edgeIdx, controlIdx, oldPath, x, y))
         } else {
-            dispatchManipulation({type: 'startMove', nodeIdx, edgeIdx, controlIdx, path: oldPath, x, y})
+            dispatch(actions.pathManipulatorStartMove(nodeIdx, edgeIdx, controlIdx, oldPath, x, y))
         }
     }, [paths, dispatch])
 
@@ -1616,120 +1446,20 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
     </>
 }
 
-const manipulationReducer = (state, action) => {
-    switch(action.type) {
-        case 'stop':
-            return {
-                ...state,
-                connectionStart: null,
-                connectionSnap: null,
-                x: null,
-                y: null,
-                offsetX: 0,
-                offsetY: 0,
-                movingNode: null,
-                edgeIndex: null,
-                control: null,
-            };
-        case 'move':
-            if(state.connectionStart!==null || state.movingNode !== null || (state.x !== null && state.y !== null)) {
-                return {
-                    ...state,
-                    x: action.x,
-                    y: action.y,
-                    hasMoved: true,
-                }
-            } else {
-                return state;
-            }
-        case 'startConnect':
-            const hasEdge = typeof action.edgeIndex !== 'undefined';
-            const hasControl = typeof action.control !== 'undefined';
 
-            return {
-                ...state,
-                connectionStart: action.nodeId,
-                x: action.x,
-                y: action.y,
-                offsetX: action.offsetX,
-                offsetY: action.offsetY,
-                connectionSnap: hasEdge ? null : action.nodeId,
-                edgeIndex: hasEdge ? action.edgeIndex : null,
-                control: hasControl ? action.control : null,
-            }
-        case 'startCreate':
-            return {
-                ...state,
-                connectionStart: null,
-                x: action.x,
-                y: action.y,
-                offsetX: 0,
-                offsetY: 0,
-                connectionSnap: null,
-                edgeIndex: null,
-                control: null,
-            }
-        case 'snapConnect':
-            if(state.connectionStart === null) {
-                return state;
-            }
-            return {
-                ...state,
-                x: null,
-                y: null,
-                connectionSnap:action.nodeId,
-                control: null,
-            }
-        case 'unsnapConnect':
-            if(state.connectionStart === null) {
-                return state;
-            }
-            return {
-                ...state,
-                x: action.x,
-                y: action.y,
-                connectionSnap:null,
-                control: null,
-            }
-        case 'startMove':
-            return {
-                ...state,
-                x: action.x,
-                y: action.y,
-                offsetX: action.offsetX,
-                offsetY: action.offsetY,
-                movingNode: action.nodeId,
-                edgeIndex: null,
-                control: null,
-                hasMoved: false,
-            }
-    }
-    return state;
-}
 
 const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const flags = useSelector(state => state.present.graph.flags)
-    const selectedNodes = useSelector(state => state.present.selection.nodes)
-    const selectedEdges = useSelector(state => state.present.selection.edges)
-    const nodes = useSelector(state => state.present.graph.nodes)
-    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
-    const paths = useSelector(state => state.present.graph.attributes.edges.path)
+    const flags = (useGraphSelector().flags)
+    const selectedNodes = (useSelectionSelector().nodes)
+    const selectedEdges = (useSelectionSelector().edges)
+    const nodes = (useGraphSelector().nodes)
+    const positions = (useGraphSelector().attributes.nodes.position)
+    const paths = (useGraphSelector().attributes.edges.path)
 
-    const [manipulation, dispatchManipulation] = useReducer(manipulationReducer, {
-        connectionStart: null,
-        edgeIndex: null,
-        connectionSnap: null,
-        x: null,
-        y: null,
-        movingNode: null,
-        offsetX: 0,
-        offsetY: 0,
-        control: null,
-        hasMoved: false,
-    });
+    const manipulation = useSelector((state) => state.manipulator)
 
     const onMouseUp = useCallback((evt) => {
         if(manipulation.connectionStart !== null && manipulation.connectionSnap !== null) {
@@ -1763,8 +1493,8 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
             ))
         }
 
-        dispatchManipulation({type: 'stop'})
-    }, [dispatchManipulation, manipulation, dispatch]);
+        dispatch(actions.manipulatorStop())
+    }, [manipulation, dispatch]);
 
     useEffect(() => {
         const prevMouseUp = onMouseUp
@@ -1777,8 +1507,10 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
 
     const onMouseMove =  useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        dispatchManipulation({type: 'move', ...pos})
-    }, [canvasPos])
+        if(manipulation.x !== null || manipulation.connectionSnap !== null) {
+            dispatch(actions.manipulatorMove(pos.x, pos.y))
+        }
+    }, [canvasPos, manipulation])
 
 
     useEffect(() => {
@@ -1794,25 +1526,25 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
         evt.preventDefault();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchManipulation({type: 'startConnect', ...pos, nodeId, offsetX: cx - pos.x, offsetY: cy - pos.y,})
-    }, [dispatchManipulation, canvasPos]);
+        dispatch(actions.manipulatorStartConnect(nodeId, pos.x, pos.y, cx - pos.x, cy - pos.y))
+    }, [dispatch, canvasPos]);
 
     const snap = useCallback((evt, nodeId) => {
-        dispatchManipulation({type: 'snapConnect', nodeId})
-    }, [dispatchManipulation]);
+        dispatch(actions.manipulatorSnapConnect(nodeId))
+    }, [dispatch]);
 
     const unsnap = useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        dispatchManipulation({type: 'unsnapConnect', ...pos})
-    }, [canvasPos,dispatchManipulation]);
+        dispatch(actions.manipulatorUnsnapConnect(pos.x, pos.y))
+    }, [canvasPos,dispatch]);
 
     const moveStart = useCallback((evt, nodeId, cx, cy) => {
         evt.preventDefault();
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchManipulation({type: 'startMove', nodeId, ...pos, offsetX: cx - pos.x, offsetY: cy - pos.y,})
-    }, [canvasPos, dispatchManipulation]);
+        dispatch(actions.manipulatorStartMove(nodeId, pos.x, pos.y, cx - pos.x, cy - pos.y))
+    }, [canvasPos, dispatch]);
 
     const deleteEdge = useCallback((evt, nodeId, edgeIndex) => {
         evt.stopPropagation();
@@ -1837,15 +1569,15 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchManipulation({type: 'startCreate', ...pos})
-    }, [canvasPos, dispatchManipulation])
+        dispatch(actions.manipulatorStartCreate(pos.x, pos.y))
+    }, [canvasPos, dispatch])
 
     const onGrabEdge = useCallback((evt, nodeId, edgeIndex, cx, cy, control) => {
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchManipulation({type: 'startConnect', ...pos, nodeId, edgeIndex, offsetX: cx - pos.x, offsetY: cy - pos.y, control})
-    }, [canvasPos, dispatchManipulation])
+        dispatch(actions.manipulatorStartConnect(nodeId, pos.x, pos.y, cx - pos.x, cy - pos.y, edgeIndex, control))
+    }, [canvasPos, dispatch])
 
     return <g>
         <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} onMouseUp={onMouseUp} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
@@ -1987,39 +1719,7 @@ const NodeEdgeSelector = ({nodeId,edgeIndex,edgePath,onMouseDown,directed}) => {
     return <EdgeSelectorLine onMouseDown={onMouseDownCallback} d={edgePath.string} />
 }
 
-const selectionReducer = function(state, action) {
-    switch(action.type) {
-        case 'start': {
-            return {
-                ...state,
-                x0:action.x,
-                y0:action.y,
-                x1:action.x,
-                y1:action.y,
-            }
-        }
-        case 'move': {
-            if(state.x0 === null) {
-                return state;
-            }
-            return {
-                ...state,
-                x1:action.x,
-                y1:action.y,
-            }
-        }
-        case 'end': {
-            return {
-                ...state,
-                x0:null,
-                y0:null,
-                x1:null,
-                y1:null,
-            }
-        }
-    }
-    return state;
-}
+
 
 const SelectionBox = styled.polygon`
     fill: none;
@@ -2033,14 +1733,13 @@ const SelectionBox = styled.polygon`
 const GraphSelector = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
-    // const camera = useCamera();
 
-    const flags = useSelector(state => state.present.graph.flags)
-    const selectedNodes = useSelector(state => state.present.selection.nodes)
-    const selectedEdges = useSelector(state => state.present.selection.edges)
-    const nodes = useSelector(state => state.present.graph.nodes)
-    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
-
+    const flags = (useGraphSelector().flags)
+    const selectedNodes = (useSelectionSelector().nodes)
+    const selectedEdges = (useSelectionSelector().edges)
+    const nodes = (useGraphSelector().nodes)
+    const positions = (useGraphSelector().attributes.nodes.position)
+    const range = useSelector((state) => state.selectionBox)
 
     const selectNode = useCallback((evt, nodeId) => {
         dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
@@ -2057,13 +1756,6 @@ const GraphSelector = ({box, nodeAngles, edgePaths}) => {
     }, [dispatch])
 
 
-    const [range, dispatchRange] = useReducer(selectionReducer, {
-        x0:null,
-        y0:null,
-        x1:null,
-        y1:null,
-    });
-
     const mouseDown = useCallback((evt) => {
         if(evt.altKey) {
             return;
@@ -2071,18 +1763,20 @@ const GraphSelector = ({box, nodeAngles, edgePaths}) => {
         evt.stopPropagation();
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchRange({type:'start',...pos})
-    }, [dispatchRange, canvasPos]);
+        dispatch(actions.selectionBoxStart(pos.x, pos.y))
+    }, [dispatch, canvasPos]);
 
     const mouseMove = useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
 
-        dispatchRange({type:'move',...pos})
-    }, [dispatchRange, canvasPos]);
+        if(range.x0 !== null) {
+            dispatch(actions.selectionBoxMove(pos.x, pos.y))
+        }
+    }, [dispatch, canvasPos, range]);
 
     const mouseUp = useCallback((evt) => {
-        dispatchRange({type:'end'})
-    }, [dispatchRange]);
+        dispatch(actions.selectionBoxStop())
+    }, [dispatch]);
 
     useEffect(() => {
         window.addEventListener('mouseup', mouseUp);
@@ -2123,7 +1817,6 @@ const GraphSelector = ({box, nodeAngles, edgePaths}) => {
      ${range.x1} ${range.y0}`;
 
     const rect = useRef();
-
 
     return <g onMouseDown={mouseDown}>
         <rect style={{pointerEvents:'all'}} onMouseDown={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
@@ -2224,15 +1917,16 @@ const Graph = ({box, nodeAngles, edgePaths}) => {
     const excludedEdgeAttributes = ['path']
     const excludedNodeAttributes = ['position']
 
-    const flags = useSelector(state => state.present.graph.flags)
-    const nodes = useSelector(state => state.present.graph.nodes)
-    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+    const graph =  useGraphSelector()
+    const flags = (graph.flags)
+    const nodes = (graph.nodes)
+    const positions = (graph.attributes.nodes.position)
 
-    const nodeAttributes = useSelector(state => state.present.graph.attributes.nodes)
-    const visibleNodeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.nodes).filter((n) => !excludedNodeAttributes.includes(n) && state.present.graph.attributeTypes.nodes[n].visible))
+    const nodeAttributes = (graph.attributes.nodes)
+    const visibleNodeAttributes = Object.keys(graph.attributeTypes.nodes).filter((n) => !excludedNodeAttributes.includes(n) && graph.attributeTypes.nodes[n].visible)
 
-    const edgeAttributes = useSelector(state => state.present.graph.attributes.edges)
-    const visibleEdgeAttributes = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => !excludedEdgeAttributes.includes(e) && state.present.graph.attributeTypes.edges[e].visible))
+    const edgeAttributes = (graph.attributes.edges)
+    const visibleEdgeAttributes = Object.keys(graph.attributeTypes.edges).filter((e) => !excludedEdgeAttributes.includes(e) && graph.attributeTypes.edges[e].visible)
 
     return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
@@ -2353,14 +2047,16 @@ const AlgorithmStepperEdgeColoring = ({directed, positions, angles, edgePaths, n
 const AlgorithmStepper = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
 
-    const flags = useSelector(state => state.present.graph.flags)
-    const selectedNodes = useSelector(state => state.present.selection.nodes)
-    const selectedEdges = useSelector(state => state.present.selection.edges)
-    const nodes = useSelector(state => state.present.graph.nodes)
-    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
-    const visibleEdgeAttributesCount = useSelector(state => Object.keys(state.present.graph.attributeTypes.edges).filter((e) => state.present.graph.attributeTypes.edges[e].visible).length)
+    const graph = useGraphSelector()
+    const selection = useSelectionSelector()
+    const flags = (graph.flags)
+    const selectedNodes = (selection.nodes)
+    const selectedEdges = (selection.edges)
+    const nodes = (graph.nodes)
+    const positions = (graph.attributes.nodes.position)
+    const visibleEdgeAttributesCount = Object.keys(graph.attributeTypes.edges).filter((e) => graph.attributeTypes.edges[e].visible).length
 
-    const algorithm = useSelector(state => state.present.algorithm)
+    const algorithm = useSelector(state => state.data.present.algorithm)
 
     const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps.length && algorithm.result.steps[algorithm.focus].edges.color
     , [algorithm.result, algorithm.focus]);
@@ -2386,7 +2082,7 @@ const AlgorithmStepper = ({box, nodeAngles, edgePaths}) => {
 }
 
 const AlgorithmDetails = () => {
-    const algorithm = useSelector(state => state.present.algorithm)
+    const algorithm = useSelector(state => state.data.present.algorithm)
 
     if(algorithm.result && algorithm.result.steps && algorithm.result.steps[algorithm.focus]) {
         const matrices = algorithm.result.steps[algorithm.focus].matrices
@@ -2430,11 +2126,13 @@ const NodeEdgeSelection = ({edgePath}) => {
 }
 
 const GraphSelection = ({box, nodeAngles, edgePaths}) => {
-    const flags = useSelector(state => state.present.graph.flags)
-    const selectedNodes = useSelector(state => state.present.selection.nodes)
-    const selectedEdges = useSelector(state => state.present.selection.edges)
-    const nodes = useSelector(state => state.present.graph.nodes)
-    const positions = useSelector(state => state.present.graph.attributes.nodes.position)
+    const selection = useSelectionSelector()
+    const graph = useGraphSelector()
+    const flags = (graph.flags)
+    const selectedNodes = (selection.nodes)
+    const selectedEdges = (selection.edges)
+    const nodes = (graph.nodes)
+    const positions = (graph.attributes.nodes.position)
 
     return <g>
         {selectedNodes.map((nodeId, i) => {
@@ -2471,12 +2169,12 @@ export default () => {
 
 const GraphEditor = () => {
     const dispatch = useDispatch()
-    const present = useSelector((state) => state.present)
+    const graph = useGraphSelector();
 
     const margin = 200;
 
     const box = useMemo(() =>
-        present.graph.attributes.nodes.position.reduce((acc, p) => ({
+        graph.attributes.nodes.position.reduce((acc, p) => ({
             minX: Math.min(acc.minX + margin, p.x) - margin,
             maxX: Math.max(acc.maxX - margin, p.x) + margin,
             minY: Math.min(acc.minY + margin, p.y) - margin,
@@ -2487,13 +2185,13 @@ const GraphEditor = () => {
             minY: Infinity,
             maxY: -Infinity,
         }))
-    , [present.graph]);
+    , [graph]);
 
-    const nodeAngles = useSelector(state => {
-        const positions = state.present.graph.attributes.nodes.position
-        const paths = state.present.graph.attributes.edges.path
+    const nodeAngles = useMemo(state => {
+        const positions = graph.attributes.nodes.position
+        const paths = graph.attributes.edges.path
 
-        return state.present.graph.nodes.map((neighbours, idx) => {
+        return graph.nodes.map((neighbours, idx) => {
             const ownPos = positions[idx]
             const outgoing = neighbours.map((n, edx) => {
                 if(n === idx) {
@@ -2509,7 +2207,7 @@ const GraphEditor = () => {
 
             }).filter(a => a !== null)
 
-            const incoming = state.present.graph.nodes.map((others, o) => {
+            const incoming = graph.nodes.map((others, o) => {
                 const edx = others.indexOf(idx)
                 if (o === idx || edx < 0) {
                    return null;
@@ -2531,13 +2229,13 @@ const GraphEditor = () => {
 
             return Math.atan2(sinSum, cosSum)
         })
-    })
+    }, [graph])
 
-    const edgePaths = useSelector(state => {
-        const directed = state.present.graph.flags.directed
-        const positions = state.present.graph.attributes.nodes.position
-        const paths = state.present.graph.attributes.edges.path
-        const nodes = state.present.graph.nodes
+    const edgePaths = useMemo(() => {
+        const directed = graph.flags.directed
+        const positions = graph.attributes.nodes.position
+        const paths = graph.attributes.edges.path
+        const nodes = graph.nodes
         const t = 0.8;
 
         return nodes.map((neighbors, nodeId) =>
@@ -2751,14 +2449,14 @@ const GraphEditor = () => {
                 }
             })
         )
-    })
+    }, [graph])
 
-    const nonInfBox = {
-        minX: box.minX===Infinity ? -1*margin : box.minX,
-        maxX: box.maxX===-Infinity ? 1*margin : box.maxX,
-        minY: box.minY===Infinity ? -1*margin : box.minY,
-        maxY: box.maxY===-Infinity ? 1*margin : box.maxY,
-    }
+    const nonInfBox = useMemo(() =>({
+            minX: box.minX===Infinity ? -1*margin : box.minX,
+            maxX: box.maxX===-Infinity ? 1*margin : box.maxX,
+            minY: box.minY===Infinity ? -1*margin : box.minY,
+            maxY: box.maxY===-Infinity ? 1*margin : box.maxY,
+        }) , [box, box])
 
     const [currentTool, selectTool] = useState('Edit')
 

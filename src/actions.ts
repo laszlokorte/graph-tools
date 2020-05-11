@@ -116,3 +116,32 @@ export const storageLoad = (id) => ({
     type: 'STORAGE_LOAD',
     id,
 });
+
+export const selectionBoxStart = (x, y) => ({type: 'SELECTION_BOX_START', x, y});
+export const selectionBoxMove = (x, y) => ({type: 'SELECTION_BOX_MOVE', x, y});
+export const selectionBoxStop = () => ({type: 'SELECTION_BOX_STOP'});
+
+export const cameraUpdateScreen = (screen) => ({type: 'CAMERA_UPDATE_SCREEN', screen});
+export const cameraUpdateBox = (box) => ({type: 'CAMERA_UPDATE_BOX', box});
+export const cameraClamp = (box, screen) => ({type: 'CAMERA_CLAMP', box, screen});
+export const cameraMovePan = (x,y) => ({type: 'CAMERA_MOVE_PAN', x, y});
+export const cameraJumpZoom = (x, y) => ({type: 'CAMERA_JUMP_ZOOM', x, y});
+export const cameraStartPan = (x, y) => ({type: 'CAMERA_START_PAN', x, y});
+export const cameraStopPan = () => ({type: 'CAMERA_STOP_PAN'});
+export const cameraPan = (deltaX, deltaY) => ({type: 'CAMERA_PAN', deltaX, deltaY});
+export const cameraRotate = (x, y, deltaAngle) => ({type: 'CAMERA_ROTATE', x, y, deltaAngle});
+export const cameraZoom = (x, y, factor) => ({type: 'CAMERA_ZOOM', x, y, factor});
+
+export const manipulatorStop = () => ({type: 'MANIPULATOR_STOP'});
+export const manipulatorMove = (x, y) => ({type: 'MANIPULATOR_MOVE', x, y});
+export const manipulatorSnapConnect = (nodeId) => ({type: 'MANIPULATOR_SNAP_CONNECT', nodeId});
+export const manipulatorUnsnapConnect = (x, y) => ({type: 'MANIPULATOR_UNSNAP_CONNECT', x, y});
+export const manipulatorStartMove = (nodeId, x, y, offsetX, offsetY) => ({type: 'MANIPULATOR_START_MOVE', nodeId, x, y, offsetX, offsetY});
+export const manipulatorStartCreate = (x, y) => ({type: 'MANIPULATOR_START_CREATE', x, y});
+export const manipulatorStartConnect = (nodeId, x, y, offsetX, offsetY, edgeIndex = null, control = null) => ({type: 'MANIPULATOR_START_CONNECT', x, y, nodeId, edgeIndex, offsetX, offsetY, control});
+
+export const pathManipulatorStop = () => ({type: 'PATH_MANIPULATOR_STOP'})
+export const pathManipulatorMove = (x, y) => ({type: 'PATH_MANIPULATOR_MOVE', x, y})
+export const pathManipulatorCreate = (nodeIdx, edgeIdx, controlIdx, path, x, y) => ({type: 'PATH_MANIPULATOR_START_CREATE', nodeIdx, edgeIdx, controlIdx, path, x, y})
+export const pathManipulatorStartMove = (nodeIdx, edgeIdx, controlIdx, path, x, y) => ({type: 'PATH_MANIPULATOR_START_MOVE', nodeIdx, edgeIdx, controlIdx, path, x, y})
+

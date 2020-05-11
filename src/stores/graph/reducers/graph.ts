@@ -21,8 +21,9 @@ const initialState = {
   },
   "flags": {
     "multiGraph": false,
-    "directed": true
+    "directed": true,
   },
+  "partition": false,
   "attributeTypes": {
     "edges": {
       "path": {
@@ -66,13 +67,12 @@ const initialState = {
         "visible": false
       },
       "type": {
-        "default": "round",
+        "default": "place",
         "type": "enum",
         "options": [
             "place", "transition"
         ],
         "required": true,
-        "partition": true,
       },
       "color": {
         "default": null,
@@ -193,10 +193,10 @@ const thisReducer = (state = initialState, action) => {
         }
         case 'ADD_EDGE': {
             if(!state.flags.multiGraph && state.nodes[action.fromNodeId].includes(action.toNodeId)) {
-                return state;
+                return {error: 'Edge already exists'};
             }
             if(!state.flags.directed && action.fromNodeId === action.toNodeId) {
-                return state;
+                return {error: 'Can not Add looping edge on undirected graph'};
             }
             if(!state.flags.directed && action.fromNodeId > action.toNodeId) {
                 return thisReducer(state, {
@@ -204,6 +204,14 @@ const thisReducer = (state = initialState, action) => {
                     fromNodeId: action.toNodeId,
                     toNodeId: action.fromNodeId,
                 })
+            }
+            if(state.partition) {
+                const sourcePartition = state.attributes.nodes[state.partition][action.fromNodeId];
+                const targetPartition = state.attributes.nodes[state.partition][action.toNodeId];
+
+                if(sourcePartition === targetPartition) {
+                    return {error: 'Partition violated'};
+                }
             }
             return ({
                 ...state,
@@ -272,7 +280,21 @@ const thisReducer = (state = initialState, action) => {
             });
 
             if(action.attributes.connectTo !== null) {
-                const withEdge = thisReducer(nodeAdded, {
+                let attributed = nodeAdded
+                if(state.partition) {
+                    const sourcePartition = state.attributes.nodes[state.partition][action.attributes.connectTo];
+                    const partitions = state.attributeTypes.nodes[state.partition].options;
+                    const newPartition = partitions[(partitions.indexOf(sourcePartition) + 1) % partitions.length];
+
+                    attributed = thisReducer(nodeAdded, {
+                        type: 'SET_NODE_ATTRIBUTE',
+                        nodeId: nodeAdded.nodes.length - 1,
+                        attribute: state.partition,
+                        value: newPartition,
+                    })
+                }
+
+                const withEdge = thisReducer(attributed, {
                     type: 'ADD_EDGE',
                     fromNodeId: action.attributes.connectTo,
                     toNodeId: nodeAdded.nodes.length - 1,
@@ -285,9 +307,7 @@ const thisReducer = (state = initialState, action) => {
                         toNodeId: withEdge.nodes[action.attributes.connectTo][action.attributes.onEdge],
                     })
 
-
-
-                    if(!action.attributes.keepEdge) {
+                    if(!action.attributes.keepEdge && !state.partition) {
                         const basePath = bothEdges.attributes.edges['path'][action.attributes.connectTo][action.attributes.onEdge];
                         const mergedControls = (action.attributes.splitPathControl !== null) ?
                         thisReducer(thisReducer(bothEdges, {
@@ -352,7 +372,7 @@ const thisReducer = (state = initialState, action) => {
             const newAttr = castAttributeType(state.attributeTypes.edges[action.attribute], action.value);
             const oldAttr = state.attributes.edges[action.attribute][action.nodeId][action.edgeIndex];
             if(newAttr == oldAttr) {
-                return state;
+                return {error: 'Edge Attribute did not change'};
             }
             return ({
                 ...state,
@@ -378,8 +398,15 @@ const thisReducer = (state = initialState, action) => {
             const newAttr = castAttributeType(state.attributeTypes.nodes[action.attribute], action.value);
             const oldAttr = state.attributes.nodes[action.attribute][action.nodeId];
             if(newAttr == oldAttr) {
-                return state;
+                return {error: 'Node attribute did not change'};
             }
+
+            if(state.partition === action.attribute) {
+                if(state.nodes[action.nodeId].length || state.nodes.some((ns) => ns.includes(action.nodeId))) {
+                    return {error: 'Changing this attribute would violate the partitioning'};
+                }
+            }
+
             return ({
                 ...state,
                 nodes: state.nodes,

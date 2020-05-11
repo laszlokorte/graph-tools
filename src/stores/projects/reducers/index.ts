@@ -1577,7 +1577,317 @@ const store = {
                 }
             }
         }
+    },
+    "Partitioned Example": {
+  "nodes": [
+    [
+      1,
+      3,
+      4
+    ],
+    [
+      2
+    ],
+    [],
+    [
+      2,
+      6
+    ],
+    [
+      2,
+      5
+    ],
+    [],
+    []
+  ],
+  "attributes": {
+    "edges": {
+      "path": [
+        [
+          [],
+          [],
+          []
+        ],
+        [
+          []
+        ],
+        [],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [],
+        []
+      ],
+      "label": [
+        [
+          "",
+          "",
+          ""
+        ],
+        [
+          ""
+        ],
+        [],
+        [
+          "",
+          ""
+        ],
+        [
+          "",
+          ""
+        ],
+        [],
+        []
+      ],
+      "cost": [
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          1
+        ],
+        [],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [],
+        []
+      ],
+      "capacity": [
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          1
+        ],
+        [],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [],
+        []
+      ],
+      "weight": [
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          1
+        ],
+        [],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [],
+        []
+      ]
+    },
+    "nodes": {
+      "position": [
+        {
+          "x": -155.25,
+          "y": -101
+        },
+        {
+          "x": 63.75,
+          "y": -89
+        },
+        {
+          "x": 244.75,
+          "y": -101
+        },
+        {
+          "x": 53.75,
+          "y": 63
+        },
+        {
+          "x": 30.75,
+          "y": -239
+        },
+        {
+          "x": 219.5,
+          "y": -285.25
+        },
+        {
+          "x": 232.5,
+          "y": 73
+        }
+      ],
+      "label": [
+        "new",
+        "new",
+        "new",
+        "new",
+        "new",
+        "new",
+        "new"
+      ],
+      "type": [
+        "place",
+        "transition",
+        "place",
+        "transition",
+        "transition",
+        "place",
+        "place"
+      ],
+      "color": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "initial": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "final": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "source": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "sink": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
     }
+  },
+  "flags": {
+    "multiGraph": false,
+    "directed": true
+  },
+  "partition": "type",
+  "attributeTypes": {
+    "edges": {
+      "path": {
+        "default": [],
+        "type": "path",
+        "visible": true
+      },
+      "label": {
+        "default": "",
+        "type": "text",
+        "visible": true
+      },
+      "cost": {
+        "default": 1,
+        "type": "numeric",
+        "visible": true
+      },
+      "capacity": {
+        "default": 1,
+        "type": "numeric",
+        "visible": false
+      },
+      "weight": {
+        "default": 1,
+        "type": "numeric",
+        "visible": false
+      }
+    },
+    "nodes": {
+      "position": {
+        "default": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "object",
+        "visible": false
+      },
+      "label": {
+        "default": "new",
+        "type": "text",
+        "visible": false
+      },
+      "type": {
+        "default": "place",
+        "type": "enum",
+        "options": [
+          "place",
+          "transition"
+        ],
+        "required": true
+      },
+      "color": {
+        "default": null,
+        "type": "color",
+        "visible": false
+      },
+      "initial": {
+        "default": false,
+        "type": "boolean",
+        "visible": false
+      },
+      "final": {
+        "default": false,
+        "type": "boolean",
+        "visible": false
+      },
+      "source": {
+        "default": false,
+        "type": "boolean",
+        "visible": false
+      },
+      "sink": {
+        "default": false,
+        "type": "boolean",
+        "visible": false
+      }
+    }
+  }
+}
 }
 
 export default (storage = store, action) => {
