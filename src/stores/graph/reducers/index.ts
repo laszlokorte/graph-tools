@@ -42,20 +42,20 @@ const data = undoable((state, action) => {
     const oldAlgorithm = state ? state.algorithm : undefined;
     const oldProperties = state ? state.properties : undefined;
     const newGraph = graph(oldGraph, action)
-    if(newGraph.error) return { ...state, error};
+    if(newGraph.error) return { ...state, error: newGraph.error};
     const newGraphSelection = graphSelection(selection(oldSelection, action), newGraph, oldGraph, action);
-    if(newGraphSelection.error) return { ...state, error};
+    if(newGraphSelection.error) return { ...state, error: newGraphSelection.error};
     const newAlgorithm = algorithm(oldAlgorithm, newGraph, action)
-    if(newAlgorithm.error) return { ...state, error};
+    if(newAlgorithm.error) return { ...state, error: newAlgorithm.error};
     const newProperties = properties(oldProperties, newGraph, action)
-    if(newProperties.error) return { ...state, error};
+    if(newProperties.error) return { ...state, error: newProperties.error};
 
     return {
         graph: newGraph,
         selection: newGraphSelection,
         algorithm: newAlgorithm,
         properties: newProperties,
-        error: error,
+        error: null,
     };
 }, {
     limit: 10,
@@ -94,7 +94,7 @@ export default (state, action) => {
 
     const d = skip ? state.data : data(state ? state.data : undefined, action)
     const margin = 200;
-
+    
     let nonInfBox = state && state.camera.box
     if (!skip || !nonInfBox) {
         const box = d.present.graph.attributes.nodes.position.reduce((acc, p) => ({
@@ -121,7 +121,7 @@ export default (state, action) => {
     const newManipulator = manipulator(state ? state.manipulator : undefined, action)
     const newPathManipulator = pathManipulator(state ? state.pathManipulator : undefined, action)
     const newSelectionBox = selectionBox(state ? state.selectionBox : undefined, action)
-    
+
     return {
         data: d,
         camera: newCamera,

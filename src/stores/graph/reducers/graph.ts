@@ -372,7 +372,7 @@ const thisReducer = (state = initialState, action) => {
             const newAttr = castAttributeType(state.attributeTypes.edges[action.attribute], action.value);
             const oldAttr = state.attributes.edges[action.attribute][action.nodeId][action.edgeIndex];
             if(newAttr == oldAttr) {
-                return {error: 'Edge Attribute did not change'};
+                return state;
             }
             return ({
                 ...state,
@@ -398,7 +398,7 @@ const thisReducer = (state = initialState, action) => {
             const newAttr = castAttributeType(state.attributeTypes.nodes[action.attribute], action.value);
             const oldAttr = state.attributes.nodes[action.attribute][action.nodeId];
             if(newAttr == oldAttr) {
-                return {error: 'Node attribute did not change'};
+                return state;
             }
 
             if(state.partition === action.attribute) {

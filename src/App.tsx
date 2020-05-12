@@ -91,6 +91,20 @@ const Scroller = styled.div`
     grid-area: c;
 `
 
+
+const ErrorMessage = styled.div`
+    background: #980715;
+    color: #fff;
+    border-radius: 3px;
+    text-align: center;
+    margin: 0.3em;
+    padding: 0.5em;
+    grid-area: d;
+    align-self: end;
+    z-index: 10;
+    pointer-events: none;
+`
+
 const Padding = styled.div`
     padding: 0.5em;
 `
@@ -2200,6 +2214,7 @@ export default () => {
 const GraphEditor = () => {
     const graph = useGraphSelector();
     const box = useSelector((s) => s.camera.box);
+    const error = useSelector((s) => s.data.present.error);
 
     const nodeAngles = useMemo(() => {
         const positions = graph.attributes.nodes.position
@@ -2485,6 +2500,11 @@ const GraphEditor = () => {
             </Title>
             <Tools tools={tools} currentTool={currentTool} onSelectTool={selectTool} />
             <Menu />
+            {
+                error?
+                <ErrorMessage>{error}</ErrorMessage>
+                :null
+            }
             <Canvas>
                 <CanvasContent
                     box={box}
