@@ -1,26 +1,27 @@
 import * as React from 'react';
-import {useRef, useMemo, useEffect, useContext, useCallback, useState} from 'react';
+import {useRef, useMemo, useEffect, useLayoutEffect, useContext, useCallback, useState} from 'react';
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
 import { useSelector, useDispatch } from './stores/graph/context'
 import { useSelector as useProjectsSelector, useDispatch as useProjectsDispatch } from './stores/projects/context'
 import { ActionCreators } from 'redux-undo';
-
 import {ALGORITHMS} from './stores/graph/reducers/algorithm/index';
-
 import * as actions from './actions'
 
 const useGraphSelector = () => {
     return useSelector(state => state.data.present.graph)
+
 }
 
 const useSelectionSelector = () => {
     return useSelector(state => state.data.present.selection)
+
 }
 
 const useAlgorithmSelector = () => {
     return useSelector(state => state.data.present.algorithm)
+
 }
 
 const Title = styled.h1`
@@ -453,7 +454,9 @@ const ViewOptions = () => {
 const Tools = ({tools, currentTool, onSelectTool}) => {
     const dispatch = useDispatch();
     const canUndo = useSelector(state => state.data.past.length > 0)
+
     const canRedo = useSelector(state => state.data.future.length > 0)
+
     const savedGraphs = useProjectsSelector(state => state)
     const savedGraphNames = Object.keys(savedGraphs)
 
@@ -462,11 +465,11 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     const layout = useCallback(() => dispatch(actions.autoLayout()), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
-    const openGraph = useCallback((evt) => (console.log(savedGraphs, evt.target.value), dispatch(actions.loadGraph(savedGraphs[evt.target.value]))), [savedGraphs])
+    const openGraph = useCallback((evt) => dispatch(actions.loadGraph(savedGraphs[evt.target.value])), [savedGraphs])
 
     return <Toolbar>
         <ToolbarSection>
-            <select value={''} onChange={openGraph}>
+            <select value="" onChange={openGraph}>
                 <option value={''}>Open…</option>
                 {savedGraphNames.map((a, i) =>
                     <option key={i} value={a}>{a}</option>
@@ -639,12 +642,12 @@ const AlgorithmResult = () => {
 }
 
 const Menu = () => {
-    const dispatch = useDispatch();
-    const present = useSelector((state) => state.data.present)
-    const nodes = (useSelectionSelector().nodes)
-    const edges = (useSelectionSelector().edges)
-    const selection = useSelectionSelector()
-    const empty = (selection.edges.length < 1 && present.selection.nodes.length < 1)
+    const present = useSelector((s) => s.data.present)
+
+    const selection = present.selection
+    const nodes = selection.nodes
+    const edges = selection.edges
+    const empty = edges.length < 1 && nodes.length < 1
 
     const properties = present.properties
 
@@ -700,7 +703,7 @@ const Menu = () => {
 const Dump = ({value}) =>
     <Code readOnly value={JSON.stringify(value, null, 2)}/>
 
-const viewboxString = (bounds, screen, camera) =>
+const viewboxString = (screen, camera) =>
   (camera.center.x - screen.width / 2 / camera.zoom) + " " +
   (camera.center.y - screen.height / 2 / camera.zoom) + " " +
   (screen.width / camera.zoom) + " " +
@@ -708,26 +711,28 @@ const viewboxString = (bounds, screen, camera) =>
 
 const useSVGPosition = (ref) => {
     return useMemo(() => {
-        if(ref.current) {
-            const point = ref.current.parentNode.createSVGPoint();
-            return ({x,y}) => {
-                point.x = x
-                point.y = y
-                const ctm = ref.current.getScreenCTM();
-                if(!ctm) {
-                    return {x,y};
-                }
-                const result = point.matrixTransform(ctm.inverse());
-
-                return {
-                    x: result.x,
-                    y: result.y,
-                };
+        let point
+        return ({x,y}) => {
+            if(!ref.current) {
+                return {x,y}
             }
-        } else {
-            return (id) => id
+            if(!point) {
+                point = ref.current.parentNode.createSVGPoint();
+            }
+            point.x = x
+            point.y = y
+            const ctm = ref.current.getScreenCTM();
+            if(!ctm) {
+                return {x,y};
+            }
+            const result = point.matrixTransform(ctm.inverse());
+
+            return {
+                x: result.x,
+                y: result.y,
+            };
         }
-    }, [ref.current]);
+    }, [ref]);
 }
 
 const wheelFactor = (evt) => {
@@ -744,28 +749,32 @@ const useCanvasPos = () => {
 }
 
 
-const Canvas = ({children, box}) => {
+const Canvas = ({children}) => {
     const screenRef = useRef();
     const screen = useSize(screenRef, 100, 100);
     const posRef = useRef();
     const svgPos = useSVGPosition(posRef);
     const dispatch = useDispatch();
+    const camera = useSelector((s) => s.camera);
 
-    const camera = useSelector((state) => state.camera)
+    const currentCamera = useRef(camera);
+    useLayoutEffect(() => {
+        currentCamera.current = camera
+    }, [camera])
 
-    const bounds = useEffect(() => {
-        dispatch(actions.cameraClamp(box, screen))
-    }, [box, screen]);
+    useEffect(() => {
+        dispatch(actions.cameraUpdateScreen(screen))
+    }, [screen]);
 
-    const viewBox = viewboxString(bounds, screen, camera);
+    const viewBox = viewboxString(screen, camera);
 
     const onMouseMoveHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
 
-        if(camera.panX !== null) {
+        if(currentCamera.current.panX !== null) {
             dispatch(actions.cameraMovePan(pos.x, pos.y))
         }
-    }, [svgPos, camera])
+    }, [svgPos,currentCamera])
 
      const onDoubleClickHandler = useCallback((e) => {
         const pos = svgPos({x: e.clientX, y: e.clientY})
@@ -782,8 +791,6 @@ const Canvas = ({children, box}) => {
     }, [svgPos])
 
     const onMouseUpHandler = useCallback((e) => {
-        const pos = svgPos({x: e.clientX, y: e.clientY})
-
         e.preventDefault();
 
         dispatch(actions.cameraStopPan())
@@ -837,7 +844,6 @@ const Canvas = ({children, box}) => {
         ref={screenRef}
         onMouseDown={onMouseDownHandler}
         onDoubleClick={onDoubleClickHandler}
-        onWheel={onWheelHandler}
         viewBox={viewBox}
         preserveAspectRatio="xMidYMid slice">
         <rect
@@ -849,10 +855,10 @@ const Canvas = ({children, box}) => {
 		<g ref={posRef} transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
             <CanvasContext.Provider value={svgPos}>
                 <rect
-                    x={camera.bounds.minX}
-                    y={camera.bounds.minY}
-                    width={camera.bounds.maxX - camera.bounds.minX}
-                    height={camera.bounds.maxY - camera.bounds.minY}
+                    x={camera.box.minX}
+                    y={camera.box.minY}
+                    width={camera.box.maxX - camera.box.minX}
+                    height={camera.box.maxY - camera.box.minY}
                     fill="#fff" />
     			{children}
             </CanvasContext.Provider>
@@ -1374,19 +1380,28 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
 
     const manipulation = useSelector((state) => state.pathManipulator)
 
+
+    const manipulationRef = useRef(manipulation)
+
+    useLayoutEffect(() => {
+        manipulationRef.current = manipulation
+    }, [manipulation])
+
     const onMouseUp = useCallback((evt) => {
-        if(manipulation.nodeIdx != null) {
-            dispatch(actions.setEdgeAttribute(manipulation.nodeIdx, manipulation.edgeIdx, 'path', manipulation.path))
+        if(manipulationRef.current.nodeIdx != null) {
+            dispatch(actions.setEdgeAttribute(manipulationRef.current.nodeIdx, manipulationRef.current.edgeIdx, 'path', manipulationRef.current.path))
         }
-        dispatch(actions.pathManipulatorStop())
-    }, [manipulation, dispatch, dispatch])
+        if(manipulationRef.current.nodeIdx !== null) {
+            dispatch(actions.pathManipulatorStop())
+        }
+    }, [manipulationRef, dispatch])
 
     const onMouseMove = useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        if(manipulation.nodeIdx !== null) {
+        if(manipulationRef.current.nodeIdx !== null) {
             dispatch(actions.pathManipulatorMove(pos.x, pos.y))
         }
-    }, [dispatch, canvasPos, manipulation])
+    }, [dispatch, canvasPos, manipulationRef])
 
     useEffect(() => {
         window.addEventListener('mousemove', onMouseMove)
@@ -1451,50 +1466,58 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
 const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
+    const graph = useGraphSelector()
+    const selection = useSelectionSelector()
 
-    const flags = (useGraphSelector().flags)
-    const selectedNodes = (useSelectionSelector().nodes)
-    const selectedEdges = (useSelectionSelector().edges)
-    const nodes = (useGraphSelector().nodes)
-    const positions = (useGraphSelector().attributes.nodes.position)
-    const paths = (useGraphSelector().attributes.edges.path)
+    const flags = (graph.flags)
+    const selectedNodes = selection.nodes
+    const selectedEdges = selection.edges
+    const nodes = (graph.nodes)
+    const positions = (graph.attributes.nodes.position)
+    const paths = (graph.attributes.edges.path)
 
     const manipulation = useSelector((state) => state.manipulator)
 
+    const manipulationRef = useRef(manipulation)
+
+    useLayoutEffect(() => {
+        manipulationRef.current = manipulation
+    }, [manipulation])
+
     const onMouseUp = useCallback((evt) => {
-        if(manipulation.connectionStart !== null && manipulation.connectionSnap !== null) {
+        if(manipulationRef.current.connectionStart !== null && manipulationRef.current.connectionSnap !== null) {
             dispatch(actions.addEdge(
-                manipulation.connectionStart,
-                manipulation.connectionSnap
+                manipulationRef.current.connectionStart,
+                manipulationRef.current.connectionSnap
             ))
-        } else if(manipulation.connectionStart !== null) {
+        } else if(manipulationRef.current.connectionStart !== null) {
             dispatch(actions.createNode(
-                manipulation.x+manipulation.offsetX,
-                manipulation.y+manipulation.offsetY,
-                manipulation.connectionStart,
-                manipulation.edgeIndex,
+                manipulationRef.current.x+manipulationRef.current.offsetX,
+                manipulationRef.current.y+manipulationRef.current.offsetY,
+                manipulationRef.current.connectionStart,
+                manipulationRef.current.edgeIndex,
                 evt.altKey,
-                manipulation.control
+                manipulationRef.current.control
             ))
-        } else if(manipulation.movingNode !== null) {
-            if(manipulation.hasMoved) {
+        } else if(manipulationRef.current.movingNode !== null) {
+            if(manipulationRef.current.hasMoved) {
                 dispatch(actions.setNodeAttribute(
-                    manipulation.movingNode,
+                    manipulationRef.current.movingNode,
                     'position',
-                    {x:manipulation.x+manipulation.offsetX, y:manipulation.y+manipulation.offsetY}
+                    {x:manipulationRef.current.x+manipulationRef.current.offsetX, y:manipulationRef.current.y+manipulationRef.current.offsetY}
                 ))
             } else {
-                dispatch(actions.selectNode(manipulation.movingNode, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
+                dispatch(actions.selectNode(manipulationRef.current.movingNode, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
             }
-        } else if(manipulation.x !== null && manipulation.y !== null) {
+        } else if(manipulationRef.current.x !== null && manipulationRef.current.y !== null) {
             dispatch(actions.createNode(
-                manipulation.x+manipulation.offsetX,
-                manipulation.y+manipulation.offsetY
+                manipulationRef.current.x+manipulationRef.current.offsetX,
+                manipulationRef.current.y+manipulationRef.current.offsetY
             ))
         }
 
         dispatch(actions.manipulatorStop())
-    }, [manipulation, dispatch]);
+    }, [dispatch]);
 
     useEffect(() => {
         const prevMouseUp = onMouseUp
@@ -1507,10 +1530,10 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
 
     const onMouseMove =  useCallback((evt) => {
         const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        if(manipulation.x !== null || manipulation.connectionSnap !== null) {
+        if(manipulationRef.current.x !== null || manipulationRef.current.connectionSnap !== null) {
             dispatch(actions.manipulatorMove(pos.x, pos.y))
         }
-    }, [canvasPos, manipulation])
+    }, [canvasPos, manipulationRef])
 
 
     useEffect(() => {
@@ -1530,13 +1553,17 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
     }, [dispatch, canvasPos]);
 
     const snap = useCallback((evt, nodeId) => {
-        dispatch(actions.manipulatorSnapConnect(nodeId))
-    }, [dispatch]);
+        if(manipulationRef.current.connectionStart !== null) {
+            dispatch(actions.manipulatorSnapConnect(nodeId))
+        }
+    }, [dispatch, manipulationRef]);
 
     const unsnap = useCallback((evt) => {
-        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-        dispatch(actions.manipulatorUnsnapConnect(pos.x, pos.y))
-    }, [canvasPos,dispatch]);
+        if(manipulationRef.current.connectionStart !== null) {
+            const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+            dispatch(actions.manipulatorUnsnapConnect(pos.x, pos.y))
+        }
+    }, [canvasPos,dispatch, manipulationRef]);
 
     const moveStart = useCallback((evt, nodeId, cx, cy) => {
         evt.preventDefault();
@@ -1580,7 +1607,7 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
     }, [canvasPos, dispatch])
 
     return <g>
-        <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} onMouseUp={onMouseUp} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {nodes.map((neighbors, nodeId) =>
             <NodeManipulator
                 key={nodeId}
@@ -1740,6 +1767,7 @@ const GraphSelector = ({box, nodeAngles, edgePaths}) => {
     const nodes = (useGraphSelector().nodes)
     const positions = (useGraphSelector().attributes.nodes.position)
     const range = useSelector((state) => state.selectionBox)
+
 
     const selectNode = useCallback((evt, nodeId) => {
         dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
@@ -2058,6 +2086,7 @@ const AlgorithmStepper = ({box, nodeAngles, edgePaths}) => {
 
     const algorithm = useSelector(state => state.data.present.algorithm)
 
+
     const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps.length && algorithm.result.steps[algorithm.focus].edges.color
     , [algorithm.result, algorithm.focus]);
 
@@ -2083,6 +2112,7 @@ const AlgorithmStepper = ({box, nodeAngles, edgePaths}) => {
 
 const AlgorithmDetails = () => {
     const algorithm = useSelector(state => state.data.present.algorithm)
+
 
     if(algorithm.result && algorithm.result.steps && algorithm.result.steps[algorithm.focus]) {
         const matrices = algorithm.result.steps[algorithm.focus].matrices
@@ -2168,26 +2198,10 @@ export default () => {
 }
 
 const GraphEditor = () => {
-    const dispatch = useDispatch()
     const graph = useGraphSelector();
+    const box = useSelector((s) => s.camera.box);
 
-    const margin = 200;
-
-    const box = useMemo(() =>
-        graph.attributes.nodes.position.reduce((acc, p) => ({
-            minX: Math.min(acc.minX + margin, p.x) - margin,
-            maxX: Math.max(acc.maxX - margin, p.x) + margin,
-            minY: Math.min(acc.minY + margin, p.y) - margin,
-            maxY: Math.max(acc.maxY - margin, p.y) + margin,
-        }), ({
-            minX: Infinity,
-            maxX: -Infinity,
-            minY: Infinity,
-            maxY: -Infinity,
-        }))
-    , [graph]);
-
-    const nodeAngles = useMemo(state => {
+    const nodeAngles = useMemo(() => {
         const positions = graph.attributes.nodes.position
         const paths = graph.attributes.edges.path
 
@@ -2451,13 +2465,6 @@ const GraphEditor = () => {
         )
     }, [graph])
 
-    const nonInfBox = useMemo(() =>({
-            minX: box.minX===Infinity ? -1*margin : box.minX,
-            maxX: box.maxX===-Infinity ? 1*margin : box.maxX,
-            minY: box.minY===Infinity ? -1*margin : box.minY,
-            maxY: box.maxY===-Infinity ? 1*margin : box.maxY,
-        }) , [box, box])
-
     const [currentTool, selectTool] = useState('Edit')
 
     const tools = [
@@ -2478,28 +2485,39 @@ const GraphEditor = () => {
             </Title>
             <Tools tools={tools} currentTool={currentTool} onSelectTool={selectTool} />
             <Menu />
-            <Canvas box={nonInfBox}>
-                <Graph
-                    box={nonInfBox}
+            <Canvas>
+                <CanvasContent
+                    box={box}
                     nodeAngles={nodeAngles}
                     edgePaths={edgePaths}
-                />
-                <GraphSelection
-                    box={nonInfBox}
-                    nodeAngles={nodeAngles}
-                    edgePaths={edgePaths}
-                />
-                <ToolComponent
-                    box={nonInfBox}
-                    nodeAngles={nodeAngles}
-                    edgePaths={edgePaths}
-                />
-                <AlgorithmStepper
-                    box={nonInfBox}
-                    nodeAngles={nodeAngles}
-                    edgePaths={edgePaths}
+                    ToolComponent={ToolComponent}
                 />
             </Canvas>
             <AlgorithmDetails />
         </Container>;
 }
+
+const CanvasContent = React.memo(({ToolComponent, box, nodeAngles, edgePaths}) => {
+    return <>
+        <Graph
+            box={box}
+            nodeAngles={nodeAngles}
+            edgePaths={edgePaths}
+        />
+        <GraphSelection
+            box={box}
+            nodeAngles={nodeAngles}
+            edgePaths={edgePaths}
+        />
+        <ToolComponent
+            box={box}
+            nodeAngles={nodeAngles}
+            edgePaths={edgePaths}
+        />
+        <AlgorithmStepper
+            box={box}
+            nodeAngles={nodeAngles}
+            edgePaths={edgePaths}
+        />
+    </>
+})

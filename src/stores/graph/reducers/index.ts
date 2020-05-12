@@ -14,7 +14,7 @@ const skipActions = [
     'SELECTION_BOX_START',
         'SELECTION_BOX_MOVE',
         'SELECTION_BOX_STOP',
-        'CAMERA_CLAMP',
+        'CAMERA_UPDATE_SCREEN',
         'CAMERA_MOVE_PAN',
         'CAMERA_JUMP_ZOOM',
         'CAMERA_START_PAN',
@@ -91,11 +91,42 @@ const data = undoable((state, action) => {
 
 export default (state, action) => {
     const skip = skipActions.includes(action.type)
+
+    const d = skip ? state.data : data(state ? state.data : undefined, action)
+    const margin = 200;
+
+    let nonInfBox = state && state.camera.box
+    if (!skip || !nonInfBox) {
+        const box = d.present.graph.attributes.nodes.position.reduce((acc, p) => ({
+            minX: Math.min(acc.minX + margin, p.x) - margin,
+            maxX: Math.max(acc.maxX - margin, p.x) + margin,
+            minY: Math.min(acc.minY + margin, p.y) - margin,
+            maxY: Math.max(acc.maxY - margin, p.y) + margin,
+        }), ({
+            minX: Infinity,
+            maxX: -Infinity,
+            minY: Infinity,
+            maxY: -Infinity,
+        }));
+
+        nonInfBox = {
+            minX: box.minX===Infinity ? -1*margin : box.minX,
+            maxX: box.maxX===-Infinity ? 1*margin : box.maxX,
+            minY: box.minY===Infinity ? -1*margin : box.minY,
+            maxY: box.maxY===-Infinity ? 1*margin : box.maxY,
+        }
+    }
+
+    const newCamera = camera(state ? state.camera : undefined, nonInfBox, action)
+    const newManipulator = manipulator(state ? state.manipulator : undefined, action)
+    const newPathManipulator = pathManipulator(state ? state.pathManipulator : undefined, action)
+    const newSelectionBox = selectionBox(state ? state.selectionBox : undefined, action)
+    
     return {
-        data: skip ? state.data : data(state ? state.data : undefined, action),
-        camera: camera(state ? state.camera : undefined, action),
-        manipulator: manipulator(state ? state.manipulator : undefined, action),
-        pathManipulator: pathManipulator(state ? state.pathManipulator : undefined, action),
-        selectionBox: selectionBox(state ? state.selectionBox : undefined, action),
+        data: d,
+        camera: newCamera,
+        manipulator: newManipulator,
+        pathManipulator: newPathManipulator,
+        selectionBox: newSelectionBox,
     };
 }

@@ -123,7 +123,6 @@ export const selectionBoxStop = () => ({type: 'SELECTION_BOX_STOP'});
 
 export const cameraUpdateScreen = (screen) => ({type: 'CAMERA_UPDATE_SCREEN', screen});
 export const cameraUpdateBox = (box) => ({type: 'CAMERA_UPDATE_BOX', box});
-export const cameraClamp = (box, screen) => ({type: 'CAMERA_CLAMP', box, screen});
 export const cameraMovePan = (x,y) => ({type: 'CAMERA_MOVE_PAN', x, y});
 export const cameraJumpZoom = (x, y) => ({type: 'CAMERA_JUMP_ZOOM', x, y});
 export const cameraStartPan = (x, y) => ({type: 'CAMERA_START_PAN', x, y});
@@ -138,7 +137,7 @@ export const manipulatorSnapConnect = (nodeId) => ({type: 'MANIPULATOR_SNAP_CONN
 export const manipulatorUnsnapConnect = (x, y) => ({type: 'MANIPULATOR_UNSNAP_CONNECT', x, y});
 export const manipulatorStartMove = (nodeId, x, y, offsetX, offsetY) => ({type: 'MANIPULATOR_START_MOVE', nodeId, x, y, offsetX, offsetY});
 export const manipulatorStartCreate = (x, y) => ({type: 'MANIPULATOR_START_CREATE', x, y});
-export const manipulatorStartConnect = (nodeId, x, y, offsetX, offsetY, edgeIndex = null, control = null) => ({type: 'MANIPULATOR_START_CONNECT', x, y, nodeId, edgeIndex, offsetX, offsetY, control});
+export const manipulatorStartConnect = (nodeId, x, y, offsetX, offsetY, edgeIndex, control) => ({type: 'MANIPULATOR_START_CONNECT', x, y, nodeId, edgeIndex, offsetX, offsetY, control});
 
 export const pathManipulatorStop = () => ({type: 'PATH_MANIPULATOR_STOP'})
 export const pathManipulatorMove = (x, y) => ({type: 'PATH_MANIPULATOR_MOVE', x, y})

@@ -12,69 +12,67 @@ const initilState = {
         center: {x: 0, y:0},
         rotation: 0,
         zoom: 1,
-        bounds: {
-            minX: 0,
-            maxX: 0,
-            minY: 0,
-            maxY: 0,
-            defaultZoom: 1,
-            minZoom: 1,
-            maxZoom: 1,
-        },
         panX: null,
         panY: null,
+        screen: {
+            width: 0,
+            height: 0,
+        },
+        box: {
+            minX: -Infinity,
+            minY: -Infinity,
+            maxX: Infinity,
+            maxY: Infinity,
+        }
     }
 
-export default function cameraReducer(camera = initilState, action)  {
-    const bounds = camera.bounds;
-
+export default function cameraReducer(camera = initilState, box, action)  {
+    const defaultZoom = Math.min(
+                      camera.screen.width/(box.maxX - box.minX),
+                      camera.screen.height/(box.maxY - box.minY),
+                      20
+                    )
     switch(action.type) {
-        case 'CAMERA_CLAMP':
+        case 'CAMERA_UPDATE_SCREEN':
             return {
                 ...camera,
-                bounds: {
-                    minX: action.box.minX,
-                    maxX: action.box.maxX,
-                    minY: action.box.minY,
-                    maxY: action.box.maxY,
-                    defaultZoom: Math.min(
-                      action.screen.width/(action.box.maxX - action.box.minX),
-                      action.screen.height/(action.box.maxY - action.box.minY),
-                      20
-                    ),
-                    minZoom: Math.min(
-                      action.screen.width / (action.box.maxX - action.box.minX),
-                      action.screen.height / (action.box.maxY - action.box.minY),
-                      0.8
-                    ),
-                    maxZoom: 6,
-                },
+                box,
+                screen: {
+                    width: action.screen.width,
+                    height: action.screen.height,
+                }
             };
         case 'CAMERA_ZOOM':
-            const newZoom = softClamp(camera.zoom, camera.zoom * action.factor, bounds.minZoom, bounds.maxZoom)
+            const minZoom = Math.min(
+              camera.screen.width / (box.maxX - box.minX),
+              camera.screen.height / (box.maxY - box.minY),
+              0.8
+            )
+            const newZoom = softClamp(camera.zoom, camera.zoom * action.factor, minZoom, 6)
             const realFactor = newZoom / camera.zoom;
             const panFactor = 1 - 1 / realFactor;
 
-            const newX = softClamp(camera.center.x, camera.center.x + (action.x - camera.center.x) * panFactor, bounds.minX, bounds.maxX)
-            const newY = softClamp(camera.center.y, camera.center.y + (action.y - camera.center.y) * panFactor, bounds.minY, bounds.maxY)
+            const newX = softClamp(camera.center.x, camera.center.x + (action.x - camera.center.x) * panFactor, box.minX, box.maxX)
+            const newY = softClamp(camera.center.y, camera.center.y + (action.y - camera.center.y) * panFactor, box.minY, box.maxY)
 
             return {
-              ...camera,
-              zoom: newZoom,
-              center: {
-                  ...camera.center,
-                  x: newX,
-                  y: newY,
-              },
+                ...camera,
+                box,
+                zoom: newZoom,
+                center: {
+                    ...camera.center,
+                    x: newX,
+                    y: newY,
+                },
             };
         case 'CAMERA_JUMP_ZOOM': {
             if(camera.rotation != 0) {
-                return cameraReducer(camera, {type: 'CAMERA_RESET'})
-            } else if(Math.abs(camera.zoom / camera.bounds.defaultZoom) < 1.05) {
-                return cameraReducer(camera, {type:'CAMERA_ZOOM', x: action.x, y: action.y, factor: camera.bounds.maxZoom / 2})
+                return cameraReducer(camera, box, {type: 'CAMERA_RESET'})
+            } else if(Math.abs(camera.zoom / defaultZoom) < 1.05) {
+                return cameraReducer(camera, box, {type:'CAMERA_ZOOM', x: action.x, y: action.y, factor: 6 / 2})
             } else {
-                return cameraReducer(camera, {type: 'CAMERA_RESET'})
-                //cameraReducer(camera, {typ:'zoom', pivot:action,factor:bounds.defaultZoom / camera.zoom})
+                return cameraReducer(camera, box, {type: 'CAMERA_RESET'})
+                //cameraReducer(camera, {typ:'zoom', pivot:action,factor:box.defaultZoom / camera.zoom})
             }
         }
         case 'CAMERA_ROTATE':
@@ -87,12 +85,13 @@ export default function cameraReducer(camera = initilState, action)  {
 
             return {
               ...camera,
-              center: {
-                  ...camera.center,
-                  x: action.x + cos * dx - sin * dy, //softClamp(camera.center.x, , bounds.minX, bounds.maxX),
-                  y: action.y + sin * dx + cos * dy, //softClamp(camera.center.y, , bounds.minY, bounds.maxY),
-              },
-              rotation: (camera.rotation + deltaAngle) % 360,
+                box,
+                center: {
+                    ...camera.center,
+                    x: action.x + cos * dx - sin * dy, //softClamp(camera.center.x, , box.minX, box.maxX),
+                    y: action.y + sin * dx + cos * dy, //softClamp(camera.center.y, , box.minY, box.maxY),
+                },
+                rotation: (camera.rotation + deltaAngle) % 360,
             };
         case 'CAMERA_PAN': {
             const sin = Math.sin(camera.rotation * Math.PI / 180)
@@ -100,34 +99,38 @@ export default function cameraReducer(camera = initilState, action)  {
             const dx = (cos * action.deltaX + sin * action.deltaY)  / camera.zoom
             const dy = (-sin * action.deltaX + cos * action.deltaY) / camera.zoom
             return {
-              ...camera,
+                ...camera,
+                box,
                 center: {
                     ...camera.center,
-                    x: softClamp(camera.center.x, camera.center.x + dx, bounds.minX, bounds.maxX),
-                    y: softClamp(camera.center.y, camera.center.y + dy, bounds.minY, bounds.maxY),
+                    x: softClamp(camera.center.x, camera.center.x + dx, box.minX, box.maxX),
+                    y: softClamp(camera.center.y, camera.center.y + dy, box.minY, box.maxY),
                 },
             }
         }
         case 'CAMERA_RESET':
             return {
                 ...camera,
+                box,
                 center: {
                     ...camera.center,
-                    x: (bounds.minX + bounds.maxX) / 2,
-                    y: (bounds.minY + bounds.maxY) / 2,
+                    x: (box.minX + box.maxX) / 2,
+                    y: (box.minY + box.maxY) / 2,
                 },
                 rotation: 0,
-                zoom: bounds.defaultZoom,
+                zoom: defaultZoom,
             }
         case 'CAMERA_START_PAN':
             return {
                 ...camera,
+                box,
                 panX: action.x,
                 panY: action.y,
             }
         case 'CAMERA_STOP_PAN':
             return {
                 ...camera,
+                box,
                 panX: null,
                 panY: null,
             }
@@ -138,14 +141,19 @@ export default function cameraReducer(camera = initilState, action)  {
             const deltaX = action.x - camera.panX;
             const deltaY = action.y - camera.panY;
             return {
-              ...camera,
+                ...camera,
+                box,
                 center: {
                     ...camera.center,
-                    x: softClamp(camera.center.x, camera.center.x - deltaX, bounds.minX, bounds.maxX),
-                    y: softClamp(camera.center.y, camera.center.y - deltaY, bounds.minY, bounds.maxY),
+                    x: softClamp(camera.center.x, camera.center.x - deltaX, box.minX, box.maxX),
+                    y: softClamp(camera.center.y, camera.center.y - deltaY, box.minY, box.maxY),
                 },
             }
 
     }
-    return camera;
+
+    return camera.box === box ? camera : {
+        ...camera,
+        box,
+    };
 }
