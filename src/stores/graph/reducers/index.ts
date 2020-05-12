@@ -2,7 +2,7 @@ import { combineReducers } from 'redux'
 import undoable, { includeAction, excludeAction } from 'redux-undo';import selection from './selection'
 import graph from './graph'
 import graphSelection from './graph_selection'
-import algorithm from './algorithm'
+import algorithm, {ALGORITHMS} from './algorithm'
 import properties from './properties'
 
 import camera from './camera'
@@ -34,6 +34,22 @@ const skipActions = [
         'PATH_MANIPULATOR_CREATE',
         'PATH_MANIPULATOR_START_MOVE',
 ]
+
+const algorithmSelection = (state = ALGORITHMS[0].key, action) => {
+    if(action.type === 'ALGORITHM_SELECT') {
+        return action.algorithm
+    }
+
+    return state
+}
+
+const toolSelection = (state = 'edit', action) => {
+    if(action.type === 'TOOL_SELECT') {
+        return action.tool
+    }
+
+    return state
+}
 
 const data = undoable((state, action) => {
     let error = null;
@@ -94,7 +110,7 @@ export default (state, action) => {
 
     const d = skip ? state.data : data(state ? state.data : undefined, action)
     const margin = 200;
-    
+
     let nonInfBox = state && state.camera.box
     if (!skip || !nonInfBox) {
         const box = d.present.graph.attributes.nodes.position.reduce((acc, p) => ({
@@ -121,6 +137,8 @@ export default (state, action) => {
     const newManipulator = manipulator(state ? state.manipulator : undefined, action)
     const newPathManipulator = pathManipulator(state ? state.pathManipulator : undefined, action)
     const newSelectionBox = selectionBox(state ? state.selectionBox : undefined, action)
+    const newAlgorithmSelection = algorithmSelection(state ? state.algorithmSelection : undefined, action)
+    const newToolSelection = toolSelection(state ? state.toolSelection : undefined, action)
 
     return {
         data: d,
@@ -128,5 +146,7 @@ export default (state, action) => {
         manipulator: newManipulator,
         pathManipulator: newPathManipulator,
         selectionBox: newSelectionBox,
+        algorithmSelection: newAlgorithmSelection,
+        toolSelection: newToolSelection,
     };
 }

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {useRef, useMemo, useEffect, useLayoutEffect, useContext, useCallback, useState} from 'react';
+import {useRef, useMemo, useEffect, useLayoutEffect, useContext, useCallback} from 'react';
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
@@ -9,19 +9,17 @@ import { ActionCreators } from 'redux-undo';
 import {ALGORITHMS} from './stores/graph/reducers/algorithm/index';
 import * as actions from './actions'
 
-const useGraphSelector = () => {
-    return useSelector(state => state.data.present.graph)
-
+const id = x => x
+const useGraphSelector = (fn = id) => {
+    return useSelector(state => fn === id ? state.data.present.graph : fn(state.data.present.graph))
 }
 
-const useSelectionSelector = () => {
-    return useSelector(state => state.data.present.selection)
-
+const useSelectionSelector = (fn = id) => {
+    return useSelector(state => fn === id ? state.data.present.selection : fn(state.data.present.selection))
 }
 
-const useAlgorithmSelector = () => {
-    return useSelector(state => state.data.present.algorithm)
-
+const useAlgorithmSelector = (fn = id) => {
+    return useSelector(state => fn === id ? state.data.present.algorithm : fn(state.data.present.algorithm))
 }
 
 const Title = styled.h1`
@@ -283,8 +281,10 @@ const PlainButton = styled.button`
 
 const NodeAttribute = ({nodeId, attrKey}) => {
     const dispatch = useDispatch()
-    const value = (useGraphSelector().attributes.nodes[attrKey][nodeId])
-    const type = (useGraphSelector().attributeTypes.nodes[attrKey])
+    const value = useGraphSelector(g => g.attributes.nodes[attrKey][nodeId])
+
+    const type = useGraphSelector(g => g.attributeTypes.nodes[attrKey])
+
     const typeName = type.type
 
     const onChange = useCallback(
@@ -328,9 +328,10 @@ const NodeAttribute = ({nodeId, attrKey}) => {
 const NodeDetails = ({nodeId}) => {
     const dispatch = useDispatch()
 
-    const graph = useGraphSelector()
-    const neighbours = (useGraphSelector().nodes[nodeId])
-    const attributes = Object.keys(graph.attributeTypes.nodes)
+    const neighbours = useGraphSelector(g => g.nodes[nodeId])
+
+    const nodeAttributes = useGraphSelector(g => g.attributeTypes.nodes)
+    const attributes = Object.keys(nodeAttributes)
 
 
     const onClick = useCallback(() => dispatch(actions.deleteNode(nodeId)), [nodeId]);
@@ -360,8 +361,10 @@ const NodeDetails = ({nodeId}) => {
 
 const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     const dispatch = useDispatch()
-    const value = (useGraphSelector().attributes.edges[attrKey][nodeId][edgeIndex])
-    const type = (useGraphSelector().attributeTypes.edges[attrKey].type)
+    const value = useGraphSelector(g => g.attributes.edges[attrKey][nodeId][edgeIndex])
+
+    const type = useGraphSelector(g => g.attributeTypes.edges[attrKey].type)
+
 
     if(['text','color','numeric'].includes(type)) {
         return <>
@@ -385,9 +388,10 @@ const EdgeDetails = ({nodeId, edgeIndex}) => {
     const dispatch = useDispatch()
 
     const graph = useGraphSelector()
-    const target = (useGraphSelector().nodes[nodeId][edgeIndex])
+
+    const target = graph.nodes[nodeId][edgeIndex]
     const attributes =  Object.keys(graph.attributeTypes.edges)
-    const flags = (useGraphSelector().flags)
+    const flags = graph.flags
     const prev = edgeIndex > 0 && graph.nodes[nodeId][edgeIndex - 1] === target ? edgeIndex - 1 : null
     const next = edgeIndex < graph.nodes[nodeId].length && graph.nodes[nodeId][edgeIndex + 1] === target ? edgeIndex + 1 : null
 
@@ -422,7 +426,8 @@ const EdgeDetails = ({nodeId, edgeIndex}) => {
 const GraphOptions = () => {
     const dispatch = useDispatch()
 
-    const flags = (useGraphSelector().flags)
+    const flags = useGraphSelector(g => g.flags)
+
 
     return <CheckboxList>
         {Object.keys(flags).map((flagKey) =>
@@ -438,8 +443,10 @@ const GraphOptions = () => {
 const ViewOptions = () => {
     const dispatch = useDispatch()
 
-    const edgeAttributes = (useGraphSelector().attributeTypes.edges)
-    const nodeAttributes = (useGraphSelector().attributeTypes.nodes)
+    const edgeAttributes = useGraphSelector(g => g.attributeTypes.edges)
+
+    const nodeAttributes = useGraphSelector(g => g.attributeTypes.nodes)
+
 
     return <div>
         <SubSectionTitle>Visible Edge Attributes</SubSectionTitle>
@@ -469,7 +476,9 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     const dispatch = useDispatch();
     const canUndo = useSelector(state => state.data.past.length > 0)
 
+
     const canRedo = useSelector(state => state.data.future.length > 0)
+
 
     const savedGraphs = useProjectsSelector(state => state)
     const savedGraphNames = Object.keys(savedGraphs)
@@ -495,8 +504,8 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
         <ToolButton onClick={clear}>Clear</ToolButton>
         <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
         <ToolButton onClick={layout}>Auto Layout</ToolButton>
-        {tools.map((t) =>
-            <ToolButton key={t} disabled={t===currentTool} onClick={() => onSelectTool(t)}>{t}</ToolButton>
+        {Object.keys(tools).map((t) =>
+            <ToolButton key={t} disabled={t===currentTool} onClick={() => onSelectTool(t)}>{tools[t]}</ToolButton>
         )}
         <AlgorithmRunner />
     </Toolbar>
@@ -523,11 +532,12 @@ const castAlgorithmParameter = (parameter, value) => {
 const AlgorithmOptions = ({algorithm}) => {
     const dispatch = useDispatch();
     const graph = useGraphSelector()
+
     const alg = ALGORITHMS.find((a) => a.key === algorithm)
     const canRun = alg !== null && meetRequirements(alg, graph)
-    const nodes = (useGraphSelector().nodes)
-    const edgeAttributes = (useGraphSelector().attributeTypes.edges)
-    const nodeAttributes = (useGraphSelector().attributeTypes.edges)
+    const nodes = graph.nodes
+    const edgeAttributes = graph.attributeTypes.edges
+    const nodeAttributes = graph.attributeTypes.edges
 
     const run = useCallback((evt) => {
         evt.preventDefault();
@@ -586,27 +596,21 @@ const AlgorithmOptions = ({algorithm}) => {
 
 const AlgorithmRunner = () => {
     const dispatch = useDispatch();
-    const selectBox = useRef();
     const algorithm = useAlgorithmSelector();
+    const algorithmSelection = useSelector((s) => s.algorithmSelection);
+
     const algorithmType = algorithm.type
-    const flags = (useGraphSelector().flags)
-    const [alg, setAlg] = useState(ALGORITHMS[0].key);
+    const flags = useGraphSelector(g => g.flags)
+
 
     const run = useCallback(() => {
-        const el : HTMLSelectElement = selectBox.current
-        dispatch(actions.runAlgorithm(el.value, {}))
-    }, [dispatch, selectBox])
+        dispatch(actions.runAlgorithm(algorithmSelection, {}))
+    }, [dispatch, algorithmSelection])
 
     const selectAlg = useCallback((evt) => {
-        const el : HTMLSelectElement = selectBox.current
-        setAlg(el.value)
-    }, [setAlg])
+        dispatch(actions.selectAlgorithm(evt.target.value))
+    }, [dispatch])
 
-    useEffect(() => {
-        if(algorithmType) {
-            setAlg(algorithmType)
-        }
-    }, [algorithmType])
 
     const applicableAlgorithms = ALGORITHMS.filter((alg) => {
         return !alg.requirements || Object.entries(alg.requirements).every(([k,v]) => {
@@ -617,14 +621,14 @@ const AlgorithmRunner = () => {
     return <ToolbarSection>
         <div>
             <span>Run Algorithm:</span><br/>
-            <select style={{maxWidth: '10em'}} value={alg} onChange={selectAlg} ref={selectBox}>
+            <select style={{maxWidth: '10em'}} value={algorithmSelection} onChange={selectAlg}>
                 {applicableAlgorithms.map((a) =>
                     <option key={a.key} value={a.key}>{a.name}</option>
                 )}
             </select>
         </div>
-        <AlgorithmOptions algorithm={alg} />
-        {alg !== algorithmType ? null : <AlgorithmResult />}
+        <AlgorithmOptions algorithm={algorithmSelection} />
+        {algorithmSelection !== algorithmType ? null : <AlgorithmResult />}
     </ToolbarSection>
 }
 
@@ -763,13 +767,15 @@ const useCanvasPos = () => {
 }
 
 
+const cam = (s) => s.camera
 const Canvas = ({children}) => {
     const screenRef = useRef();
     const screen = useSize(screenRef, 100, 100);
     const posRef = useRef();
     const svgPos = useSVGPosition(posRef);
     const dispatch = useDispatch();
-    const camera = useSelector((s) => s.camera);
+    const camera = useSelector(cam);
+
 
     const currentCamera = useRef(camera);
     useLayoutEffect(() => {
@@ -1395,6 +1401,7 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, nodeAngles, ed
     const manipulation = useSelector((state) => state.pathManipulator)
 
 
+
     const manipulationRef = useRef(manipulation)
 
     useLayoutEffect(() => {
@@ -1481,6 +1488,7 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
     const graph = useGraphSelector()
+
     const selection = useSelectionSelector()
 
     const flags = (graph.flags)
@@ -1491,6 +1499,7 @@ const GraphManipulator = ({box, nodeAngles, edgePaths}) => {
     const paths = (graph.attributes.edges.path)
 
     const manipulation = useSelector((state) => state.manipulator)
+
 
     const manipulationRef = useRef(manipulation)
 
@@ -1775,12 +1784,14 @@ const GraphSelector = ({box, nodeAngles, edgePaths}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const flags = (useGraphSelector().flags)
-    const selectedNodes = (useSelectionSelector().nodes)
-    const selectedEdges = (useSelectionSelector().edges)
-    const nodes = (useGraphSelector().nodes)
-    const positions = (useGraphSelector().attributes.nodes.position)
+    const flags = useGraphSelector(g => g.flags)
+
+    const nodes = useGraphSelector(g => g.nodes)
+
+    const positions = useGraphSelector(g => g.attributes.nodes.position)
+
     const range = useSelector((state) => state.selectionBox)
+
 
 
     const selectNode = useCallback((evt, nodeId) => {
@@ -1960,6 +1971,7 @@ const Graph = ({box, nodeAngles, edgePaths}) => {
     const excludedNodeAttributes = ['position']
 
     const graph =  useGraphSelector()
+
     const flags = (graph.flags)
     const nodes = (graph.nodes)
     const positions = (graph.attributes.nodes.position)
@@ -2087,18 +2099,15 @@ const AlgorithmStepperEdgeColoring = ({directed, positions, angles, edgePaths, n
 }
 
 const AlgorithmStepper = ({box, nodeAngles, edgePaths}) => {
-    const dispatch = useDispatch()
-
     const graph = useGraphSelector()
-    const selection = useSelectionSelector()
+
     const flags = (graph.flags)
-    const selectedNodes = (selection.nodes)
-    const selectedEdges = (selection.edges)
     const nodes = (graph.nodes)
     const positions = (graph.attributes.nodes.position)
     const visibleEdgeAttributesCount = Object.keys(graph.attributeTypes.edges).filter((e) => graph.attributeTypes.edges[e].visible).length
 
     const algorithm = useSelector(state => state.data.present.algorithm)
+
 
 
     const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps.length && algorithm.result.steps[algorithm.focus].edges.color
@@ -2169,14 +2178,12 @@ const NodeEdgeSelection = ({edgePath}) => {
     return <EdgeSelectionLine d={edgePath.string} />
 }
 
-const GraphSelection = ({box, nodeAngles, edgePaths}) => {
+const GraphSelection = ({edgePaths}) => {
     const selection = useSelectionSelector()
-    const graph = useGraphSelector()
-    const flags = (graph.flags)
     const selectedNodes = (selection.nodes)
     const selectedEdges = (selection.edges)
-    const nodes = (graph.nodes)
-    const positions = (graph.attributes.nodes.position)
+    const positions = useGraphSelector(g => g.attributes.nodes.position)
+
 
     return <g>
         {selectedNodes.map((nodeId, i) => {
@@ -2212,15 +2219,22 @@ export default () => {
 }
 
 const GraphEditor = () => {
+    const dispatch = useDispatch();
     const graph = useGraphSelector();
+
     const box = useSelector((s) => s.camera.box);
+
     const error = useSelector((s) => s.data.present.error);
 
-    const nodeAngles = useMemo(() => {
-        const positions = graph.attributes.nodes.position
-        const paths = graph.attributes.edges.path
+    const positions = graph.attributes.nodes.position
+    const paths = graph.attributes.edges.path
+    const nodes = graph.nodes
+    const directed = graph.flags.directed
 
-        return graph.nodes.map((neighbours, idx) => {
+
+
+    const nodeAngles = useMemo(() => {
+        return nodes.map((neighbours, idx) => {
             const ownPos = positions[idx]
             const outgoing = neighbours.map((n, edx) => {
                 if(n === idx) {
@@ -2236,7 +2250,7 @@ const GraphEditor = () => {
 
             }).filter(a => a !== null)
 
-            const incoming = graph.nodes.map((others, o) => {
+            const incoming = nodes.map((others, o) => {
                 const edx = others.indexOf(idx)
                 if (o === idx || edx < 0) {
                    return null;
@@ -2261,11 +2275,8 @@ const GraphEditor = () => {
     }, [graph])
 
     const edgePaths = useMemo(() => {
-        const directed = graph.flags.directed
-        const positions = graph.attributes.nodes.position
-        const paths = graph.attributes.edges.path
-        const nodes = graph.nodes
         const t = 0.8;
+
 
         return nodes.map((neighbors, nodeId) =>
             neighbors.map((neighbourId, edgeIdx) => {
@@ -2480,19 +2491,25 @@ const GraphEditor = () => {
         )
     }, [graph])
 
-    const [currentTool, selectTool] = useState('Edit')
+    const selectTool = useCallback((tool) => {
+        dispatch(actions.selectTool(tool))
+    }, [dispatch])
 
-    const tools = [
-        'Select',
-        'Edit',
-    ];
+    const currentTool = useSelector((s) => s.toolSelection)
+
+
+    const tools = {
+        select: 'Select',
+        select: 'Edit',
+    };
 
     const toolComponents = {
-        Select: GraphSelector,
-        Edit: GraphManipulator,
+        select: GraphSelector,
+        edit: GraphManipulator,
+        none: () => null,
     }
 
-    const ToolComponent = toolComponents[currentTool] || toolComponents['None'];
+    const ToolComponent = toolComponents[currentTool] || toolComponents['none'];
 
     return <Container>
             <Title>
@@ -2518,6 +2535,8 @@ const GraphEditor = () => {
 }
 
 const CanvasContent = React.memo(({ToolComponent, box, nodeAngles, edgePaths}) => {
+
+
     return <>
         <Graph
             box={box}

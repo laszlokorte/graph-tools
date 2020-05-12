@@ -144,3 +144,5 @@ export const pathManipulatorMove = (x, y) => ({type: 'PATH_MANIPULATOR_MOVE', x,
 export const pathManipulatorCreate = (nodeIdx, edgeIdx, controlIdx, path, x, y) => ({type: 'PATH_MANIPULATOR_START_CREATE', nodeIdx, edgeIdx, controlIdx, path, x, y})
 export const pathManipulatorStartMove = (nodeIdx, edgeIdx, controlIdx, path, x, y) => ({type: 'PATH_MANIPULATOR_START_MOVE', nodeIdx, edgeIdx, controlIdx, path, x, y})
 
+export const selectAlgorithm = (algorithm) => ({type: 'ALGORITHM_SELECT', algorithm})
+export const selectTool = (tool) => ({type: 'TOOL_SELECT', tool})
