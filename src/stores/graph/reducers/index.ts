@@ -52,7 +52,6 @@ const toolSelection = (state = 'edit', action) => {
 }
 
 const data = undoable((state, action) => {
-    let error = null;
     const oldGraph = state ? state.graph : undefined;
     const oldSelection = state ? state.selection : undefined;
     const oldAlgorithm = state ? state.algorithm : undefined;

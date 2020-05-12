@@ -2500,7 +2500,7 @@ const GraphEditor = () => {
 
     const tools = {
         select: 'Select',
-        select: 'Edit',
+        edit: 'Edit',
     };
 
     const toolComponents = {
