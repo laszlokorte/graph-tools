@@ -12,6 +12,7 @@ import camera from './camera'
 import manipulator from './manipulator'
 import pathManipulator from './path_manipulator'
 import selectionBox from './select_box'
+import layout from './layout'
 
 const skipActions = [
     'SELECTION_BOX_START',
@@ -79,6 +80,9 @@ const data = undoable(graphActionExpander((state, action) => {
     limit: 10,
     filter: excludeAction([
         'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE','STEP_ALGORITHM',
+        'SELECT_AREA',
+        'DESELECT_NODE',
+        'DESELECT_EEDGE',
         ...skipActions,
     ]),
     ignoreInitialState: true,
@@ -106,6 +110,19 @@ const data = undoable(graphActionExpander((state, action) => {
     }
 })
 
+const memo = (fn) => {
+    let cached
+    let prevArg = {}
+    return (arg) => {
+        if(prevArg !== arg) {
+            cached = fn(arg)
+            prevArg = arg
+        }
+        return cached
+    }
+}
+
+const doLayout = memo(layout)
 
 export default selectionActionExpander((state, action) => {
     const skip = skipActions.includes(action.type)
@@ -150,5 +167,6 @@ export default selectionActionExpander((state, action) => {
         selectionBox: newSelectionBox,
         algorithmSelection: newAlgorithmSelection,
         toolSelection: newToolSelection,
+        layout: d.present ? doLayout(d.present.graph) : undefined,
     };
 })

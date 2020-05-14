@@ -110,18 +110,19 @@ const expandGraphAction = (state, action) => {
                     if(!action.attributes.keepEdge && !graph.partition) {
                         const basePath = graph.attributes.edges['path'][action.attributes.connectTo][action.attributes.onEdge];
                         if(action.attributes.splitPathControl !== null) {
+                            const offset = (action.attributes.splitPathControl % 2)
                             actions.push({
                                 type: 'SET_EDGE_ATTRIBUTE',
                                 nodeId: action.attributes.connectTo,
                                 edgeIndex: graph.nodes[action.attributes.connectTo].length,
                                 attribute: 'path',
-                                value: basePath.slice(0, action.attributes.splitPathControl * 2),
+                                value: basePath.slice(0, action.attributes.splitPathControl - offset),
                             }, {
                                 type: 'SET_EDGE_ATTRIBUTE',
                                 nodeId: graph.nodes.length,
-                                edgeIndex: graph.nodes[graph.nodes.length - 1].length,
+                                edgeIndex: 0,
                                 attribute: 'path',
-                                value: basePath.slice(action.attributes.splitPathControl * 2 + 2),
+                                value: basePath.slice(action.attributes.splitPathControl + offset),
                             })
                         }
 
@@ -154,28 +155,69 @@ const expandGraphAction = (state, action) => {
             return [{type:'CLEAR_SELECTION'}, action]
         }
         case 'DELETE_EDGE': {
-            return [action, {
+            return [{
                 type: 'DESELECT_EDGE',
                 nodeId: action.nodeId,
                 edgeIndex: action.edgeIndex,
-            }]
+            }, action]
         }
         case 'CLEAR_GRAPH_EDGES': {
             return [{type:'CLEAR_SELECTION'}, action]
         }
         case 'SELECT_AREA': {
             if(action.nodes) {
-                return graph.nodes.map((_, n) => n).filter(n => {
+                const nodeIds = graph.nodes.map((_, n) => n).filter(n => {
                     const pos = graph.attributes.nodes.position[n]
                     return action.minX < pos.x && pos.x < action.maxX &&
                         action.minY < pos.y && pos.y < action.maxY
-                }).map((nodeId, i) => ({
+                })
+
+                const nodeSelection = nodeIds.map((nodeId, i) => ({
                     type: 'SELECT_NODE',
                     nodeId,
                     add: i > 0,
                     toggle: false,
                 }))
+
+                const edgeSelection = graph.nodes.flatMap((neighbours, nodeId) => {
+                    const startPos = graph.attributes.nodes.position[nodeId]
+
+                    return neighbours.map((n,edgeIndex) => {
+                        const endPos = graph.attributes.nodes.position[n]
+
+
+                        if(action.minX > startPos.x || startPos.x > action.maxX ||
+                            action.minY > startPos.y || startPos.y > action.maxY) {
+                            return null
+                        }
+
+                        if(action.minX > endPos.x || endPos.x > action.maxX ||
+                            action.minY > endPos.y || endPos.y > action.maxY) {
+                            return null
+                        }
+
+                        return ({
+                            nodeId,
+                            edgeIndex,
+                        })
+                    }).filter(n => n !== null).map((x, i) => ({
+                        ...x,
+                        type: 'SELECT_EDGE',
+                        add: i > 0 || nodeSelection.length > 0,
+                        toggle: false,
+                    }))
+                })
+
+                if(nodeSelection.length || edgeSelection.length) {
+                    return [action, ...nodeSelection, ...edgeSelection];
+                } else {
+                    return false
+                }
+
             }
+        }
+        case 'SET_GRAPH_FLAG': {
+            return [{type: 'CLEAR_SELECTION'}, action]
         }
     }
 

@@ -70,6 +70,7 @@ const initialState = {
 const invalidatingActions = [
     'INIT_GRAPH',
     'CLEAR_GRAPH',
+    'CLEAR_GRAPH_EDGES',
     'ADD_EDGE',
     'DELETE_NODE',
     'CREATE_NODE',
