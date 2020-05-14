@@ -1,9 +1,12 @@
 import { combineReducers } from 'redux'
 import undoable, { includeAction, excludeAction } from 'redux-undo';import selection from './selection'
 import graph from './graph'
-import graphSelection from './graph_selection'
 import algorithm, {ALGORITHMS} from './algorithm'
 import properties from './properties'
+
+import graphActionExpander from './graph_action_expander'
+import selectionActionExpander from './selection_action_expander'
+
 
 import camera from './camera'
 import manipulator from './manipulator'
@@ -12,27 +15,27 @@ import selectionBox from './select_box'
 
 const skipActions = [
     'SELECTION_BOX_START',
-        'SELECTION_BOX_MOVE',
-        'SELECTION_BOX_STOP',
-        'CAMERA_UPDATE_SCREEN',
-        'CAMERA_MOVE_PAN',
-        'CAMERA_JUMP_ZOOM',
-        'CAMERA_START_PAN',
-        'CAMERA_STOP_PAN',
-        'CAMERA_PAN',
-        'CAMERA_ROTATE',
-        'CAMERA_ZOOM',
-        'MANIPULATOR_STOP',
-        'MANIPULATOR_MOVE',
-        'MANIPULATOR_SNAP_CONNECT',
-        'MANIPULATOR_UNSNAP_CONNECT',
-        'MANIPULATOR_START_MOVE',
-        'MANIPULATOR_CREATE',
-        'MANIPULATOR_START_CONNECTION',
-        'PATH_MANIPULATOR_STOP',
-        'PATH_MANIPULATOR_MOVE',
-        'PATH_MANIPULATOR_CREATE',
-        'PATH_MANIPULATOR_START_MOVE',
+    'SELECTION_BOX_MOVE',
+    'SELECTION_BOX_STOP',
+    'CAMERA_UPDATE_SCREEN',
+    'CAMERA_MOVE_PAN',
+    'CAMERA_JUMP_ZOOM',
+    'CAMERA_START_PAN',
+    'CAMERA_STOP_PAN',
+    'CAMERA_PAN',
+    'CAMERA_ROTATE',
+    'CAMERA_ZOOM',
+    'MANIPULATOR_STOP',
+    'MANIPULATOR_MOVE',
+    'MANIPULATOR_SNAP_CONNECT',
+    'MANIPULATOR_UNSNAP_CONNECT',
+    'MANIPULATOR_START_MOVE',
+    'MANIPULATOR_CREATE',
+    'MANIPULATOR_START_CONNECTION',
+    'PATH_MANIPULATOR_STOP',
+    'PATH_MANIPULATOR_MOVE',
+    'PATH_MANIPULATOR_CREATE',
+    'PATH_MANIPULATOR_START_MOVE',
 ]
 
 const algorithmSelection = (state = ALGORITHMS[0].key, action) => {
@@ -51,15 +54,15 @@ const toolSelection = (state = 'edit', action) => {
     return state
 }
 
-const data = undoable((state, action) => {
+const data = undoable(graphActionExpander((state, action) => {
     const oldGraph = state ? state.graph : undefined;
     const oldSelection = state ? state.selection : undefined;
     const oldAlgorithm = state ? state.algorithm : undefined;
     const oldProperties = state ? state.properties : undefined;
     const newGraph = graph(oldGraph, action)
     if(newGraph.error) return { ...state, error: newGraph.error};
-    const newGraphSelection = graphSelection(selection(oldSelection, action), newGraph, oldGraph, action);
-    if(newGraphSelection.error) return { ...state, error: newGraphSelection.error};
+    const newSelection = selection(oldSelection, action);
+    if(newSelection.error) return { ...state, error: newSelection.error};
     const newAlgorithm = algorithm(oldAlgorithm, newGraph, action)
     if(newAlgorithm.error) return { ...state, error: newAlgorithm.error};
     const newProperties = properties(oldProperties, newGraph, action)
@@ -67,12 +70,12 @@ const data = undoable((state, action) => {
 
     return {
         graph: newGraph,
-        selection: newGraphSelection,
+        selection: newSelection,
         algorithm: newAlgorithm,
         properties: newProperties,
         error: null,
     };
-}, {
+}), {
     limit: 10,
     filter: excludeAction([
         'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE','STEP_ALGORITHM',
@@ -104,7 +107,7 @@ const data = undoable((state, action) => {
 })
 
 
-export default (state, action) => {
+export default selectionActionExpander((state, action) => {
     const skip = skipActions.includes(action.type)
 
     const d = skip ? state.data : data(state ? state.data : undefined, action)
@@ -148,4 +151,4 @@ export default (state, action) => {
         algorithmSelection: newAlgorithmSelection,
         toolSelection: newToolSelection,
     };
-}
+})

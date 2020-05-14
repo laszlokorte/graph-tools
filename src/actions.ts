@@ -7,11 +7,22 @@ export const loadGraph = (graph) => ({
     graph,
 });
 
+export const selectArea = (x0, x1, y0, y1) => ({
+    type: 'SELECT_AREA',
+    nodes: true,
+    edges: true
+});
+
 export const selectNode = (nodeId, add = false, toggle = false) => ({
     type: 'SELECT_NODE',
     nodeId,
     add,
     toggle,
+});
+
+export const deselectNode = (nodeId) => ({
+    type: 'DESELECT_NODE',
+    nodeId,
 });
 
 export const selectEdge = (nodeId, edgeIndex, add = false, toggle = false) => ({
@@ -20,6 +31,12 @@ export const selectEdge = (nodeId, edgeIndex, add = false, toggle = false) => ({
     edgeIndex,
     add,
     toggle,
+});
+
+export const deselectEdge = (nodeId, edgeIndex) => ({
+    type: 'DESELECT_Edge',
+    nodeId,
+    edgeIndex,
 });
 
 export const setPosition = (nodeId, x, y) => ({

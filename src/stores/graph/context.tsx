@@ -1,5 +1,5 @@
 import React from 'react'
-import { createStore } from 'redux'
+import { createStore, applyMiddleware } from 'redux'
 import {
   Provider,
   createStoreHook,
@@ -14,7 +14,8 @@ export const useStore = createStoreHook(GraphContext)
 export const useDispatch = createDispatchHook(GraphContext)
 export const useSelector = createSelectorHook(GraphContext)
 
-const myStore = createStore(reducers)
+
+const myStore = createStore(reducers, applyMiddleware())
 
 export function GraphProvider({ children }) {
   return (

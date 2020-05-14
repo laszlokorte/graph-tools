@@ -3,6 +3,7 @@ const initialState = {
     y0:null,
     x1:null,
     y1:null,
+    moved: false,
 }
 
 export default function(state = initialState, action) {
@@ -14,6 +15,7 @@ export default function(state = initialState, action) {
                 y0:action.y,
                 x1:action.x,
                 y1:action.y,
+                moved: false,
             }
         }
         case 'SELECTION_BOX_MOVE': {
@@ -24,6 +26,9 @@ export default function(state = initialState, action) {
                 ...state,
                 x1:action.x,
                 y1:action.y,
+                moved: state.move ||
+                    Math.abs(action.x - state.x0) > 5 ||
+                    Math.abs(action.y - state.y0) > 5,
             }
         }
         case 'SELECTION_BOX_STOP': {
@@ -33,6 +38,7 @@ export default function(state = initialState, action) {
                 y0:null,
                 x1:null,
                 y1:null,
+                moved: false,
             }
         }
     }

@@ -1802,12 +1802,6 @@ const GraphSelector = ({box, nodeAngles, edgePaths}) => {
         dispatch(actions.selectEdge(nodeId, edgeIndex, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
     }, [dispatch])
 
-    const clearSelection = useCallback((evt) => {
-        if(!evt.metaKey && !evt.ctrlKey && !evt.shiftKey) {
-            dispatch(actions.clearSelection());
-        }
-    }, [dispatch])
-
 
     const mouseDown = useCallback((evt) => {
         if(evt.altKey) {
@@ -1872,7 +1866,7 @@ const GraphSelector = ({box, nodeAngles, edgePaths}) => {
     const rect = useRef();
 
     return <g onMouseDown={mouseDown}>
-        <rect style={{pointerEvents:'all'}} onMouseDown={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        <rect style={{pointerEvents:'all'}} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {range.x0 === null ? null :
             <SelectionBox ref={rect} points={ps2} />
         }

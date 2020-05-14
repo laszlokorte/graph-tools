@@ -171,7 +171,7 @@ const objectMap = (obj, fn) => {
     return result;
 }
 
-const thisReducer = (state = initialState, action) => {
+export default (state = initialState, action) => {
     switch(action.type) {
         case 'CLEAR_GRAPH': {
             return initialState;
@@ -199,11 +199,9 @@ const thisReducer = (state = initialState, action) => {
                 return {error: 'Can not Add looping edge on undirected graph'};
             }
             if(!state.flags.directed && action.fromNodeId > action.toNodeId) {
-                return thisReducer(state, {
-                    ...action,
-                    fromNodeId: action.toNodeId,
-                    toNodeId: action.fromNodeId,
-                })
+                return {
+                    error: 'Edges must be ordered from low to higher node id',
+                }
             }
             if(state.partition) {
                 const sourcePartition = state.attributes.nodes[state.partition][action.fromNodeId];
@@ -259,7 +257,7 @@ const thisReducer = (state = initialState, action) => {
             });
         }
         case 'CREATE_NODE': {
-            const nodeAdded = ({
+            return ({
                 ...state,
                 nodes: [
                     ...state.nodes,
@@ -278,76 +276,20 @@ const thisReducer = (state = initialState, action) => {
                     )
                 },
             });
-
-            if(action.attributes.connectTo !== null) {
-                let attributed = nodeAdded
-                if(state.partition) {
-                    const sourcePartition = state.attributes.nodes[state.partition][action.attributes.connectTo];
-                    const partitions = state.attributeTypes.nodes[state.partition].options;
-                    const newPartition = partitions[(partitions.indexOf(sourcePartition) + 1) % partitions.length];
-
-                    attributed = thisReducer(nodeAdded, {
-                        type: 'SET_NODE_ATTRIBUTE',
-                        nodeId: nodeAdded.nodes.length - 1,
-                        attribute: state.partition,
-                        value: newPartition,
-                    })
-                }
-
-                const withEdge = thisReducer(attributed, {
-                    type: 'ADD_EDGE',
-                    fromNodeId: action.attributes.connectTo,
-                    toNodeId: nodeAdded.nodes.length - 1,
-                })
-
-                if(action.attributes.onEdge !== null) {
-                    const bothEdges = thisReducer(withEdge, {
-                        type: 'ADD_EDGE',
-                        fromNodeId: withEdge.nodes.length - 1,
-                        toNodeId: withEdge.nodes[action.attributes.connectTo][action.attributes.onEdge],
-                    })
-
-                    if(!action.attributes.keepEdge && !state.partition) {
-                        const basePath = bothEdges.attributes.edges['path'][action.attributes.connectTo][action.attributes.onEdge];
-                        const mergedControls = (action.attributes.splitPathControl !== null) ?
-                        thisReducer(thisReducer(bothEdges, {
-                            type: 'SET_EDGE_ATTRIBUTE',
-                            nodeId: action.attributes.connectTo,
-                            edgeIndex: withEdge.nodes[action.attributes.connectTo].length - 1,
-                            attribute: 'path',
-                            value: basePath.slice(0, action.attributes.splitPathControl * 2),
-                        }), {
-                            type: 'SET_EDGE_ATTRIBUTE',
-                            nodeId: withEdge.nodes.length - 1,
-                            edgeIndex: withEdge.nodes[withEdge.nodes.length - 1].length - 1,
-                            attribute: 'path',
-                            value: basePath.slice(action.attributes.splitPathControl * 2 + 2),
-                        })
-                        : bothEdges
-
-                        return thisReducer(mergedControls, {
-                            type: 'DELETE_EDGE',
-                            nodeId: action.attributes.connectTo,
-                            edgeIndex: action.attributes.onEdge,
-                        })
-                    } else {
-                        return bothEdges;
-                    }
-                } else {
-                    return withEdge;
-                }
-            } else {
-                return nodeAdded;
-            }
         }
         case 'DELETE_NODE': {
+            if(state.nodes[action.nodeId].length) {
+                return {error: 'Node can not be deleted'}
+            }
+            if(state.nodes.some((neighbours) => neighbours.includes(action.nodeId))) {
+                return {error: 'Node can not be deleted'}
+            }
             return ({
                 ...state,
                 nodes: [
                     ...state.nodes.slice(0, action.nodeId),
                     ...state.nodes.slice(action.nodeId+1)
                 ].map((neighbours, nodeId) => neighbours
-                    .filter((n) => n !== action.nodeId)
                     .map((n) => n > action.nodeId ? n-1 : n)),
                 attributes: {
                     ...state.attributes,
@@ -361,9 +303,7 @@ const thisReducer = (state = initialState, action) => {
                         (key, values) => [
                             ...values.slice(0, action.nodeId),
                             ...values.slice(action.nodeId+1)
-                        ].map((values, newNodeId) => values
-                            .filter((v, i) =>
-                                state.nodes[newNodeId >= action.nodeId ? newNodeId + 1 : newNodeId][i] !== action.nodeId))
+                        ]
                     )
                 },
             });
@@ -506,5 +446,3 @@ const thisReducer = (state = initialState, action) => {
             return state;
     }
 }
-
-export default thisReducer;
