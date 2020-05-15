@@ -16,6 +16,7 @@ export default (next) => (state, action) => {
 
 const expandGraphAction = (state, action) => {
     const graph = state && state.graph;
+
     switch(action.type) {
         case 'ADD_EDGE':
             if(!graph.flags.directed && action.fromNodeId > action.toNodeId) {

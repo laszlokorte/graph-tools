@@ -69,6 +69,37 @@ const OverlayBox = styled.div`
     overflow: auto;
 `
 
+const Window = styled.div`
+  grid-column: 2 / 4;
+  grid-row: 2 / 4;
+  background: #f0f0f0;
+  color: #222;
+  padding: 1em;
+  margin: 3em;
+  border: 4px solid white;
+`
+
+const BigList = styled.ul`
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    list-style: none;
+`
+
+const BigListItem = styled.li`
+    padding: 1em;
+    cursor: pointer;
+    border-bottom: 1px solid #aaa;
+
+    &:hover {
+      background-color: #fff;
+    }
+
+    &:active {
+      background-color: #e0e0e0;
+    }
+`
+
 const Code = styled.textarea`
     display: block;
     width: 100%;
@@ -477,30 +508,20 @@ const ViewOptions = () => {
 const Tools = ({tools, currentTool, onSelectTool}) => {
     const dispatch = useDispatch();
     const canUndo = useSelector(state => state.data.past.length > 0)
+    const showProjects = useSelector(state => state.showProjects)
 
 
     const canRedo = useSelector(state => state.data.future.length > 0)
 
-
-    const savedGraphs = useProjectsSelector(state => state)
-    const savedGraphNames = Object.keys(savedGraphs)
-
+    const toggleProjectList = useCallback(() => dispatch(actions.toggleProjectList()), [])
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
     const layout = useCallback(() => dispatch(actions.autoLayout()), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
-    const openGraph = useCallback((evt) => dispatch(actions.loadGraph(savedGraphs[evt.target.value])), [savedGraphs])
 
     return <Toolbar>
-        <ToolbarSection>
-            <select value="" onChange={openGraph}>
-                <option value={''}>Open…</option>
-                {savedGraphNames.map((a, i) =>
-                    <option key={i} value={a}>{a}</option>
-                )}
-            </select>
-        </ToolbarSection>
+        <ToolButton onClick={toggleProjectList}>Open</ToolButton>
         <ToolButton disabled={!canUndo} onClick={undo}>↶</ToolButton>
         <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
         <ToolButton onClick={clear}>Clear</ToolButton>
@@ -2159,6 +2180,21 @@ export default () => {
     </div>
 }
 
+const ProjectList = () => {
+    const dispatch = useDispatch()
+    const showProjects = useSelector((s) => s.showProjects);
+    const savedGraphs = useProjectsSelector(state => state)
+    const savedGraphNames = Object.keys(savedGraphs)
+    const openGraph = useCallback((evt) => dispatch(actions.loadGraph(savedGraphs[evt.target.getAttribute('data-value')])), [savedGraphs])
+
+    return showProjects ? <Window>
+        <h1>Open Graph</h1>
+        <BigList>
+            {savedGraphNames.map((a, i) => <BigListItem key={i} onClick={openGraph} data-value={a}>{a}</BigListItem>)}
+        </BigList>
+    </Window> : null
+}
+
 const GraphEditor = () => {
     const dispatch = useDispatch();
     const graph = useGraphSelector();
@@ -2205,6 +2241,7 @@ const GraphEditor = () => {
                     ToolComponent={ToolComponent}
                 />
             </Canvas>
+            <ProjectList />
             <AlgorithmDetails />
         </Container>;
 }

@@ -28,10 +28,10 @@ const initilState = {
 
 export default function cameraReducer(camera = initilState, box, action)  {
     const defaultZoom = Math.min(
-                      camera.screen.width/(box.maxX - box.minX),
-                      camera.screen.height/(box.maxY - box.minY),
-                      20
-                    )
+      camera.screen.width/(box.maxX - box.minX),
+      camera.screen.height/(box.maxY - box.minY),
+      20
+    )
     switch(action.type) {
         case 'CAMERA_UPDATE_SCREEN':
             return {
@@ -65,16 +65,6 @@ export default function cameraReducer(camera = initilState, box, action)  {
                     y: newY,
                 },
             };
-        case 'CAMERA_JUMP_ZOOM': {
-            if(camera.rotation != 0) {
-                return cameraReducer(camera, box, {type: 'CAMERA_RESET'})
-            } else if(Math.abs(camera.zoom / defaultZoom) < 1.05) {
-                return cameraReducer(camera, box, {type:'CAMERA_ZOOM', x: action.x, y: action.y, factor: 6 / 2})
-            } else {
-                return cameraReducer(camera, box, {type: 'CAMERA_RESET'})
-                //cameraReducer(camera, {typ:'zoom', pivot:action,factor:box.defaultZoom / camera.zoom})
-            }
-        }
         case 'CAMERA_ROTATE':
             const deltaAngle = action.deltaAngle;
             const dx = camera.center.x - action.x;

@@ -6,6 +6,7 @@ import properties from './properties'
 
 import graphActionExpander from './graph_action_expander'
 import selectionActionExpander from './selection_action_expander'
+import cameraActionExpander from './camera_action_expander'
 
 
 import camera from './camera'
@@ -15,6 +16,7 @@ import selectionBox from './select_box'
 import layout from './layout'
 
 const skipActions = [
+    'TOGGLE_PROJECT_LIST',
     'SELECTION_BOX_START',
     'SELECTION_BOX_MOVE',
     'SELECTION_BOX_STOP',
@@ -110,6 +112,14 @@ const data = undoable(graphActionExpander((state, action) => {
     }
 })
 
+const toggleOnAction = (actionType, def = false) => (state = def, action) => {
+    if(action.type === actionType) {
+        return !state
+    } else {
+        return state
+    }
+}
+
 const memo = (fn) => {
     let cached
     let prevArg = {}
@@ -124,7 +134,17 @@ const memo = (fn) => {
 
 const doLayout = memo(layout)
 
-export default selectionActionExpander((state, action) => {
+const toggleProjects = (state = false, action) => {
+    if(action.type === 'TOGGLE_PROJECT_LIST') {
+        return !state
+    } else if (action.type === 'INIT_GRAPH') {
+        return false
+    } else {
+        return state
+    }
+}
+
+export default cameraActionExpander(selectionActionExpander((state, action) => {
     const skip = skipActions.includes(action.type)
 
     const d = skip ? state.data : data(state ? state.data : undefined, action)
@@ -167,6 +187,7 @@ export default selectionActionExpander((state, action) => {
         selectionBox: newSelectionBox,
         algorithmSelection: newAlgorithmSelection,
         toolSelection: newToolSelection,
+        showProjects: toggleProjects(state ? state.showProjects : false, action),
         layout: d.present ? doLayout(d.present.graph) : undefined,
     };
-})
+}))

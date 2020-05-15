@@ -163,3 +163,5 @@ export const pathManipulatorStartMove = (nodeIdx, edgeIdx, controlIdx, path, x, 
 
 export const selectAlgorithm = (algorithm) => ({type: 'ALGORITHM_SELECT', algorithm})
 export const selectTool = (tool) => ({type: 'TOOL_SELECT', tool})
+
+export const toggleProjectList = () => ({type: 'TOGGLE_PROJECT_LIST'})
