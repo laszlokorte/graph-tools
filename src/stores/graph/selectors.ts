@@ -70,6 +70,11 @@ export const nodeCountSelector = createSelector(
     (nodes) => nodes.length
 )
 
+export const nodeIdsSelector = createSelector(
+    nodesSelector,
+    (nodes) => Array(nodes.length).fill(null).map((_,i) => i)
+)
+
 export const neighboursSelector = (nodeId) => createSelector(
     nodesSelector,
     (nodes) => nodes[nodeId]
@@ -78,6 +83,11 @@ export const neighboursSelector = (nodeId) => createSelector(
 export const neighbourCountSelector = (nodeId) => createSelector(
     neighboursSelector(nodeId),
     (neighbours) => neighbours.length
+)
+
+export const edgeIndicesSelector = (nodeId) => createSelector(
+    neighboursSelector(nodeId),
+    (neighbours) => Array(neighbours.length).fill(null).map((_,i) => i)
 )
 
 export const neighbourNodeSelector = (nodeId, edgeIndex) => createSelector(
@@ -132,4 +142,38 @@ export const nextMultiEdgeIndex = (nodeId, edgeIndex) => createSelector(
     neighbourNodeSelector(nodeId, edgeIndex),
     neighbourNodeSelector(nodeId, edgeIndex + 1),
     (current, next) => current !== null && next === current ? edgeIndex + 1 : null
+)
+
+export const manipulatorTargetNodeSelector = createSelector(
+    nodesSelector,
+    manipulatorSelector,
+    (nodes, manipulator) => {
+        if(manipulator.connectionStart !== null && manipulator.edgeIndex !== null) {
+            return nodes[manipulator.connectionStart][manipulator.edgeIndex]
+        } else {
+            return null
+        }
+    }
+)
+
+export const visibleNodeAttributesSelector = createSelector(
+    nodeAttributesSelector,
+    (attrs) => Object.keys(attrs).filter((n) => !['position'].includes(n) && attrs[n].visible)
+)
+
+export const visibleEdgeAttributesSelector = createSelector(
+    edgeAttributesSelector,
+    (attrs) => Object.keys(attrs).filter((n) => !['path'].includes(n) && attrs[n].visible)
+)
+
+export const manipulatorStartNodeAngleSelector = createSelector(
+    layoutSelector,
+    manipulatorSelector,
+    (layout, manipulator) => {
+        if(manipulator.connectionStart !== null) {
+            return layout.nodeAngles[manipulator.connectionStart]
+        } else {
+            return 0
+        }
+    }
 )

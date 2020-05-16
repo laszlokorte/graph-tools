@@ -13,12 +13,6 @@ import * as actions from './actions'
 import * as selectors from './stores/graph/selectors'
 import {graphFlagsSelector} from "./stores/graph/selectors";
 
-const id = x => x
-const useGraphSelector = (fn = id) => {
-    return useSelector(state => fn === id ? state.data.present.graph : fn(state.data.present.graph))
-}
-
-
 const Title = styled.h1`
     margin: 0;
     padding: 0;
@@ -520,7 +514,7 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
     const toggleProjectList = useCallback(() => dispatch(actions.toggleProjectList()), [])
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
-    const layout = useCallback(() => dispatch(actions.autoLayout()), [])
+    const autoLayout = useCallback(() => dispatch(actions.autoLayout()), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
 
@@ -530,7 +524,7 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
         <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
         <ToolButton onClick={clear}>Clear</ToolButton>
         <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
-        <ToolButton onClick={layout}>Auto Layout</ToolButton>
+        <ToolButton onClick={autoLayout}>Auto Layout</ToolButton>
         {Object.keys(tools).map((t) =>
             <ToolButton key={t} disabled={t===currentTool} onClick={() => onSelectTool(t)}>{tools[t]}</ToolButton>
         )}
@@ -1113,7 +1107,7 @@ const Edge = ({nodeId, edgeIndex = null, onClick = null, onDoubleClick = null, s
 	</g>
 }
 
-const NewEdge = ({loop = false, startNode, endNode, startX, startY, endX, endY, offset=false, angle = 0}) => {
+const NewEdge = ({loop = false, startNode, endNode, startX, startY, endX, endY, offset=false}) => {
     const startPos = useSelector(selectors.nodePositionSelector(startNode))
     const endPos = useSelector(selectors.nodePositionSelector(endNode))
     const x0 = startPos ? startPos.x : startX
@@ -1121,6 +1115,7 @@ const NewEdge = ({loop = false, startNode, endNode, startX, startY, endX, endY, 
     const x1 = endPos ? endPos.x : endX
     const y1 = endPos ? endPos.y : endY
     const flags = useSelector(selectors.graphFlagsSelector)
+    const angle = useSelector(selectors.manipulatorStartNodeAngleSelector)
     const path = freeEdgePath(20, loop, x0, y0, x1, y1, angle, flags.directed, offset)
 
     let pathString = "M" + path.points[0] + ' ' + path.points[1];
@@ -1427,22 +1422,16 @@ const EdgesPathManipulator = ({}) => {
     </>
 }
 
-
-const maybourNeighbourSelector = (node, edge) =>
-    node !== null && edge !== null ?
-    selectors.neighbourNodeSelector(node, edge) :
-    () => null
-
 const GraphManipulator = ({box, layout}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const nodeCount = useSelector(selectors.nodeCountSelector)
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
 
     const manipulation = useSelector(selectors.manipulatorSelector)
     const manipulationRef = useRef(manipulation)
 
-    const endNode = useSelector(maybourNeighbourSelector(manipulation.connectionStart, manipulation.edgeIndex))
+    const endNode = useSelector(selectors.manipulatorTargetNodeSelector)
 
     useLayoutEffect(() => {
         manipulationRef.current = manipulation
@@ -1572,7 +1561,7 @@ const GraphManipulator = ({box, layout}) => {
 
     return <g>
         <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
-        {Array(nodeCount).fill(null).map((_, nodeId) =>
+        {nodeIds.map((_, nodeId) =>
             <NodeManipulator
                 key={nodeId}
                 nodeId={nodeId}
@@ -1616,14 +1605,12 @@ const GraphManipulator = ({box, layout}) => {
                     startNode={manipulation.connectionStart}
                     endNode={manipulation.connectionSnap}
                     offset={true}
-                    angle={layout.nodeAngles[manipulation.connectionStart]}
                 />
          :
             <NewEdge
                     startNode={manipulation.connectionStart}
                     endX={manipulation.x}
                     endY={manipulation.y}
-                    angle={0}
                 />
         }
         {
@@ -1639,7 +1626,6 @@ const GraphManipulator = ({box, layout}) => {
                 endX={manipulation.x + manipulation.offsetX}
                 endY={manipulation.y + manipulation.offsetY}
                 offset={true}
-                angle={0}
             />,
             <NewEdge
                 key="midpoint-post-edge"
@@ -1647,7 +1633,6 @@ const GraphManipulator = ({box, layout}) => {
                 startY={manipulation.y + manipulation.offsetY}
                 endNode={endNode}
                 offset={true}
-                angle={0}
             />,
             ]
             : null
@@ -1703,7 +1688,7 @@ const GraphSelector = ({box, layout}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const nodeCount = useSelector(selectors.nodeCountSelector)
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
 
     const range = useSelector(selectors.selectionBoxSelector)
 
@@ -1772,7 +1757,7 @@ const GraphSelector = ({box, layout}) => {
         {range.x0 === null ? null :
             <SelectionBox ref={rect} points={ps2} />
         }
-        {Array(nodeCount).fill(null).map((_, nodeId) => {
+        {nodeIds.map((_, nodeId) => {
             return <React.Fragment key={nodeId}>
                 <NodeSelector
                     nodeId={nodeId}
@@ -1799,10 +1784,10 @@ const NodeEdgesSelector = ({nodeId, selectEdge}) => {
     </>
 }
 
-const GraphLayerNodes = ({positions}) => {
-    const nodeCount = useSelector(selectors.nodeCountSelector)
+const GraphLayerNodes = ({}) => {
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
     return <React.Fragment>
-        {Array(nodeCount).fill(null).map((pos, nodeId) => {
+        {nodeIds.map((pos, nodeId) => {
             return <Node
                 key={nodeId}
                 nodeId={nodeId}
@@ -1838,7 +1823,8 @@ const GraphLayerNodeEdges = ({nodeId}) => {
     </>
 }
 
-const GraphLayerNodeLabels = ({labels, labelKeys}) => {
+const GraphLayerNodeLabels = () => {
+    const labelKeys = useSelector(selectors.visibleNodeAttributesSelector)
     const nodeCount = useSelector(selectors.nodeCountSelector)
 
     return <g>
@@ -1872,7 +1858,8 @@ const GraphLayoutSigleNodeLabel = ({nodeId, labelIndex, labelKey}) => {
 }
 
 
-const GraphLayerEdgeLabels = ({labelKeys}) => {
+const GraphLayerEdgeLabels = () => {
+    const labelKeys = useSelector(selectors.visibleEdgeAttributesSelector)
     const nodeCount = useSelector(selectors.nodeCountSelector)
 
     return <>
@@ -1887,10 +1874,10 @@ const GraphLayerEdgeLabels = ({labelKeys}) => {
 }
 
 const GraphLayerNodeEdgeLabels = ({nodeId, labelKey, labelIndex, labelCount}) => {
-    const edgeCount = useSelector(selectors.neighbourCountSelector(nodeId))
+    const edgeIndices = useSelector(selectors.edgeIndicesSelector(nodeId))
     return <>
         {
-            Array(edgeCount).fill(null).map((_, edgeIdx) =>
+            edgeIndices.map((_, edgeIdx) =>
                 <GraphLayerNodeEdgeLabel key={edgeIdx} nodeId={nodeId} edgeIdx={edgeIdx} labelCount={labelCount} labelKey={labelKey} labelIndex={labelIndex} />
             )
         }
@@ -1906,27 +1893,13 @@ const GraphLayerNodeEdgeLabel = ({nodeId, edgeIdx, labelKey, labelIndex, labelCo
     </EdgeLabel>
 }
 
-const Graph = ({box, layout}) => {
-    const excludedEdgeAttributes = ['path']
-    const excludedNodeAttributes = ['position']
-
-    const graph =  useGraphSelector()
-
-    const flags = (graph.flags)
-    const nodes = (graph.nodes)
-
-    const nodeAttributes = (graph.attributes.nodes)
-    const visibleNodeAttributes = Object.keys(graph.attributeTypes.nodes).filter((n) => !excludedNodeAttributes.includes(n) && graph.attributeTypes.nodes[n].visible)
-
-    const edgeAttributes = (graph.attributes.edges)
-    const visibleEdgeAttributes = Object.keys(graph.attributeTypes.edges).filter((e) => !excludedEdgeAttributes.includes(e) && graph.attributeTypes.edges[e].visible)
-
+const Graph = ({box}) => {
     return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
         <GraphLayerNodes />
         <GraphLayerEdges />
-        <GraphLayerNodeLabels labels={nodeAttributes} labelKeys={visibleNodeAttributes} />
-        <GraphLayerEdgeLabels labelKeys={visibleEdgeAttributes} />
+        <GraphLayerNodeLabels />
+        <GraphLayerEdgeLabels />
     </g>
 }
 
@@ -1952,7 +1925,8 @@ const AlgorithmStepperPolygon = styled.polygon`
     stroke-linecap: round;
 `
 
-const NodeEdgeStepper = ({color, edgePath}) => {
+const NodeEdgeStepper = ({nodeId, edgeIdx, color}) => {
+    const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
     return <EdgeStepperLine stroke={color} d={edgePath.string} />
 }
 
@@ -2009,7 +1983,9 @@ const AlgorithmStepperLines = ({lines}) => {
     </>
 }
 
-const AlgorithmStepperEdgeLabels = ({nodes, edgeAttributes, layout, verticalOffset}) => {
+const AlgorithmStepperEdgeLabels = ({nodes, edgeAttributes, verticalOffset}) => {
+    const layout = useSelector(selectors.layoutSelector)
+
     return <>
         {Object.keys(edgeAttributes).map((k, i, all) =>
             <g key={k}>
@@ -2027,7 +2003,7 @@ const AlgorithmStepperEdgeLabels = ({nodes, edgeAttributes, layout, verticalOffs
     </>
 }
 
-const AlgorithmStepperEdgeColoring = ({layout, nodes, colors}) => {
+const AlgorithmStepperEdgeColoring = ({nodes, colors}) => {
     if(!colors) {
         return <></>;
     }
@@ -2038,8 +2014,9 @@ const AlgorithmStepperEdgeColoring = ({layout, nodes, colors}) => {
                     const color = colors[nodeId][edgeIdx]
 
                     return <NodeEdgeStepper
+                            nodeId={nodeId}
+                            edgeIdx={edgeIdx}
                             key={`${nodeId}-${edgeIdx}`}
-                            edgePath={layout.edgePaths[nodeId][edgeIdx]}
                             color={color}
                         />
                 })
@@ -2047,7 +2024,7 @@ const AlgorithmStepperEdgeColoring = ({layout, nodes, colors}) => {
     </g>
 }
 
-const AlgorithmStepper = ({box, layout}) => {
+const AlgorithmStepper = () => {
     const graph = useSelector(selectors.graphSelector)
 
     const nodes = (graph.nodes)
@@ -2056,8 +2033,6 @@ const AlgorithmStepper = ({box, layout}) => {
     const visibleNodeAttributesCount = Object.keys(graph.attributeTypes.nodes).filter((e) => graph.attributeTypes.nodes[e].visible).length
 
     const algorithm = useSelector(selectors.algorithmSelector)
-
-
 
     const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps.length && algorithm.result.steps[algorithm.focus].edges.color
     , [algorithm.result, algorithm.focus]);
@@ -2076,8 +2051,8 @@ const AlgorithmStepper = ({box, layout}) => {
             <AlgorithmStepperLines lines={step.lines} />
             <AlgorithmStepperNodeColoring positions={positions} colors={nodeColors} />
             <AlgorithmStepperNodeLabels verticalOffset={visibleNodeAttributesCount} positions={positions} nodeAttributes={nodeAttributes} />
-            <AlgorithmStepperEdgeColoring positions={positions} layout={layout} nodes={nodes} colors={edgeColors} />
-            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} layout={layout} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
+            <AlgorithmStepperEdgeColoring nodes={nodes} colors={edgeColors} />
+            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
         </g>
     }
 }
@@ -2129,7 +2104,7 @@ const NodeEdgeSelection = ({nodeId, edgeIdx}) => {
     return <EdgeSelectionLine d={edgePath.string} />
 }
 
-const GraphSelection = ({layout}) => {
+const GraphSelection = () => {
     const selection = useSelector(selectors.selectionSelector)
     const selectedNodes = (selection.nodes)
     const selectedEdges = (selection.edges)
@@ -2248,7 +2223,6 @@ const GraphEditor = () => {
     const box = useSelector(selectors.cameraBoxSelector);
 
     const error = useSelector(selectors.errorSelector);
-    const layout = useSelector(selectors.layoutSelector);
 
     const selectTool = useCallback((tool) => {
         dispatch(actions.selectTool(tool))
@@ -2283,7 +2257,6 @@ const GraphEditor = () => {
             <Canvas>
                 <CanvasContent
                     box={box}
-                    layout={layout}
                     ToolComponent={ToolComponent}
                 />
             </Canvas>
@@ -2294,25 +2267,19 @@ const GraphEditor = () => {
         </Container>;
 }
 
-const CanvasContent = React.memo(({ToolComponent, box, layout}) => {
+const CanvasContent = React.memo(({ToolComponent, box}) => {
 
 
     return <>
         <Graph
             box={box}
-            layout={layout}
         />
         <GraphSelection
             box={box}
-            layout={layout}
         />
         <ToolComponent
             box={box}
-            layout={layout}
         />
-        <AlgorithmStepper
-            box={box}
-            layout={layout}
-        />
+        <AlgorithmStepper/>
     </>
 })
