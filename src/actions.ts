@@ -165,3 +165,5 @@ export const selectAlgorithm = (algorithm) => ({type: 'ALGORITHM_SELECT', algori
 export const selectTool = (tool) => ({type: 'TOOL_SELECT', tool})
 
 export const toggleProjectList = () => ({type: 'TOGGLE_PROJECT_LIST'})
+export const toggleSettings = () => ({type: 'TOGGLE_SETTINGS'})
+export const toggleDump = () => ({type: 'TOGGLE_DUMP'})

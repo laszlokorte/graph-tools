@@ -144,6 +144,23 @@ const toggleProjects = (state = false, action) => {
     }
 }
 
+const toggleSettings = (state = false, action) => {
+    if(action.type === 'TOGGLE_SETTINGS') {
+        return !state
+    } else {
+        return state
+    }
+}
+
+
+const toggleDump = (state = false, action) => {
+    if(action.type === 'TOGGLE_DUMP') {
+        return !state
+    } else {
+        return state
+    }
+}
+
 export default cameraActionExpander(selectionActionExpander((state, action) => {
     const skip = skipActions.includes(action.type)
 
@@ -188,6 +205,8 @@ export default cameraActionExpander(selectionActionExpander((state, action) => {
         algorithmSelection: newAlgorithmSelection,
         toolSelection: newToolSelection,
         showProjects: toggleProjects(state ? state.showProjects : false, action),
+        showSettings: toggleSettings(state ? state.showSettings : false, action),
+        showDump: toggleDump(state ? state.showDump : false, action),
         layout: d.present ? doLayout(d.present.graph) : undefined,
     };
 }))

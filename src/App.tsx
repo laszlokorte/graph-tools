@@ -6,23 +6,18 @@ import { useSize } from './react-hook-size';
 import { freeEdgePath } from './stores/graph/reducers/layout'
 
 import { useSelector, useDispatch } from './stores/graph/context'
-import { useSelector as useProjectsSelector, useDispatch as useProjectsDispatch } from './stores/projects/context'
+import { useSelector as useProjectsSelector } from './stores/projects/context'
 import { ActionCreators } from 'redux-undo';
 import {ALGORITHMS} from './stores/graph/reducers/algorithm/index';
 import * as actions from './actions'
+import * as selectors from './stores/graph/selectors'
+import {graphFlagsSelector} from "./stores/graph/selectors";
 
 const id = x => x
 const useGraphSelector = (fn = id) => {
     return useSelector(state => fn === id ? state.data.present.graph : fn(state.data.present.graph))
 }
 
-const useSelectionSelector = (fn = id) => {
-    return useSelector(state => fn === id ? state.data.present.selection : fn(state.data.present.selection))
-}
-
-const useAlgorithmSelector = (fn = id) => {
-    return useSelector(state => fn === id ? state.data.present.algorithm : fn(state.data.present.algorithm))
-}
 
 const Title = styled.h1`
     margin: 0;
@@ -69,14 +64,24 @@ const OverlayBox = styled.div`
     overflow: auto;
 `
 
+const Overlay = styled.div`
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  background: #333333dd;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  z-index: 100;
+`
+
 const Window = styled.div`
-  grid-column: 2 / 4;
-  grid-row: 2 / 4;
   background: #f0f0f0;
   color: #222;
   padding: 1em;
   margin: 3em;
   border: 4px solid white;
+  display: flex;
+  flex-direction: column;
 `
 
 const BigList = styled.ul`
@@ -103,7 +108,6 @@ const BigListItem = styled.li`
 const Code = styled.textarea`
     display: block;
     width: 100%;
-    height: 100%;
     box-sizing: border-box;
     margin: 0;
     border: 0;
@@ -114,6 +118,7 @@ const Code = styled.textarea`
     font-size: 1.2em;
     min-height: 10em;
     resize: none;
+    flex-grow: 1;
 `
 
 
@@ -314,11 +319,9 @@ const PlainButton = styled.button`
 
 const NodeAttribute = ({nodeId, attrKey}) => {
     const dispatch = useDispatch()
-    const value = useGraphSelector(g => g.attributes.nodes[attrKey][nodeId])
+    const attr = useSelector(selectors.nodeAttributeSelector(attrKey, nodeId))
 
-    const type = useGraphSelector(g => g.attributeTypes.nodes[attrKey])
-
-    const typeName = type.type
+    const typeName = attr.type.type
 
     const onChange = useCallback(
         (evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))
@@ -331,20 +334,20 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     if(['text','color','numeric'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><input type="text" value={value || ''} onChange={onChange} /></dd>
+            <dd><input type="text" value={attr.value || ''} onChange={onChange} /></dd>
         </>);
     } else if(['boolean'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><input type="checkbox" checked={value===true} onChange={onCheck} /></dd>
+            <dd><input type="checkbox" checked={attr.value===true} onChange={onCheck} /></dd>
         </>);
     } else if(['enum'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
             <dd>
-                <select value={value} onChange={onChange}>
-                    {type.required ? null : <option value={null}>---</option>}
-                    {type.options.map((v, i) => {
+                <select value={attr.value} onChange={onChange}>
+                    {attr.type.required ? null : <option value={null}>---</option>}
+                    {attr.type.options.map((v, i) => {
                         return <option key={i}>{v}</option>
                     })}
                 </select>
@@ -353,19 +356,18 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     } else {
         return (<>
             <dt>{attrKey}:</dt>
-            <dd><input type={type} value={JSON.stringify(value)} readOnly /></dd>
+            <dd><input type={attr.type} value={JSON.stringify(attr.value)} readOnly /></dd>
         </>);
+
     }
 }
 
 const NodeDetails = ({nodeId}) => {
     const dispatch = useDispatch()
 
-    const neighbours = useGraphSelector(g => g.nodes[nodeId])
+    const neighbours = useSelector(selectors.neighboursSelector(nodeId))
 
-    const nodeAttributes = useGraphSelector(g => g.attributeTypes.nodes)
-    const attributes = Object.keys(nodeAttributes)
-
+    const attributes = useSelector(selectors.nodeAttributeTypesSelector)
 
     const onClick = useCallback(() => dispatch(actions.deleteNode(nodeId)), [nodeId]);
 
@@ -394,25 +396,30 @@ const NodeDetails = ({nodeId}) => {
 
 const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     const dispatch = useDispatch()
-    const value = useGraphSelector(g => g.attributes.edges[attrKey][nodeId][edgeIndex])
+    const attr = useSelector(selectors.edgeAttributeSelector(attrKey, nodeId, edgeIndex))
 
-    const type = useGraphSelector(g => g.attributeTypes.edges[attrKey].type)
+    const onChangeText = useCallback(
+        (evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value)),
+        [attr.type]
+    );
+    const onChangeCheckbox = useCallback(
+        (evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.checked)),
+    [attr.type]);
 
-
-    if(['text','color','numeric'].includes(type)) {
+    if(['text','color','numeric'].includes(attr.type.type)) {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><input type={type} value={value+''} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value))} /></dd>
+            <dd><input type={attr.type.type} value={attr.value+''} onChange={onChangeText} /></dd>
         </>
-    } else if(['boolean'].includes(type)) {
+    } else if(['boolean'].includes(attr.type.type)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><input type="checkbox" checked={value===true} onChange={(evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.checked))} /></dd>
+            <dd><input type="checkbox" checked={attr.value===true} onChange={onChangeCheckbox} /></dd>
         </>);
     } else {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><input type={type} value={JSON.stringify(value)} readOnly /></dd>
+            <dd><input type={attr.type.type} value={JSON.stringify(attr.value)} readOnly /></dd>
         </>
     }
 }
@@ -420,13 +427,13 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
 const EdgeDetails = ({nodeId, edgeIndex}) => {
     const dispatch = useDispatch()
 
-    const graph = useGraphSelector()
+    const graph = useSelector(selectors.graphSelector)
 
-    const target = graph.nodes[nodeId][edgeIndex]
-    const attributes =  Object.keys(graph.attributeTypes.edges)
-    const flags = graph.flags
-    const prev = edgeIndex > 0 && graph.nodes[nodeId][edgeIndex - 1] === target ? edgeIndex - 1 : null
-    const next = edgeIndex < graph.nodes[nodeId].length && graph.nodes[nodeId][edgeIndex + 1] === target ? edgeIndex + 1 : null
+    const target = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIndex))
+    const attributes =  useSelector(selectors.edgeAttributeTypesSelector)
+    const flags = useSelector(selectors.graphFlagsSelector)
+    const prev = useSelector(selectors.prevMultiEdgeIndex(nodeId, edgeIndex))
+    const next = useSelector(selectors.nextMultiEdgeIndex(nodeId, edgeIndex))
 
     return <DetailsBox>
         <DetailsBoxHead>
@@ -459,7 +466,7 @@ const EdgeDetails = ({nodeId, edgeIndex}) => {
 const GraphOptions = () => {
     const dispatch = useDispatch()
 
-    const flags = useGraphSelector(g => g.flags)
+    const flags = useSelector(selectors.graphFlagsSelector)
 
 
     return <CheckboxList>
@@ -476,9 +483,9 @@ const GraphOptions = () => {
 const ViewOptions = () => {
     const dispatch = useDispatch()
 
-    const edgeAttributes = useGraphSelector(g => g.attributeTypes.edges)
+    const edgeAttributes = useSelector(selectors.edgeAttributesSelector)
 
-    const nodeAttributes = useGraphSelector(g => g.attributeTypes.nodes)
+    const nodeAttributes = useSelector(selectors.nodeAttributesSelector)
 
 
     return <div>
@@ -507,11 +514,10 @@ const ViewOptions = () => {
 
 const Tools = ({tools, currentTool, onSelectTool}) => {
     const dispatch = useDispatch();
-    const canUndo = useSelector(state => state.data.past.length > 0)
-    const showProjects = useSelector(state => state.showProjects)
+    const canUndo = useSelector(selectors.canUndoSelector)
 
 
-    const canRedo = useSelector(state => state.data.future.length > 0)
+    const canRedo = useSelector(selectors.canRedoSelector)
 
     const toggleProjectList = useCallback(() => dispatch(actions.toggleProjectList()), [])
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
@@ -554,7 +560,7 @@ const castAlgorithmParameter = (parameter, value) => {
 
 const AlgorithmOptions = ({algorithm}) => {
     const dispatch = useDispatch();
-    const graph = useGraphSelector()
+    const graph = useSelector(selectors.graphSelector)
 
     const alg = ALGORITHMS.find((a) => a.key === algorithm)
     const canRun = alg !== null && meetRequirements(alg, graph)
@@ -619,16 +625,11 @@ const AlgorithmOptions = ({algorithm}) => {
 
 const AlgorithmRunner = () => {
     const dispatch = useDispatch();
-    const algorithm = useAlgorithmSelector();
-    const algorithmSelection = useSelector((s) => s.algorithmSelection);
+    const algorithm = useSelector(selectors.algorithmSelector);
+    const algorithmSelection = useSelector(selectors.algorithmSelectionSelector);
 
     const algorithmType = algorithm.type
-    const flags = useGraphSelector(g => g.flags)
-
-
-    const run = useCallback(() => {
-        dispatch(actions.runAlgorithm(algorithmSelection, {}))
-    }, [dispatch, algorithmSelection])
+    const flags = useSelector(graphFlagsSelector)
 
     const selectAlg = useCallback((evt) => {
         dispatch(actions.selectAlgorithm(evt.target.value))
@@ -657,7 +658,7 @@ const AlgorithmRunner = () => {
 
 const AlgorithmResult = () => {
     const dispatch = useDispatch();
-    const algorithm = useAlgorithmSelector()
+    const algorithm = useSelector(selectors.algorithmSelector)
 
 
     const stepFoward = useCallback(() => {
@@ -683,35 +684,37 @@ const AlgorithmResult = () => {
 }
 
 const Menu = () => {
-    const present = useSelector((s) => s.data.present)
+    const dispatch = useDispatch()
 
-    const selection = present.selection
+    const selection = useSelector(selectors.selectionSelector)
+    const properties = useSelector(selectors.graphPropertiesSelector)
+    const flags = useSelector(selectors.graphFlagsSelector)
     const nodes = selection.nodes
     const edges = selection.edges
     const empty = edges.length < 1 && nodes.length < 1
 
-    const properties = present.properties
+    const toggleSettings = useCallback((evt) => {
+        if(evt.target === evt.currentTarget) {
+            dispatch(actions.toggleSettings())
+        }
+    }, [dispatch])
+
+    const toggleDump = useCallback((evt) => {
+        if(evt.target === evt.currentTarget) {
+            dispatch(actions.toggleDump())
+        }
+    }, [dispatch])
 
     return <Scroller>
-            <Section>
-            <SectionTitle>Graph Options</SectionTitle>
-            <SectionBody>
-                <GraphOptions/>
-            </SectionBody>
-            </Section>
-
-
-            <Section>
-            <SectionTitle>View Options</SectionTitle>
-            <SectionBody>
-                <ViewOptions/>
-            </SectionBody>
-            </Section>
+            <ToolButton onClick={toggleSettings}>Settings</ToolButton>
+            <ToolButton onClick={toggleDump}>Dump</ToolButton>
 
             <Section>
             <SectionTitle>Properties</SectionTitle>
             <SectionBody>
             <DefinitionList>
+                <dt>Type</dt>
+                <dd>{flags.directed ? 'Directed' : 'Undirected'} {flags.multiGraph ? 'Multi-Graph' : 'Graph'}</dd>
                 {Object.keys(properties).map((prop) =>
                     <React.Fragment key={prop}>
                     <dt>{prop}</dt>
@@ -732,10 +735,6 @@ const Menu = () => {
             )}
             {empty ? <p>Nothing Selected</p> : null}
             </SectionBody>
-            </Section>
-            <Section>
-                <SectionTitle>Dump</SectionTitle>
-                <Dump value={present.graph} />
             </Section>
     </Scroller>
 }
@@ -797,7 +796,7 @@ const Canvas = ({children}) => {
     const posRef = useRef();
     const svgPos = useSVGPosition(posRef);
     const dispatch = useDispatch();
-    const camera = useSelector(cam);
+    const camera = useSelector(selectors.cameraSelector);
 
 
     const currentCamera = useRef(camera);
@@ -1219,11 +1218,11 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath}) =>
 
 const EdgeGrabber = ({nodeId, neighbourId, edgeIdx, edgePath, mouseDown}) => {
     const mouseDownCallback = useCallback(mouseDown ? (evt) => {
-        const nodeId = 1*evt.target.getAttribute('data-node-id')
+        const node = 1*evt.target.getAttribute('data-node-id')
         const x = 1*evt.target.getAttribute('data-x')
         const y = 1*evt.target.getAttribute('data-y')
         const control = 1*evt.target.getAttribute('data-control')
-        mouseDown(evt, nodeId, edgeIdx, x, y, control)
+        mouseDown(evt, node, edgeIdx, x, y, control)
     } : null, [mouseDown])
 
 
@@ -1267,7 +1266,6 @@ const EdgesManipulator = ({nodes, layout, selectEdge, deleteEdge}) => {
     )}
     </>
 }
-
 
 
 const EdgesGrabber = ({nodes, layout, grabEdge, selectedEdges}) => {
@@ -1344,9 +1342,7 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, layout, select
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const manipulation = useSelector((state) => state.pathManipulator)
-
-
+    const manipulation = useSelector(selectors.pathManipulatorSelector)
 
     const manipulationRef = useRef(manipulation)
 
@@ -1431,18 +1427,17 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, layout, select
 const GraphManipulator = ({box, layout}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
-    const graph = useGraphSelector()
+    const graph = useSelector(selectors.graphSelector)
 
-    const selection = useSelectionSelector()
+    const selection = useSelector(selectors.selectionSelector)
 
     const flags = (graph.flags)
-    const selectedNodes = selection.nodes
     const selectedEdges = selection.edges
     const nodes = (graph.nodes)
     const positions = (graph.attributes.nodes.position)
     const paths = (graph.attributes.edges.path)
 
-    const manipulation = useSelector((state) => state.manipulator)
+    const manipulation = useSelector(selectors.manipulatorSelector)
 
 
     const manipulationRef = useRef(manipulation)
@@ -1702,7 +1697,7 @@ const EdgeSelectorLine = styled.path`
     cursor: default;
 `
 
-const NodeEdgeSelector = ({nodeId,edgeIndex,edgePath,onMouseDown,directed}) => {
+const NodeEdgeSelector = ({nodeId,edgeIndex,edgePath,onMouseDown}) => {
     const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
         onMouseDown(evt, nodeId, edgeIndex)
     } : null, [nodeId, edgeIndex, onMouseDown])
@@ -1725,13 +1720,13 @@ const GraphSelector = ({box, layout}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const flags = useGraphSelector(g => g.flags)
+    const flags = useSelector(selectors.graphFlagsSelector)
 
-    const nodes = useGraphSelector(g => g.nodes)
+    const nodes = useSelector(selectors.nodesSelector)
 
-    const positions = useGraphSelector(g => g.attributes.nodes.position)
+    const positions = useSelector(selectors.nodesPositionsSelector)
 
-    const range = useSelector((state) => state.selectionBox)
+    const range = useSelector(selectors.selectionBoxSelector)
 
 
 
@@ -1916,7 +1911,6 @@ const GraphLayerEdgeLabels = ({nodes, labels, labelKeys, layout}) => {
 }
 
 const Graph = ({box, layout}) => {
-    const dispatch = useDispatch()
     const excludedEdgeAttributes = ['path']
     const excludedNodeAttributes = ['position']
 
@@ -1963,7 +1957,7 @@ const AlgorithmStepperPolygon = styled.polygon`
     stroke-linecap: round;
 `
 
-const NodeEdgeStepper = ({directed, color, edgePath}) => {
+const NodeEdgeStepper = ({color, edgePath}) => {
     return <EdgeStepperLine stroke={color} d={edgePath.string} />
 }
 
@@ -2038,7 +2032,7 @@ const AlgorithmStepperEdgeLabels = ({nodes, edgeAttributes, layout, verticalOffs
     </>
 }
 
-const AlgorithmStepperEdgeColoring = ({directed, layout, nodes, colors}) => {
+const AlgorithmStepperEdgeColoring = ({layout, nodes, colors}) => {
     if(!colors) {
         return <></>;
     }
@@ -2051,7 +2045,6 @@ const AlgorithmStepperEdgeColoring = ({directed, layout, nodes, colors}) => {
                     return <NodeEdgeStepper
                             key={`${nodeId}-${edgeIdx}`}
                             edgePath={layout.edgePaths[nodeId][edgeIdx]}
-                            directed={directed}
                             color={color}
                         />
                 })
@@ -2060,15 +2053,14 @@ const AlgorithmStepperEdgeColoring = ({directed, layout, nodes, colors}) => {
 }
 
 const AlgorithmStepper = ({box, layout}) => {
-    const graph = useGraphSelector()
+    const graph = useSelector(selectors.graphSelector)
 
-    const flags = (graph.flags)
     const nodes = (graph.nodes)
     const positions = (graph.attributes.nodes.position)
     const visibleEdgeAttributesCount = Object.keys(graph.attributeTypes.edges).filter((e) => graph.attributeTypes.edges[e].visible).length
     const visibleNodeAttributesCount = Object.keys(graph.attributeTypes.nodes).filter((e) => graph.attributeTypes.nodes[e].visible).length
 
-    const algorithm = useSelector(state => state.data.present.algorithm)
+    const algorithm = useSelector(selectors.algorithmSelector)
 
 
 
@@ -2089,14 +2081,14 @@ const AlgorithmStepper = ({box, layout}) => {
             <AlgorithmStepperLines lines={step.lines} />
             <AlgorithmStepperNodeColoring positions={positions} colors={nodeColors} />
             <AlgorithmStepperNodeLabels verticalOffset={visibleNodeAttributesCount} positions={positions} nodeAttributes={nodeAttributes} />
-            <AlgorithmStepperEdgeColoring directed={flags.directed} positions={positions} layout={layout} nodes={nodes} colors={edgeColors} />
-            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} layout={layout} directed={flags.directed} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
+            <AlgorithmStepperEdgeColoring positions={positions} layout={layout} nodes={nodes} colors={edgeColors} />
+            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} layout={layout} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
         </g>
     }
 }
 
 const AlgorithmDetails = () => {
-    const algorithm = useSelector(state => state.data.present.algorithm)
+    const algorithm = useSelector(selectors.algorithmSelector)
 
 
     if(algorithm.result && algorithm.result.steps && algorithm.result.steps[algorithm.focus]) {
@@ -2141,10 +2133,10 @@ const NodeEdgeSelection = ({edgePath}) => {
 }
 
 const GraphSelection = ({layout}) => {
-    const selection = useSelectionSelector()
+    const selection = useSelector(selectors.selectionSelector)
     const selectedNodes = (selection.nodes)
     const selectedEdges = (selection.edges)
-    const positions = useGraphSelector(g => g.attributes.nodes.position)
+    const positions = useSelector(selectors.nodesPositionsSelector)
 
 
     return <g>
@@ -2182,33 +2174,91 @@ export default () => {
 
 const ProjectList = () => {
     const dispatch = useDispatch()
-    const showProjects = useSelector((s) => s.showProjects);
+    const showProjects = useSelector(selectors.showProjectsSelector);
     const savedGraphs = useProjectsSelector(state => state)
     const savedGraphNames = Object.keys(savedGraphs)
     const openGraph = useCallback((evt) => dispatch(actions.loadGraph(savedGraphs[evt.target.getAttribute('data-value')])), [savedGraphs])
+    const cancel = useCallback((evt) => {
+        if(evt.target === evt.currentTarget) {
+            dispatch(actions.toggleProjectList())
+        }
+    }, [])
 
-    return showProjects ? <Window>
-        <h1>Open Graph</h1>
-        <BigList>
-            {savedGraphNames.map((a, i) => <BigListItem key={i} onClick={openGraph} data-value={a}>{a}</BigListItem>)}
-        </BigList>
-    </Window> : null
+    return showProjects ? <Overlay onClick={cancel}>
+        <Window>
+            <span style={{cursor:'pointer'}} onClick={cancel}>Cancel</span>
+            <h1>Open Graph</h1>
+            <BigList>
+                {savedGraphNames.map((a, i) => <BigListItem key={i} onClick={openGraph} data-value={a}>{a}</BigListItem>)}
+            </BigList>
+        </Window>
+    </Overlay> : null
+}
+
+const Settings = () => {
+    const dispatch = useDispatch()
+    const showSettings = useSelector(selectors.showSettingsSelector);
+    const cancel = useCallback((evt) => {
+        if(evt.target === evt.currentTarget) {
+            dispatch(actions.toggleSettings())
+        }
+    }, [])
+
+    return showSettings ? <Overlay onClick={cancel}>
+        <Window>
+            <span style={{cursor:'pointer'}} onClick={cancel}>Close</span>
+            <Section>
+            <SectionTitle>Graph Options</SectionTitle>
+            <SectionBody>
+                <GraphOptions/>
+            </SectionBody>
+            </Section>
+
+
+            <Section>
+            <SectionTitle>View Options</SectionTitle>
+            <SectionBody>
+                <ViewOptions/>
+            </SectionBody>
+            </Section>
+        </Window>
+    </Overlay> : null
+}
+
+const DumpWindow = () => {
+    const dispatch = useDispatch()
+    const showDump = useSelector(selectors.showDumpSelector);
+    const graph = useSelector(selectors.graphSelector)
+
+    const cancel = useCallback((evt) => {
+        if(evt.target === evt.currentTarget) {
+            dispatch(actions.toggleDump())
+        }
+    }, [])
+
+    return showDump ? <Overlay onClick={cancel}>
+        <Window>
+            <span style={{cursor:'pointer'}} onClick={cancel}>Close</span>
+
+            <h1>Dump</h1>
+            <Dump value={graph} />
+        </Window>
+    </Overlay> : null
 }
 
 const GraphEditor = () => {
     const dispatch = useDispatch();
-    const graph = useGraphSelector();
 
-    const box = useSelector((s) => s.camera.box);
+    const box = useSelector(selectors.cameraBoxSelector);
 
-    const error = useSelector((s) => s.data.present.error);
-    const layout = useSelector((s) => s.layout);
+    const error = useSelector(selectors.errorSelector);
+    const layout = useSelector(selectors.layoutSelector);
 
     const selectTool = useCallback((tool) => {
         dispatch(actions.selectTool(tool))
     }, [dispatch])
 
-    const currentTool = useSelector((s) => s.toolSelection)
+    const currentTool = useSelector(selectors.toolSelectionSelector)
 
     const tools = {
         select: 'Select',
@@ -2242,6 +2292,8 @@ const GraphEditor = () => {
                 />
             </Canvas>
             <ProjectList />
+            <Settings />
+            <DumpWindow />
             <AlgorithmDetails />
         </Container>;
 }
