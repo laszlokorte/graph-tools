@@ -427,8 +427,6 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
 const EdgeDetails = ({nodeId, edgeIndex}) => {
     const dispatch = useDispatch()
 
-    const graph = useSelector(selectors.graphSelector)
-
     const target = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIndex))
     const attributes =  useSelector(selectors.edgeAttributeTypesSelector)
     const flags = useSelector(selectors.graphFlagsSelector)
@@ -1075,7 +1073,8 @@ const EdgeHead = ({x,y, angle, disabled = false}) => {
 	</>
 }
 
-const Node = ({x, y, nodeType = 'circle', nodeId, selected = false, style = {}, labelStyle = {}, onClick = null, onDoubleClick = null}) => {
+const Node = ({nodeType = 'circle', nodeId, style = {}, onClick = null, onDoubleClick = null}) => {
+    const pos = useSelector(selectors.nodePositionSelector(nodeId))
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId)
     } : null, [nodeId, onClick]);
@@ -1086,13 +1085,15 @@ const Node = ({x, y, nodeType = 'circle', nodeId, selected = false, style = {}, 
 
     return <g style={style} onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
         {nodeType === 'circle' ?
-            <NodeCircle cx={x} cy={y} r={20}/> :
-            <NodeBox x={x - 17} y={y - 17} width={34} height={34}/>
+            <NodeCircle cx={pos.x} cy={pos.y} r={20}/> :
+            <NodeBox x={pos.x - 17} y={pos.y - 17} width={34} height={34}/>
         }
     </g>
 }
 
-const Edge = ({nodeId, edgeIndex = null, edgePath, onClick = null, onDoubleClick = null, style = null, directed = true, disabled=false}) => {
+const Edge = ({nodeId, edgeIndex = null, onClick = null, onDoubleClick = null, style = null, disabled=false}) => {
+    const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIndex))
+    const flags = useSelector(selectors.graphFlagsSelector)
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId, edgeIndex)
     } : null, [nodeId, edgeIndex, onClick])
@@ -1103,7 +1104,7 @@ const Edge = ({nodeId, edgeIndex = null, edgePath, onClick = null, onDoubleClick
 
 	return <g onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
 		<g style={style}>
-        {directed ?
+        {flags.directed ?
             <EdgeHead disabled={disabled} x={edgePath.tip.x} y={edgePath.tip.y} angle={edgePath.tip.angle} />
             :null
         }
@@ -1112,20 +1113,15 @@ const Edge = ({nodeId, edgeIndex = null, edgePath, onClick = null, onDoubleClick
 	</g>
 }
 
-const NodeEdge = ({nodeId, edgeIndex, edgePath, onClick = null, onDoubleClick = null, style = null, directed = true}) => {
-    return <Edge
-        nodeId={nodeId}
-        edgeIndex={edgeIndex}
-        edgePath={edgePath}
-        onClick={onClick}
-        onDoubleClick={onDoubleClick}
-        style={style}
-        directed={directed}
-    />
-}
-
-const NewEdge = ({loop = false, x0, y0, x1, y1, directed = true, offset=false, angle = 0}) => {
-    const path = freeEdgePath(20, loop, x0, y0, x1, y1, angle, directed, offset)
+const NewEdge = ({loop = false, startNode, endNode, startX, startY, endX, endY, offset=false, angle = 0}) => {
+    const startPos = useSelector(selectors.nodePositionSelector(startNode))
+    const endPos = useSelector(selectors.nodePositionSelector(endNode))
+    const x0 = startPos ? startPos.x : startX
+    const y0 = startPos ? startPos.y : startY
+    const x1 = endPos ? endPos.x : endX
+    const y1 = endPos ? endPos.y : endY
+    const flags = useSelector(selectors.graphFlagsSelector)
+    const path = freeEdgePath(20, loop, x0, y0, x1, y1, angle, flags.directed, offset)
 
     let pathString = "M" + path.points[0] + ' ' + path.points[1];
 
@@ -1135,7 +1131,7 @@ const NewEdge = ({loop = false, x0, y0, x1, y1, directed = true, offset=false, a
 
     return <>
         <path pointerEvents="none" fill="none" d={pathString} stroke="black" />
-        {directed ? <EdgeHead angle={path.tip.angle} x={path.tip.x} y={path.tip.y} disabled={true} /> : null}
+        {flags.directed ? <EdgeHead angle={path.tip.angle} x={path.tip.x} y={path.tip.y} disabled={true} /> : null}
     </>;
 }
 
@@ -1143,7 +1139,15 @@ const NewNode = ({x, y}) => {
     return <NewNodeCircle style={{cursor:'copy'}} r="20" cx={x} cy={y} />
 }
 
-const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onDoubleClick=null, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
+const NodeManipulator = ({x = null,y = null,nodeId,snapped=false,active=false,onClick=null,onDoubleClick=null, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
+    const pos = useSelector(selectors.nodePositionSelector(nodeId))
+
+    if(x === null || y === null) {
+        x = pos.x
+        y = pos.y
+    }
+
+
     const mouseDownConnectCallback = useCallback(mouseDownConnect ? (evt) => {
         mouseDownConnect(evt, nodeId, x, y)
     } : null, [nodeId, mouseDownConnect, x, y])
@@ -1197,7 +1201,7 @@ const NodeManipulator = ({x,y,nodeId,snapped=false,active=false,onClick=null,onD
     </g>
 }
 
-const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath}) => {
+const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx}) => {
     const onClickCallback = useCallback((evt) => {
         evt.preventDefault();
         selectEdge(evt, nodeId, edgeIdx)
@@ -1208,6 +1212,8 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath}) =>
         deleteEdge(evt, nodeId, edgeIdx)
     }, [deleteEdge, nodeId, edgeIdx])
 
+    const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
+
 
     return <EdgeSelectorLine
         onMouseDown={onClickCallback}
@@ -1216,7 +1222,10 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx, edgePath}) =>
     />
 }
 
-const EdgeGrabber = ({nodeId, neighbourId, edgeIdx, edgePath, mouseDown}) => {
+const EdgeGrabber = ({nodeId, edgeIdx, mouseDown}) => {
+    const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
+    const neighbourId = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIdx))
+
     const mouseDownCallback = useCallback(mouseDown ? (evt) => {
         const node = 1*evt.target.getAttribute('data-node-id')
         const x = 1*evt.target.getAttribute('data-x')
@@ -1249,7 +1258,9 @@ const EdgeGrabber = ({nodeId, neighbourId, edgeIdx, edgePath, mouseDown}) => {
     }
 }
 
-const EdgesManipulator = ({nodes, layout, selectEdge, deleteEdge}) => {
+const EdgesManipulator = ({selectEdge, deleteEdge}) => {
+    const nodes = useSelector(selectors.nodesSelector)
+
     return <>
     {nodes.map((neighbors, nodeId) =>
         neighbors.map((neighbourId, edgeIdx) => {
@@ -1260,7 +1271,6 @@ const EdgesManipulator = ({nodes, layout, selectEdge, deleteEdge}) => {
                 selectEdge={selectEdge}
                 nodeId={nodeId}
                 edgeIdx={edgeIdx}
-                edgePath={layout.edgePaths[nodeId][edgeIdx]}
             />
         })
     )}
@@ -1268,21 +1278,19 @@ const EdgesManipulator = ({nodes, layout, selectEdge, deleteEdge}) => {
 }
 
 
-const EdgesGrabber = ({nodes, layout, grabEdge, selectedEdges}) => {
+const EdgesGrabber = ({grabEdge}) => {
+    const selectedEdges = useSelector(selectors.selectedEdgesSelector)
+
     return <>
         {selectedEdges.map((e) => {
             const nodeId = e[0];
             const edgeIdx = e[1];
-            const neighbourId = nodes[nodeId][edgeIdx];
-
 
             return <EdgeGrabber
                 key={nodeId + '-' + edgeIdx}
                 mouseDown={grabEdge}
                 nodeId={nodeId}
-                neighbourId={neighbourId}
                 edgeIdx={edgeIdx}
-                edgePath={layout.edgePaths[nodeId][edgeIdx]}
             />
         })}
     </>
@@ -1338,10 +1346,14 @@ const EdgePathManipulator = ({nodeId, edgeIdx, controls, edgePath, mouseDownCont
     return result;
 }
 
-const EdgesPathManipulator = ({nodes, directed, positions, paths, layout, selectedEdges}) => {
+const EdgesPathManipulator = ({}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
+    const paths = useSelector(selectors.edgesPathsSelector)
+    const layout = useSelector(selectors.layoutSelector)
+
+    const selectedEdges = useSelector(selectors.selectedEdgesSelector)
     const manipulation = useSelector(selectors.pathManipulatorSelector)
 
     const manipulationRef = useRef(manipulation)
@@ -1396,11 +1408,6 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, layout, select
         {selectedEdges.map((e) => {
             const nodeId = e[0];
             const edgeIdx = e[1];
-            const neighbourId = nodes[nodeId][edgeIdx];
-
-            if(nodeId == neighbourId) {
-                return null;
-            }
 
             return <g key={nodeId + '-' + edgeIdx}>
                 {
@@ -1411,36 +1418,31 @@ const EdgesPathManipulator = ({nodes, directed, positions, paths, layout, select
                         key={nodeId + '-' + edgeIdx}
                         edgePath={layout.edgePaths[nodeId][edgeIdx]}
                         controls={paths[nodeId][edgeIdx]}
-                        endPosition={positions[neighbourId]}
                         nodeId={nodeId}
                         edgeIdx={edgeIdx}
                         mouseDownControl={mouseDownControl}
-                        doubleClickControl={doubleClickControl}
-                        directed={directed} />
+                        doubleClickControl={doubleClickControl} />
             </g>
         })}
     </>
 }
 
 
+const maybourNeighbourSelector = (node, edge) =>
+    node !== null && edge !== null ?
+    selectors.neighbourNodeSelector(node, edge) :
+    () => null
 
 const GraphManipulator = ({box, layout}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
-    const graph = useSelector(selectors.graphSelector)
 
-    const selection = useSelector(selectors.selectionSelector)
-
-    const flags = (graph.flags)
-    const selectedEdges = selection.edges
-    const nodes = (graph.nodes)
-    const positions = (graph.attributes.nodes.position)
-    const paths = (graph.attributes.edges.path)
+    const nodeCount = useSelector(selectors.nodeCountSelector)
 
     const manipulation = useSelector(selectors.manipulatorSelector)
-
-
     const manipulationRef = useRef(manipulation)
+
+    const endNode = useSelector(maybourNeighbourSelector(manipulation.connectionStart, manipulation.edgeIndex))
 
     useLayoutEffect(() => {
         manipulationRef.current = manipulation
@@ -1570,12 +1572,12 @@ const GraphManipulator = ({box, layout}) => {
 
     return <g>
         <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
-        {nodes.map((neighbors, nodeId) =>
+        {Array(nodeCount).fill(null).map((_, nodeId) =>
             <NodeManipulator
                 key={nodeId}
                 nodeId={nodeId}
-                x={manipulation.movingNode === nodeId ? (manipulation.x + manipulation.offsetX) : positions[nodeId].x}
-                y={manipulation.movingNode === nodeId ? (manipulation.y + manipulation.offsetY) : positions[nodeId].y}
+                x={manipulation.movingNode === nodeId ? (manipulation.x + manipulation.offsetX) : null}
+                y={manipulation.movingNode === nodeId ? (manipulation.y + manipulation.offsetY) : null}
                 mouseDownConnect={connectStart}
                 mouseDownMove={moveStart}
                 mouseMove={snap}
@@ -1588,31 +1590,19 @@ const GraphManipulator = ({box, layout}) => {
             manipulation.x === null && manipulation.y === null &&
             manipulation.connectionStart === null && manipulation.movingNode === null ?
             <EdgesManipulator
-                nodes={nodes}
-                layout={layout}
                 selectEdge={selectEdge}
                 deleteEdge={deleteEdge}
             /> : null
         }
         {
             <EdgesGrabber
-                nodes={nodes}
                 grabEdge={onGrabEdge}
-                layout={layout}
-                selectedEdges={selectedEdges}
             />
         }
         {
             manipulation.x === null && manipulation.y === null &&
             manipulation.connectionStart === null && manipulation.movingNode === null ?
-            <EdgesPathManipulator
-                nodes={nodes}
-                directed={flags.directed}
-                positions={positions}
-                paths={paths}
-                layout={layout}
-                selectedEdges={selectedEdges}
-            /> : null
+            <EdgesPathManipulator/> : null
         }
         {(manipulation.connectionStart === null || manipulation.edgeIndex !== null) ? (
             (manipulation.movingNode !== null || manipulation.x === null || manipulation.y === null || manipulation.connectionStart !== null) ? null :
@@ -1623,21 +1613,16 @@ const GraphManipulator = ({box, layout}) => {
         ) : manipulation.connectionSnap !== null ?
             <NewEdge
                     loop={manipulation.connectionStart == manipulation.connectionSnap}
-                    x0={positions[manipulation.connectionStart].x}
-                    y0={positions[manipulation.connectionStart].y}
-                    x1={positions[manipulation.connectionSnap].x}
-                    y1={positions[manipulation.connectionSnap].y}
-                    directed={flags.directed}
+                    startNode={manipulation.connectionStart}
+                    endNode={manipulation.connectionSnap}
                     offset={true}
                     angle={layout.nodeAngles[manipulation.connectionStart]}
                 />
          :
             <NewEdge
-                    x0={positions[manipulation.connectionStart].x}
-                    y0={positions[manipulation.connectionStart].y}
-                    x1={manipulation.x}
-                    y1={manipulation.y}
-                    directed={flags.directed}
+                    startNode={manipulation.connectionStart}
+                    endX={manipulation.x}
+                    endY={manipulation.y}
                     angle={0}
                 />
         }
@@ -1650,21 +1635,17 @@ const GraphManipulator = ({box, layout}) => {
             />,
             <NewEdge
                 key="midpoint-pre-edge"
-                x0={positions[manipulation.connectionStart].x}
-                y0={positions[manipulation.connectionStart].y}
-                x1={manipulation.x + manipulation.offsetX}
-                y1={manipulation.y + manipulation.offsetY}
-                directed={flags.directed}
+                startNode={manipulation.connectionStart}
+                endX={manipulation.x + manipulation.offsetX}
+                endY={manipulation.y + manipulation.offsetY}
                 offset={true}
                 angle={0}
             />,
             <NewEdge
                 key="midpoint-post-edge"
-                x0={manipulation.x + manipulation.offsetX}
-                y0={manipulation.y + manipulation.offsetY}
-                x1={positions[nodes[manipulation.connectionStart][manipulation.edgeIndex]].x}
-                y1={positions[nodes[manipulation.connectionStart][manipulation.edgeIndex]].y}
-                directed={flags.directed}
+                startX={manipulation.x + manipulation.offsetX}
+                startY={manipulation.y + manipulation.offsetY}
+                endNode={endNode}
                 offset={true}
                 angle={0}
             />,
@@ -1681,12 +1662,13 @@ const NodeSelectionCircle = styled.circle`
     pointer-events: all;
 `
 
-const NodeSelector = ({nodeId, x, y, onMouseDown}) => {
+const NodeSelector = ({nodeId, onMouseDown}) => {
+    const pos = useSelector(selectors.nodePositionSelector(nodeId))
     const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
         onMouseDown(evt, nodeId)
     } : null, [nodeId, onMouseDown]);
 
-    return <NodeSelectionCircle cx={x} cy={y} r="20" onMouseDown={onMouseDownCallback} />
+    return <NodeSelectionCircle cx={pos.x} cy={pos.y} r="20" onMouseDown={onMouseDownCallback} />
 }
 
 const EdgeSelectorLine = styled.path`
@@ -1697,7 +1679,8 @@ const EdgeSelectorLine = styled.path`
     cursor: default;
 `
 
-const NodeEdgeSelector = ({nodeId,edgeIndex,edgePath,onMouseDown}) => {
+const NodeEdgeSelector = ({nodeId,edgeIndex,onMouseDown}) => {
+    const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIndex))
     const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
         onMouseDown(evt, nodeId, edgeIndex)
     } : null, [nodeId, edgeIndex, onMouseDown])
@@ -1720,15 +1703,9 @@ const GraphSelector = ({box, layout}) => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
-    const flags = useSelector(selectors.graphFlagsSelector)
-
-    const nodes = useSelector(selectors.nodesSelector)
-
-    const positions = useSelector(selectors.nodesPositionsSelector)
+    const nodeCount = useSelector(selectors.nodeCountSelector)
 
     const range = useSelector(selectors.selectionBoxSelector)
-
-
 
     const selectNode = useCallback((evt, nodeId) => {
         dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
@@ -1783,23 +1760,6 @@ const GraphSelector = ({box, layout}) => {
         }
     },[mouseMove])
 
-    // const sin = Math.sin(camera.rotation * Math.PI / 180)
-    // const cos = Math.cos(camera.rotation * Math.PI / 180)
-
-    // const dx = range.x1 - range.x0
-    // const dy = range.y1 - range.y0
-    // const ax = cos
-    // const ay = -sin
-    // const bx = sin
-    // const by = cos
-    // const boxWidth = ax * dx + ay * dy
-    // const boxHeight = bx * dx + by * dy
-
-    // const ps = `${range.x0 + 0} ${range.y0 + 0}
-    // ${range.x0 + cos * 0 + sin * boxHeight} ${range.y0 -sin * 0 + cos * boxHeight}
-    //  ${range.x0 + cos * boxWidth + sin * boxHeight} ${range.y0 -sin * boxWidth + cos * boxHeight}
-    //  ${range.x0 + cos * boxWidth + sin * 0} ${range.y0 -sin * boxWidth + cos * 0}`;
-
     const ps2 = `${range.x0} ${range.y0}
     ${range.x0} ${range.y1}
      ${range.x1} ${range.y1}
@@ -1812,102 +1772,138 @@ const GraphSelector = ({box, layout}) => {
         {range.x0 === null ? null :
             <SelectionBox ref={rect} points={ps2} />
         }
-        {nodes.map((neighbors, nodeId) => {
-            return <NodeSelector
-                key={nodeId}
-                nodeId={nodeId}
-                x={positions[nodeId].x}
-                y={positions[nodeId].y}
-                onMouseDown={selectNode}
-            />
-        }
-
-        )}
-        {nodes.map((neighbors, nodeId) =>
-            neighbors.map((neighbourId, edgeIdx) => {
-                return <NodeEdgeSelector
-                        nodeId={nodeId}
-                        edgeIndex={edgeIdx}
-                        key={`${nodeId}-${edgeIdx}`}
-                        edgePath={layout.edgePaths[nodeId][edgeIdx]}
-                        onMouseDown={selectEdge}
-                        directed={flags.directed}
-                    />;
-            })
-        )}
+        {Array(nodeCount).fill(null).map((_, nodeId) => {
+            return <React.Fragment key={nodeId}>
+                <NodeSelector
+                    nodeId={nodeId}
+                    onMouseDown={selectNode}
+                />
+                <NodeEdgesSelector nodeId={nodeId} selectEdge={selectEdge} />
+            </React.Fragment>
+        })}
     </g>
+}
+
+const NodeEdgesSelector = ({nodeId, selectEdge}) => {
+    const neighbors = useSelector(selectors.neighboursSelector(nodeId))
+
+    return <>
+        {neighbors.map((neighbourId, edgeIdx) => {
+            return <NodeEdgeSelector
+                    nodeId={nodeId}
+                    edgeIndex={edgeIdx}
+                    key={`${nodeId}-${edgeIdx}`}
+                    onMouseDown={selectEdge}
+                />;
+        })}
+    </>
 }
 
 const GraphLayerNodes = ({positions}) => {
-    return <>
-        {positions.map((pos, nodeId) => {
+    const nodeCount = useSelector(selectors.nodeCountSelector)
+    return <React.Fragment>
+        {Array(nodeCount).fill(null).map((pos, nodeId) => {
             return <Node
                 key={nodeId}
                 nodeId={nodeId}
-                x={pos.x}
-                y={pos.y}
             />
         })}
-    </>
+    </React.Fragment>
 }
 
-const GraphLayerEdges = ({directed, nodes, layout}) => {
+const GraphLayerEdges = () => {
+    const nodeCount = useSelector(selectors.nodeCountSelector)
+
     return <>
-        {nodes.map((neighbors, nodeId) =>
-            neighbors.map((neighbourId, edgeIdx) => {
-                return <NodeEdge
-                        nodeId={nodeId}
-                        edgeIndex={edgeIdx}
-                        key={`${nodeId}-${edgeIdx}`}
-                        edgePath={layout.edgePaths[nodeId][edgeIdx]}
-                        directed={directed}
-                    />
-            })
+        {Array(nodeCount).fill(null).map((_, nodeId) =>
+            <GraphLayerNodeEdges
+                nodeId={nodeId}
+                key={nodeId}
+            />
         )}
     </>
 }
 
-const GraphLayerNodeLabels = ({positions, labels, labelKeys}) => {
+const GraphLayerNodeEdges = ({nodeId}) => {
+    const edgeCount = useSelector(selectors.neighbourCountSelector(nodeId))
+
+    return <>
+        {Array(edgeCount).fill(null).map((_, edgeIdx) =>
+            <Edge
+                nodeId={nodeId}
+                edgeIndex={edgeIdx}
+                key={edgeIdx}
+            />)
+        }
+    </>
+}
+
+const GraphLayerNodeLabels = ({labels, labelKeys}) => {
+    const nodeCount = useSelector(selectors.nodeCountSelector)
+
     return <g>
-        {labelKeys.map((k, i) => {
-            return <g key={k}>
-                {positions.map((pos, nodeId) => {
-                    return <React.Fragment
-                            key={nodeId}>
-                        <NodeLabelKey
-                            x={pos.x}
-                            y={30 + pos.y}
-                            dy={20 * (0.5 + i)}
-                        >{k}: </NodeLabelKey>
-                        <NodeLabelValue
-                            x={pos.x}
-                            y={30 + pos.y}
-                            dx={6}
-                            dy={20 * (0.5 + i)}
-                        >{JSON.stringify(labels[k][nodeId])}</NodeLabelValue>
-                    </React.Fragment>
-                })}
+        {labelKeys.map((k, i) =>
+            <g key={k}>
+                {Array(nodeCount).fill(null).map((_, nodeId) =>
+                    <GraphLayoutSigleNodeLabel nodeId={nodeId} labelIndex={i} labelKey={k} />
+                )}
             </g>
-        })}
+        )}
     </g>
 }
 
-const GraphLayerEdgeLabels = ({nodes, labels, labelKeys, layout}) => {
+const GraphLayoutSigleNodeLabel = ({nodeId, labelIndex, labelKey}) => {
+    const pos = useSelector(selectors.nodePositionSelector(nodeId))
+    const labelValue = useSelector(selectors.nodeAttributeValueSelector(labelKey, nodeId))
+    return <React.Fragment
+            key={nodeId}>
+        <NodeLabelKey
+            x={pos.x}
+            y={30 + pos.y}
+            dy={20 * (0.5 + labelIndex)}
+        >{k}: </NodeLabelKey>
+        <NodeLabelValue
+            x={pos.x}
+            y={30 + pos.y}
+            dx={6}
+            dy={20 * (0.5 + labelIndex)}
+        >{JSON.stringify(labelValue)}</NodeLabelValue>
+    </React.Fragment>
+}
+
+
+const GraphLayerEdgeLabels = ({labelKeys}) => {
+    const nodeCount = useSelector(selectors.nodeCountSelector)
+
     return <>
         {labelKeys.map((k, kdx) => {
             return <g key={k}>
-                {nodes.map((neighbors, nodeId) =>
-                    neighbors.map((neighbourId, edgeIdx) => {
-                        const e = layout.edgePaths[nodeId][edgeIdx];
-                        return <EdgeLabel key={nodeId + '-' + edgeIdx} x={e.text.x + 10 * e.text.normX - Math.abs(10 * e.text.normY)} y={e.text.y + 10 * (0.5+e.text.normY)} dy={15 * (0.5 + kdx) - 15 * (1-e.text.normY) * 0.5*labelKeys.length} orientation={e.text.orientation}>
-                            <EdgeLabelKey>{k}:</EdgeLabelKey>
-                            <EdgeLabelValue dx={5}>{String(labels[k][nodeId][edgeIdx])}</EdgeLabelValue>
-                        </EdgeLabel>
-                    })
+                {Array(nodeCount).fill(0).map((neighbors, nodeId) =>
+                    <GraphLayerNodeEdgeLabels key={nodeId} nodeId={nodeId} labelCount={labelKeys.length} labelKey={k} labelIndex={kdx} />
                 )}
             </g>
         })}
     </>
+}
+
+const GraphLayerNodeEdgeLabels = ({nodeId, labelKey, labelIndex, labelCount}) => {
+    const edgeCount = useSelector(selectors.neighbourCountSelector(nodeId))
+    return <>
+        {
+            Array(edgeCount).fill(null).map((_, edgeIdx) =>
+                <GraphLayerNodeEdgeLabel key={edgeIdx} nodeId={nodeId} edgeIdx={edgeIdx} labelCount={labelCount} labelKey={labelKey} labelIndex={labelIndex} />
+            )
+        }
+    </>
+}
+
+const GraphLayerNodeEdgeLabel = ({nodeId, edgeIdx, labelKey, labelIndex, labelCount}) => {
+    const labelValue = useSelector(selectors.edgeAttributeValueSelector(labelKey, nodeId, edgeIdx))
+    const e = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
+    return <EdgeLabel key={nodeId + '-' + edgeIdx} x={e.text.x + 10 * e.text.normX - Math.abs(10 * e.text.normY)} y={e.text.y + 10 * (0.5+e.text.normY)} dy={15 * (0.5 + labelIndex) - 15 * (1-e.text.normY) * 0.5*labelCount} orientation={e.text.orientation}>
+        <EdgeLabelKey>{labelKey}:</EdgeLabelKey>
+        <EdgeLabelValue dx={5}>{labelValue}</EdgeLabelValue>
+    </EdgeLabel>
 }
 
 const Graph = ({box, layout}) => {
@@ -1918,7 +1914,6 @@ const Graph = ({box, layout}) => {
 
     const flags = (graph.flags)
     const nodes = (graph.nodes)
-    const positions = (graph.attributes.nodes.position)
 
     const nodeAttributes = (graph.attributes.nodes)
     const visibleNodeAttributes = Object.keys(graph.attributeTypes.nodes).filter((n) => !excludedNodeAttributes.includes(n) && graph.attributeTypes.nodes[n].visible)
@@ -1928,10 +1923,10 @@ const Graph = ({box, layout}) => {
 
     return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
-        <GraphLayerNodes positions={positions} />
-        <GraphLayerEdges layout={layout} directed={flags.directed} nodes={nodes} />
-        <GraphLayerNodeLabels positions={positions} labels={nodeAttributes} labelKeys={visibleNodeAttributes} />
-        <GraphLayerEdgeLabels layout={layout}  nodes={nodes} positions={positions} labels={edgeAttributes} labelKeys={visibleEdgeAttributes} />
+        <GraphLayerNodes />
+        <GraphLayerEdges />
+        <GraphLayerNodeLabels labels={nodeAttributes} labelKeys={visibleNodeAttributes} />
+        <GraphLayerEdgeLabels labelKeys={visibleEdgeAttributes} />
     </g>
 }
 
@@ -2123,12 +2118,14 @@ const AlgorithmDetails = () => {
 }
 
 
-const NodeSelection = ({x,y}) => {
-    return <NodeCircleSelection cx={x} cy={y} r={20} />
+const NodeSelection = ({nodeId}) => {
+    const pos = useSelector(selectors.nodePositionSelector(nodeId))
+    return <NodeCircleSelection cx={pos.x} cy={pos.y} r={20} />
 }
 
 
-const NodeEdgeSelection = ({edgePath}) => {
+const NodeEdgeSelection = ({nodeId, edgeIdx}) => {
+    const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
     return <EdgeSelectionLine d={edgePath.string} />
 }
 
@@ -2136,12 +2133,10 @@ const GraphSelection = ({layout}) => {
     const selection = useSelector(selectors.selectionSelector)
     const selectedNodes = (selection.nodes)
     const selectedEdges = (selection.edges)
-    const positions = useSelector(selectors.nodesPositionsSelector)
-
 
     return <g>
         {selectedNodes.map((nodeId, i) => {
-            return <NodeSelection key={i} x={positions[nodeId].x} y={positions[nodeId].y} />
+            return <NodeSelection nodeId={nodeId} key={i} />
         })}
         {selectedEdges.map((e) => {
             const from = e[0];
@@ -2149,7 +2144,8 @@ const GraphSelection = ({layout}) => {
 
             return <NodeEdgeSelection
                 key={`${from}-${edgeIdx}`}
-                edgePath={layout.edgePaths[from][edgeIdx]}
+                nodeId={from}
+                edgeIdx={edgeIdx}
             />;
         })}
     </g>

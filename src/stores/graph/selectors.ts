@@ -119,6 +119,7 @@ export const nodesPositionsSelector = allNodesAttributeValueSelector('position')
 export const nodePositionSelector = (nodeId) => nodeAttributeValueSelector('position', nodeId)
 export const edgesPathsSelector = allEdgesAttributeValueSelector('path')
 export const edgePathSelector = (nodeId, edgeIdx) => edgeAttributeValueSelector('path', nodeId, edgeIdx)
+export const edgePathLayoutSelector = (nodeId, edgeIdx) => createSelector(layoutSelector, (layout) => layout.edgePaths[nodeId][edgeIdx])
 
 
 export const prevMultiEdgeIndex = (nodeId, edgeIndex) => createSelector(
