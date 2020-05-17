@@ -5,7 +5,7 @@
         "removeComments": true,
         "preserveConstEnums": true,
         "sourceMap": true,
-        "jsx": true
+        "jsx": "react"
     },
     "include": [
         "src/**/*"

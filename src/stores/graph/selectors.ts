@@ -161,9 +161,20 @@ export const visibleNodeAttributesSelector = createSelector(
     (attrs) => Object.keys(attrs).filter((n) => !['position'].includes(n) && attrs[n].visible)
 )
 
+
+export const visibleNodeAttributesCountSelector = createSelector(
+    nodeAttributesSelector,
+    (attrs) => Object.keys(attrs).filter((n) => !['position'].includes(n) && attrs[n].visible).length
+)
+
 export const visibleEdgeAttributesSelector = createSelector(
     edgeAttributesSelector,
     (attrs) => Object.keys(attrs).filter((n) => !['path'].includes(n) && attrs[n].visible)
+)
+
+export const visibleEdgeAttributesCountSelector = createSelector(
+    edgeAttributesSelector,
+    (attrs) => Object.keys(attrs).filter((n) => !['path'].includes(n) && attrs[n].visible).length
 )
 
 export const manipulatorStartNodeAngleSelector = createSelector(
@@ -176,4 +187,51 @@ export const manipulatorStartNodeAngleSelector = createSelector(
             return 0
         }
     }
+)
+
+export const algorithmStepEdgeLabel = (nodeId, edgeIdx, labelKey) => createSelector(
+    algorithmSelector,
+    (alg) => alg.result.steps[alg.focus].edges[labelKey][nodeId][edgeIdx]
+)
+
+export const algorithmStepNodeLabel = (nodeId, labelKey) => createSelector(
+    algorithmSelector,
+    (alg) => alg.result.steps[alg.focus].nodes[labelKey][nodeId]
+)
+
+export const algorithmStepEdgeLabels = createSelector(
+    algorithmSelector,
+    (alg) => Object.keys(alg.result.steps[alg.focus].edges)
+)
+
+export const algorithmStepNodeLabels = createSelector(
+    algorithmSelector,
+    (alg) => Object.keys(alg.result.steps[alg.focus].nodes)
+)
+
+export const algorithmStepNoeColor = (nodeId) => algorithmStepNodeLabel(nodeId, 'color')
+
+export const algorithmStepHasEdgeColors = createSelector(
+    algorithmSelector,
+    (alg) => !!alg.result.steps[alg.focus].edges.color
+)
+
+export const algorithmStepHasNodeColors = createSelector(
+    algorithmSelector,
+    (alg) => !!alg.result.steps[alg.focus].nodes.color
+)
+
+export const algorithmStepPolygons = createSelector(
+    algorithmSelector,
+    (alg) => alg.result.steps[alg.focus].polygons
+)
+
+export const algorithmStepLines = createSelector(
+    algorithmSelector,
+    (alg) => alg.result.steps[alg.focus].lines
+)
+
+export const algorithmHasResult = createSelector(
+    algorithmSelector,
+    (alg) => alg && alg.result && alg.result.steps && alg.result.steps.length > 0
 )

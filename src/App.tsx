@@ -1293,15 +1293,18 @@ const EdgesGrabber = ({grabEdge}) => {
 
 
 
-const EdgePathManipulator = ({nodeId, edgeIdx, controls, edgePath, mouseDownControl, doubleClickControl}) => {
+const EdgePathManipulator = ({nodeId, edgeIdx, mouseDownControl, doubleClickControl}) => {
     const result = [];
+
+    const controls = useSelector(selectors.edgePathSelector(nodeId, edgeIdx))
+    const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
 
     const mouseDownNew = useCallback((evt) => {
         evt.stopPropagation();
         const c = 1*evt.target.getAttribute('data-c');
         const x = 1*evt.target.getAttribute('data-x');
         const y = 1*evt.target.getAttribute('data-y');
-        mouseDownControl(nodeId, edgeIdx, c, x, y, true)
+        mouseDownControl(nodeId, edgeIdx, c, controls, x, y, true)
     }, [nodeId, edgeIdx, mouseDownControl, controls])
 
     const mouseDownExisting = useCallback((evt) => {
@@ -1309,12 +1312,12 @@ const EdgePathManipulator = ({nodeId, edgeIdx, controls, edgePath, mouseDownCont
         const c = 1*evt.target.getAttribute('data-c');
         const x = 1*evt.target.getAttribute('data-x');
         const y = 1*evt.target.getAttribute('data-y');
-        mouseDownControl(nodeId, edgeIdx, c, x, y, false)
+        mouseDownControl(nodeId, edgeIdx, c, controls, x, y, false)
     }, [nodeId, edgeIdx, mouseDownControl, controls])
 
     const doubleClick = useCallback((evt) => {
         const c = 1*evt.target.getAttribute('data-c');
-        doubleClickControl(nodeId, edgeIdx, c, evt)
+        doubleClickControl(nodeId, edgeIdx, c, controls, evt)
     }, [nodeId, edgeIdx, doubleClickControl, controls])
 
     for (let i = 2; i < edgePath.curve.length - 5; i += 6)
@@ -1341,12 +1344,9 @@ const EdgePathManipulator = ({nodeId, edgeIdx, controls, edgePath, mouseDownCont
     return result;
 }
 
-const EdgesPathManipulator = ({}) => {
+const EdgesPathManipulator = () => {
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
-
-    const paths = useSelector(selectors.edgesPathsSelector)
-    const layout = useSelector(selectors.layoutSelector)
 
     const selectedEdges = useSelector(selectors.selectedEdgesSelector)
     const manipulation = useSelector(selectors.pathManipulatorSelector)
@@ -1383,21 +1383,19 @@ const EdgesPathManipulator = ({}) => {
         }
     }, [onMouseUp, onMouseMove])
 
-    const mouseDownControl = useCallback((nodeIdx, edgeIdx, controlIdx, x, y, init) => {
-        const oldPath = paths[nodeIdx][edgeIdx];
+    const mouseDownControl = useCallback((nodeIdx, edgeIdx, controlIdx, oldPath, x, y, init) => {
         if(init) {
             dispatch(actions.pathManipulatorCreate(nodeIdx, edgeIdx, controlIdx, oldPath, x, y))
         } else {
             dispatch(actions.pathManipulatorStartMove(nodeIdx, edgeIdx, controlIdx, oldPath, x, y))
         }
-    }, [paths, dispatch])
+    }, [dispatch])
 
-    const doubleClickControl = useCallback((n, e, c, evt) => {
+    const doubleClickControl = useCallback((n, e, c, oldPath, evt) => {
         evt.stopPropagation();
-        const oldPath = paths[n][e];
         const newPath = [...oldPath.slice(0, c*2), ...oldPath.slice(c*2 + 2)]
         dispatch(actions.setEdgeAttribute(n, e, 'path', newPath))
-    }, [paths, dispatch])
+    }, [dispatch])
 
     return <>
         {selectedEdges.map((e) => {
@@ -1411,8 +1409,6 @@ const EdgesPathManipulator = ({}) => {
                     : null }
                     <EdgePathManipulator
                         key={nodeId + '-' + edgeIdx}
-                        edgePath={layout.edgePaths[nodeId][edgeIdx]}
-                        controls={paths[nodeId][edgeIdx]}
                         nodeId={nodeId}
                         edgeIdx={edgeIdx}
                         mouseDownControl={mouseDownControl}
@@ -1561,7 +1557,7 @@ const GraphManipulator = ({box, layout}) => {
 
     return <g>
         <rect style={{pointerEvents: 'all',cursor:'copy'}} onMouseDown={onMouseDown} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
-        {nodeIds.map((_, nodeId) =>
+        {nodeIds.map((nodeId) =>
             <NodeManipulator
                 key={nodeId}
                 nodeId={nodeId}
@@ -1757,7 +1753,7 @@ const GraphSelector = ({box, layout}) => {
         {range.x0 === null ? null :
             <SelectionBox ref={rect} points={ps2} />
         }
-        {nodeIds.map((_, nodeId) => {
+        {nodeIds.map((nodeId) => {
             return <React.Fragment key={nodeId}>
                 <NodeSelector
                     nodeId={nodeId}
@@ -1784,7 +1780,7 @@ const NodeEdgesSelector = ({nodeId, selectEdge}) => {
     </>
 }
 
-const GraphLayerNodes = ({}) => {
+const GraphLayerNodes = () => {
     const nodeIds = useSelector(selectors.nodeIdsSelector)
     return <React.Fragment>
         {nodeIds.map((pos, nodeId) => {
@@ -1797,10 +1793,10 @@ const GraphLayerNodes = ({}) => {
 }
 
 const GraphLayerEdges = () => {
-    const nodeCount = useSelector(selectors.nodeCountSelector)
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
 
     return <>
-        {Array(nodeCount).fill(null).map((_, nodeId) =>
+        {nodeIds.map((nodeId) =>
             <GraphLayerNodeEdges
                 nodeId={nodeId}
                 key={nodeId}
@@ -1825,13 +1821,13 @@ const GraphLayerNodeEdges = ({nodeId}) => {
 
 const GraphLayerNodeLabels = () => {
     const labelKeys = useSelector(selectors.visibleNodeAttributesSelector)
-    const nodeCount = useSelector(selectors.nodeCountSelector)
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
 
     return <g>
         {labelKeys.map((k, i) =>
             <g key={k}>
-                {Array(nodeCount).fill(null).map((_, nodeId) =>
-                    <GraphLayoutSigleNodeLabel nodeId={nodeId} labelIndex={i} labelKey={k} />
+                {nodeIds.map((nodeId) =>
+                    <GraphLayoutSigleNodeLabel key={nodeId} nodeId={nodeId} labelIndex={i} labelKey={k} />
                 )}
             </g>
         )}
@@ -1847,7 +1843,7 @@ const GraphLayoutSigleNodeLabel = ({nodeId, labelIndex, labelKey}) => {
             x={pos.x}
             y={30 + pos.y}
             dy={20 * (0.5 + labelIndex)}
-        >{k}: </NodeLabelKey>
+        >{labelKey}: </NodeLabelKey>
         <NodeLabelValue
             x={pos.x}
             y={30 + pos.y}
@@ -1860,12 +1856,12 @@ const GraphLayoutSigleNodeLabel = ({nodeId, labelIndex, labelKey}) => {
 
 const GraphLayerEdgeLabels = () => {
     const labelKeys = useSelector(selectors.visibleEdgeAttributesSelector)
-    const nodeCount = useSelector(selectors.nodeCountSelector)
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
 
     return <>
         {labelKeys.map((k, kdx) => {
             return <g key={k}>
-                {Array(nodeCount).fill(0).map((neighbors, nodeId) =>
+                {nodeIds.map((nodeId) =>
                     <GraphLayerNodeEdgeLabels key={nodeId} nodeId={nodeId} labelCount={labelKeys.length} labelKey={k} labelIndex={kdx} />
                 )}
             </g>
@@ -1930,44 +1926,72 @@ const NodeEdgeStepper = ({nodeId, edgeIdx, color}) => {
     return <EdgeStepperLine stroke={color} d={edgePath.string} />
 }
 
-const AlgorithmStepperNodeLabels = ({positions, nodeAttributes, verticalOffset}) => {
+const AlgorithmStepperNodeLabels = ({verticalOffset}) => {
+    const nodeAttributes = useSelector(selectors.algorithmStepNodeLabels)
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
+
     return <>
-        {Object.keys(nodeAttributes).map((k, i, all) =>
+        {nodeAttributes.map((k, i) =>
             <g key={k}>
-                {positions.map((pos, nodeId) => {
-                    return <g key={nodeId}>
-                        <NodeLabelKey
-                            x={pos.x}
-                            y={30 + pos.y}
-                            dy={20 * (0.5 + i + verticalOffset)}
-                        >{k}: </NodeLabelKey>
-                        <NodeLabelValue
-                            x={pos.x}
-                            y={30 + pos.y}
-                            dx={6}
-                            dy={20 * (0.5 + i + verticalOffset)}
-                        >{nodeAttributes[k][nodeId]}</NodeLabelValue>
-                    </g>
+                {nodeIds.map((nodeId) => {
+                    return <AlgorithmStepperNodeLabel
+                        key={nodeId}
+                        nodeId={nodeId}
+                        verticalOffset={verticalOffset}
+                        labelIndex={i}
+                        labelKey={k}
+                    />
                 })}
             </g>
         )}
     </>
 }
 
-const AlgorithmStepperNodeColoring = ({positions, colors}) => {
-    if(!colors) {
+const AlgorithmStepperNodeLabel = ({nodeId, labelIndex, labelKey, verticalOffset}) => {
+    const pos = useSelector(selectors.nodePositionSelector(nodeId))
+    const labelValue = useSelector(selectors.algorithmStepNodeLabel(nodeId, labelKey))
+
+    return <g key={nodeId}>
+        <NodeLabelKey
+            x={pos.x}
+            y={30 + pos.y}
+            dy={20 * (0.5 + labelIndex + verticalOffset)}
+        >{labelKey}: </NodeLabelKey>
+        <NodeLabelValue
+            x={pos.x}
+            y={30 + pos.y}
+            dx={6}
+            dy={20 * (0.5 + labelIndex + verticalOffset)}
+        >{labelValue}</NodeLabelValue>
+    </g>
+}
+
+const AlgorithmStepperNodeColoring = () => {
+    const hasColors = useSelector(selectors.algorithmStepHasNodeColors)
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
+
+    if(!hasColors) {
         return <></>;
     }
 
     return <g>
-        {positions.map((pos, nodeId) =>
-            <circle stroke="black" fill={colors[nodeId]} key={nodeId} r="10" cx={pos.x} cy={pos.y} />
+        {nodeIds.map((color, nodeId) =>
+            <AlgorithmStepperColoredNode key={nodeId} nodeId={nodeId} />
         )}
     </g>
 }
 
+const AlgorithmStepperColoredNode = ({nodeId}) => {
+    const pos = useSelector(selectors.nodePositionSelector(nodeId))
+    const color = useSelector(selectors.algorithmStepNoeColor(nodeId))
 
-const AlgorithmStepperPolygons = ({polygons}) => {
+    return <circle stroke="black" fill={color} key={nodeId} r="10" cx={pos.x} cy={pos.y} />
+}
+
+
+const AlgorithmStepperPolygons = () => {
+    const polygons = useSelector(selectors.algorithmStepPolygons)
+
     return <>
         {polygons ? polygons.map(({points, stroke, fill}, i) => {
             return <AlgorithmStepperPolygon key={i} stroke={stroke||'green'} fill={fill||'lightgreen'} points={points.map(({x,y}) => `${x} ${y},`).join(' ')} />
@@ -1975,7 +1999,9 @@ const AlgorithmStepperPolygons = ({polygons}) => {
     </>
 }
 
-const AlgorithmStepperLines = ({lines}) => {
+const AlgorithmStepperLines = () => {
+    const lines = useSelector(selectors.algorithmStepLines)
+
     return <>
         {lines ? lines.map(({dashArray = null, length=100, points, stroke, x, y, dx, dy}, i) => {
             return <AlgorithmStepperLine strokeDasharray={dashArray} key={i} stroke={stroke||'green'} x1={x - dx * length} y1={y - dy * length} x2={x + dx * length} y2={y + dy * length} />
@@ -1983,76 +2009,86 @@ const AlgorithmStepperLines = ({lines}) => {
     </>
 }
 
-const AlgorithmStepperEdgeLabels = ({nodes, edgeAttributes, verticalOffset}) => {
-    const layout = useSelector(selectors.layoutSelector)
-
+const AlgorithmStepperEdgeLabels = ({verticalOffset}) => {
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
+    const labelKeys = useSelector(selectors.algorithmStepEdgeLabels)
     return <>
-        {Object.keys(edgeAttributes).map((k, i, all) =>
-            <g key={k}>
-                {nodes.map((neighbors, nodeId) =>
-                    neighbors.map((neighbourId, edgeIdx) => {
-                        const e = layout.edgePaths[nodeId][edgeIdx];
-                        return <EdgeLabel key={nodeId + '-' + edgeIdx} x={e.text.x + 10 * e.text.normX - Math.abs(10 * e.text.normY)} y={e.text.y + 10 * (0.5+e.text.normY)} dy={15 * (0.5 + i + Math.sign(e.text.normY) * verticalOffset) - 15 * (1-e.text.normY) * 0.5*all.length} orientation={e.text.orientation}>
-                            <EdgeLabelKey>{k}:</EdgeLabelKey>
-                            <EdgeLabelValue dx={5}>{edgeAttributes[k][nodeId][edgeIdx]}</EdgeLabelValue>
-                        </EdgeLabel>
-                    })
+        {labelKeys.map((labelKey, labelIndex, all) =>
+            <g key={labelKey}>
+                {nodeIds.map((nodeId) =>
+                    <AlgorithmStepperSingleNodeEdgeLabels key={nodeId} keyCount={labelKeys.length} labelKey={labelKey} labelIndex={labelIndex} nodeId={nodeId} verticalOffset={verticalOffset} />
                 )}
             </g>
         )}
     </>
 }
 
-const AlgorithmStepperEdgeColoring = ({nodes, colors}) => {
-    if(!colors) {
+const AlgorithmStepperSingleNodeEdgeLabels = ({nodeId, verticalOffset, labelIndex, labelKey, keyCount}) => {
+    const edgeIds = useSelector(selectors.edgeIndicesSelector(nodeId))
+    return <>
+        {edgeIds.map((edgeIdx) =>
+            <AlgorithmStepperSingleEdgeLabels key={edgeIdx} keyCount={keyCount} nodeId={nodeId} edgeIdx={edgeIdx} labelIndex={labelIndex} labelKey={labelKey} verticalOffset={verticalOffset} />
+        )}
+    </>
+}
+
+const AlgorithmStepperSingleEdgeLabels = ({nodeId, edgeIdx, labelIndex, labelKey, verticalOffset, keyCount}) => {
+    const e = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx));
+    const labelValue = useSelector(selectors.algorithmStepEdgeLabel(nodeId, edgeIdx, labelKey))
+    return <EdgeLabel key={nodeId + '-' + edgeIdx} x={e.text.x + 10 * e.text.normX - Math.abs(10 * e.text.normY)} y={e.text.y + 10 * (0.5+e.text.normY)} dy={15 * (0.5 + labelIndex + Math.sign(e.text.normY) * verticalOffset) - 15 * (1-e.text.normY) * 0.5*keyCount} orientation={e.text.orientation}>
+        <EdgeLabelKey>{labelKey}:</EdgeLabelKey>
+        <EdgeLabelValue dx={5}>{labelValue}</EdgeLabelValue>
+    </EdgeLabel>
+}
+
+const AlgorithmStepperEdgeColoring = () => {
+    const hasColors = useSelector(selectors.algorithmStepHasEdgeColors)
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
+
+    if(!hasColors) {
         return <></>;
     }
 
-    return <g>
-        {nodes.map((neighbors, nodeId) =>
-                neighbors.map((neighbourId, edgeIdx) => {
-                    const color = colors[nodeId][edgeIdx]
 
-                    return <NodeEdgeStepper
-                            nodeId={nodeId}
-                            edgeIdx={edgeIdx}
-                            key={`${nodeId}-${edgeIdx}`}
-                            color={color}
-                        />
-                })
-            )}
+    return <g>
+        {nodeIds.map((nodeId) =>
+            <AlgorithmStepperSingleNodeEdgeColoring key={nodeId} nodeId={nodeId} />
+        )}
     </g>
 }
 
+const AlgorithmStepperSingleNodeEdgeColoring = ({nodeId}) => {
+    const edgeIndices = useSelector(selectors.edgeIndicesSelector(nodeId))
+    return <>
+        {edgeIndices.map((edgeIdx) => {
+            const color = [edgeIdx]
+
+            return <NodeEdgeStepper
+                    nodeId={nodeId}
+                    edgeIdx={edgeIdx}
+                    key={edgeIdx}
+                    color={color}
+                />
+        })}
+    </>
+}
+
 const AlgorithmStepper = () => {
-    const graph = useSelector(selectors.graphSelector)
+    const visibleEdgeAttributesCount = useSelector(selectors.visibleNodeAttributesCountSelector)
+    const visibleNodeAttributesCount = useSelector(selectors.visibleEdgeAttributesCountSelector)
 
-    const nodes = (graph.nodes)
-    const positions = (graph.attributes.nodes.position)
-    const visibleEdgeAttributesCount = Object.keys(graph.attributeTypes.edges).filter((e) => graph.attributeTypes.edges[e].visible).length
-    const visibleNodeAttributesCount = Object.keys(graph.attributeTypes.nodes).filter((e) => graph.attributeTypes.nodes[e].visible).length
+    const algorithmHasResult = useSelector(selectors.algorithmHasResult)
 
-    const algorithm = useSelector(selectors.algorithmSelector)
-
-    const edgeColors = useMemo(() => algorithm.result && algorithm.result.steps.length && algorithm.result.steps[algorithm.focus].edges.color
-    , [algorithm.result, algorithm.focus]);
-
-    if(!algorithm.result || !algorithm.result.steps || !algorithm.result.steps.length) {
+    if(!algorithmHasResult) {
         return <></>;
     } else {
-        const step = algorithm.result.steps[algorithm.focus];
-        const edgeAttributes = step.edges
-        const nodeAttributes = step.nodes
-        const nodeColors = nodeAttributes.color
-
-
         return <g style={{pointerEvents: 'none'}}>
-            <AlgorithmStepperPolygons polygons={step.polygons} />
-            <AlgorithmStepperLines lines={step.lines} />
-            <AlgorithmStepperNodeColoring positions={positions} colors={nodeColors} />
-            <AlgorithmStepperNodeLabels verticalOffset={visibleNodeAttributesCount} positions={positions} nodeAttributes={nodeAttributes} />
-            <AlgorithmStepperEdgeColoring nodes={nodes} colors={edgeColors} />
-            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} positions={positions} nodes={nodes} edgeAttributes={edgeAttributes} />
+            <AlgorithmStepperPolygons />
+            <AlgorithmStepperLines />
+            <AlgorithmStepperNodeColoring />
+            <AlgorithmStepperNodeLabels verticalOffset={visibleNodeAttributesCount} />
+            <AlgorithmStepperEdgeColoring />
+            <AlgorithmStepperEdgeLabels verticalOffset={visibleEdgeAttributesCount} />
         </g>
     }
 }
@@ -2267,19 +2303,16 @@ const GraphEditor = () => {
         </Container>;
 }
 
-const CanvasContent = React.memo(({ToolComponent, box}) => {
-
-
+const CanvasContent = ({ToolComponent, box}) => {
     return <>
         <Graph
             box={box}
         />
         <GraphSelection
-            box={box}
         />
         <ToolComponent
             box={box}
         />
         <AlgorithmStepper/>
     </>
-})
+}
