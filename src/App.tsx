@@ -366,12 +366,20 @@ const NodeDetails = ({index}) => {
 
     const attributes = useSelector(selectors.nodeAttributeTypesSelector)
 
-    const onClick = useCallback(() => dispatch(actions.deleteNode(nodeId)), [nodeId]);
+    const deleteNode = useCallback(() => dispatch(actions.deleteNode(nodeId)), [nodeId]);
+
+    const followEdge = useCallback((evt) =>
+            dispatch(actions.selectEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-idx'), 10))),
+        [dispatch])
+
+    const selectNode = useCallback((evt) =>
+        dispatch(actions.selectNode(parseInt(evt.target.getAttribute('data-node-id'), 10)))
+    ,[dispatch])
 
     return <DetailsBox>
         <DetailsBoxHead>
         <SubSectionTitle>Node (#{nodeId})</SubSectionTitle>
-        <DetailsBoxButton onClick={onClick}>Delete</DetailsBoxButton>
+        <DetailsBoxButton onClick={deleteNode}>Delete</DetailsBoxButton>
         </DetailsBoxHead>
         <SubSubSectionTitle>Attributes</SubSubSectionTitle>
         <DefinitionList>
@@ -384,8 +392,8 @@ const NodeDetails = ({index}) => {
             {neighbours.length === 0 ? <li>No outgoing edges</li> :
                 neighbours.map((neighbour, idx) =>
                     neighbour === nodeId ?
-                    <li key={idx}><BadgeLink onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>↩</BadgeLink> self</li> :
-                    <li key={idx}><BadgeLink onClick={() => dispatch(actions.selectEdge(nodeId, idx))}>→</BadgeLink><Link onClick={() => dispatch(actions.selectNode(neighbour))}>Node #{neighbour}</Link></li>
+                    <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>↩</BadgeLink> self</li> :
+                    <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>→</BadgeLink><Link onClick={selectNode} data-node-id={neighbour}>Node #{neighbour}</Link></li>
             )}
         </LinkList>
     </DetailsBox>
@@ -431,16 +439,28 @@ const EdgeDetails = ({index}) => {
     const prev = useSelector(selectors.prevMultiEdgeIndex(nodeId, edgeIndex))
     const next = useSelector(selectors.nextMultiEdgeIndex(nodeId, edgeIndex))
 
+    const deleteEdge = useCallback(
+        (evt) => dispatch(actions.deleteEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-node-id'), 10)))
+    , [dispatch])
+
+    const selectNode = useCallback(
+        (evt) => dispatch(actions.selectNode(parseInt(evt.target.getAttribute('data-node-id'), 10)))
+    , [dispatch])
+
+    const selectEdge = useCallback(
+        (evt) => dispatch(actions.selectEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-node-id'), 10)))
+    , [dispatch])
+
     return <DetailsBox>
         <DetailsBoxHead>
         <SubSectionTitle>Edge</SubSectionTitle>
-        <DetailsBoxButton onClick={() => dispatch(actions.deleteEdge(nodeId, edgeIndex))}>Delete</DetailsBoxButton>
+        <DetailsBoxButton onClick={deleteEdge} data-node-id={nodeId} data-idx={edgeIndex}>Delete</DetailsBoxButton>
         </DetailsBoxHead>
         <DefinitionList>
         <dt>From</dt>
-        <dd><Link onClick={() => dispatch(actions.selectNode(nodeId))}>Node #{nodeId}</Link></dd>
+        <dd><Link onClick={selectNode} data-node-id={nodeId}>Node #{nodeId}</Link></dd>
         <dt>To</dt>
-        <dd><Link onClick={() => dispatch(actions.selectNode(target))}>Node #{target}</Link></dd>
+        <dd><Link onClick={selectNode} data-node-id={target}>Node #{target}</Link></dd>
         </DefinitionList>
         <SubSubSectionTitle>Attributes</SubSubSectionTitle>
         <DefinitionList>
@@ -451,10 +471,10 @@ const EdgeDetails = ({index}) => {
         {!flags.multiGraph ? null : <div>
             <SubSubSectionTitle>Partner Edges</SubSubSectionTitle>
             {prev === null ? 'Prev' :
-            <Link onClick={() => dispatch(actions.selectEdge(nodeId, prev))}>Prev</Link>}
+            <Link onClick={selectEdge} data-node-id={nodeId} data-idx={prev}>Prev</Link>}
             &nbsp;|&nbsp;
             {next === null ? 'Next' :
-            <Link onClick={() => dispatch(actions.selectEdge(nodeId, next))}>Next</Link>}
+            <Link onClick={selectEdge} data-node-id={nodeId} data-idx={next}>Next</Link>}
         </div>}
     </DetailsBox>
 }
@@ -481,9 +501,15 @@ const ViewOptions = () => {
     const dispatch = useDispatch()
 
     const edgeAttributes = useSelector(selectors.edgeAttributesSelector)
-
     const nodeAttributes = useSelector(selectors.nodeAttributesSelector)
 
+    const setEdgeVisibility = useCallback(
+        (e) => dispatch(actions.setEdgeAttributeVisible(e.target.name, e.target.checked))
+    , [dispatch])
+
+    const setNodeVisibility = useCallback(
+        (e) => dispatch(actions.setNodeAttributeVisible(e.target.name, e.target.checked))
+    , [dispatch])
 
     return <div>
         <SubSectionTitle>Visible Edge Attributes</SubSectionTitle>
@@ -491,7 +517,7 @@ const ViewOptions = () => {
             {Object.keys(edgeAttributes).map((attrKey) =>
                 <CheckboxListItem key={attrKey}>
                     <label>
-                    <input type="checkbox" onChange={(e) => dispatch(actions.setEdgeAttributeVisible(attrKey, e.target.checked))} checked={edgeAttributes[attrKey].visible === true} /> {attrKey}
+                    <input type="checkbox" name={attrKey} onChange={setEdgeVisibility} checked={edgeAttributes[attrKey].visible === true} /> {attrKey}
                     </label>
                 </CheckboxListItem>
             )}
@@ -501,7 +527,7 @@ const ViewOptions = () => {
         {Object.keys(nodeAttributes).map((attrKey) =>
             <CheckboxListItem key={attrKey}>
                 <label>
-                <input type="checkbox" onChange={(e) => dispatch(actions.setNodeAttributeVisible(attrKey, e.target.checked))} checked={nodeAttributes[attrKey].visible === true} /> {attrKey}
+                <input type="checkbox" name={attrKey} onChange={setNodeVisibility} checked={nodeAttributes[attrKey].visible === true} /> {attrKey}
                 </label>
             </CheckboxListItem>
         )}
@@ -869,7 +895,6 @@ const Canvas = ({children}) => {
 
     useEffect(() => {
         window.addEventListener('mouseup', onMouseUpHandler);
-
         return () => {
             window.removeEventListener('mouseup', onMouseUpHandler);
         }
@@ -877,7 +902,6 @@ const Canvas = ({children}) => {
 
     useEffect(() => {
         window.addEventListener('mousemove', onMouseMoveHandler);
-
         return () => {
             window.removeEventListener('mousemove', onMouseMoveHandler);
         }
@@ -885,9 +909,7 @@ const Canvas = ({children}) => {
 
     useEffect(() => {
         const c : HTMLElement = screenRef.current;
-
         c.addEventListener('wheel', onWheelHandler, { passive: false });
-
         return () => {
             c.removeEventListener('wheel', onWheelHandler, { passive: false });
         }
@@ -906,13 +928,13 @@ const Canvas = ({children}) => {
             height={height}
             fill="#ccc" />
 		<g ref={posRef} transform={`rotate(${camera.rotation} ${camera.center.x} ${camera.center.y})`}>
+            <rect
+                x={camera.box.minX}
+                y={camera.box.minY}
+                width={camera.box.maxX - camera.box.minX}
+                height={camera.box.maxY - camera.box.minY}
+                fill="#fff" />
             <CanvasContext.Provider value={svgPos}>
-                <rect
-                    x={camera.box.minX}
-                    y={camera.box.minY}
-                    width={camera.box.maxX - camera.box.minX}
-                    height={camera.box.maxY - camera.box.minY}
-                    fill="#fff" />
     			{children}
             </CanvasContext.Provider>
 		</g>
@@ -1442,7 +1464,8 @@ const EdgesPathManipulator = () => {
     </>
 }
 
-const GraphManipulator = ({box, layout}) => {
+const GraphManipulator = () => {
+    const box = useSelector(selectors.cameraBoxSelector);
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -1704,7 +1727,9 @@ const SelectionBox = styled.polygon`
     vector-effect: non-scaling-stroke;
 `
 
-const GraphSelector = ({box, layout}) => {
+const GraphSelector = () => {
+    const box = useSelector(selectors.cameraBoxSelector);
+
     const dispatch = useDispatch()
     const canvasPos = useCanvasPos()
 
@@ -1913,7 +1938,9 @@ const GraphLayerNodeEdgeLabel = ({nodeId, edgeIdx, labelKey, labelIndex, labelCo
     </EdgeLabel>
 }
 
-const Graph = ({box}) => {
+const Graph = () => {
+    const box = useSelector(selectors.cameraBoxSelector);
+
     return <g>
         <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="white" />
         <GraphLayerNodes />
@@ -2172,12 +2199,11 @@ const GraphSelection = () => {
 
     return <g>
         {selectedNodes.map((index) => {
-            return <NodeSelection index={index} key={index} />
+            return <NodeSelection key={"n"+index} index={index} />
         })}
         {selectedEdges.map((index) => {
-
             return <NodeEdgeSelection
-                key={index}
+                key={"e"+index}
                 index={index}
             />;
         })}
@@ -2281,6 +2307,8 @@ const ErrorBar = () => {
 }
 
 const GraphEditor = () => {
+    const content = useMemo(() => <CanvasContent/>, [])
+
     return <Container>
             <Title>
                 Graph Editor
@@ -2289,7 +2317,7 @@ const GraphEditor = () => {
             <Menu />
             <ErrorBar />
             <Canvas>
-                <CanvasContent/>
+                {content}
             </Canvas>
             <ProjectList />
             <Settings />
@@ -2299,9 +2327,6 @@ const GraphEditor = () => {
 }
 
 const CanvasContent = () => {
-    const box = useSelector(selectors.cameraBoxSelector);
-
-
     const currentTool = useSelector(selectors.toolSelectionSelector)
 
     const toolComponents = {
@@ -2312,16 +2337,10 @@ const CanvasContent = () => {
 
     const ToolComponent = toolComponents[currentTool] || toolComponents['none'];
 
-
     return <>
-        <Graph
-            box={box}
-        />
-        <GraphSelection
-        />
-        <ToolComponent
-            box={box}
-        />
+        <Graph />
+        <GraphSelection />
+        <ToolComponent />
         <AlgorithmStepper/>
     </>
 }
