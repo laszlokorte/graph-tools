@@ -1,11 +1,13 @@
 import {createSelector, createStructuredSelector} from 'reselect';
+import {ALGORITHM_MAP} from './reducers/algorithm/index';
 
 export const presentSelector = (state) => state.data.present
 
 export const canUndoSelector = (state) => state.data.past.length > 0
 export const canRedoSelector = (state) => state.data.future.length > 0
 
-export const algorithmSelectionSelector = (state) => state.algorithmSelection
+export const algorithmSelectionSelector = (state) => state.algorithmSelection.type
+export const algorithmSelectionParameterSelector = (state) => state.algorithmSelection.parameters
 
 export const algorithmSelector = createSelector(
     presentSelector,
@@ -86,6 +88,11 @@ export const graphSelector = createSelector(
 export const graphFlagsSelector = createSelector(
     graphSelector,
     (graph) => graph.flags
+)
+
+export const graphFlagKeysSelector = createSelector(
+    graphFlagsSelector,
+    (flags) => Object.keys(flags)
 )
 
 export const graphPropertiesSelector = createSelector(
@@ -242,7 +249,10 @@ export const algorithmStepNodeLabels = createSelector(
     (alg) => Object.keys(alg.result.steps[alg.focus].nodes)
 )
 
-export const algorithmStepNoeColor = (nodeId) => algorithmStepNodeLabel(nodeId, 'color')
+export const algorithmStepNodeColor = (nodeId) => algorithmStepNodeLabel(nodeId, 'color')
+
+export const algorithmStepEdgeColor = (nodeId, edgeIdx) => algorithmStepEdgeLabel(nodeId, edgeIdx, 'color')
+
 
 export const algorithmStepHasEdgeColors = createSelector(
     algorithmSelector,
@@ -289,4 +299,49 @@ export const anyThingSelectedSelector = createSelector(
     selectedEdgesSelector,
     selectedNodesSelector,
     (edges, nodes) => edges.length > 0 || nodes.length > 0
+)
+
+
+const meetRequirements = (alg, graph) => {
+    return !alg.requirements || Object.entries(alg.requirements).every(([k,v]) => {
+        return graph.flags[k] === v;
+    })
+}
+
+export const selectableAlgorithmsSelector = createSelector(
+    graphSelector,
+    (graph) => Object.keys(ALGORITHM_MAP).filter((k) => meetRequirements(ALGORITHM_MAP[k], graph))
+)
+
+export const selectedAlgorithmOptionsSelector = createSelector(
+    algorithmSelectionSelector,
+    (selected) => (selected && ALGORITHM_MAP[selected].parameters) || ({})
+)
+
+export const selectedAlgorithmOptionKeysSelector = createSelector(
+    selectedAlgorithmOptionsSelector,
+    (options) => Object.keys(options)
+)
+
+export const selectedAlgorithmOptionSelector = (key) => createSelector(
+    selectedAlgorithmOptionsSelector,
+    (options) => options[key]
+)
+
+
+export const selectedAlgorithmOptionValueSelector = (key) => createSelector(
+    algorithmSelectionParameterSelector,
+    (parameters) => parameters[key]
+)
+
+
+export const selectedAlgorithmCanRunSelector = createSelector(
+    algorithmSelectionSelector,
+    graphSelector,
+    (selected, graph) => selected && meetRequirements(ALGORITHM_MAP[selected], graph)
+)
+
+export const algorithmRerunSelector = createSelector(
+    algorithmSelector,
+    (alg) => alg.rerun
 )

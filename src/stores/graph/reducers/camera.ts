@@ -26,7 +26,7 @@ const initilState = {
         }
     }
 
-export default function cameraReducer(camera = initilState, box, action)  {
+export default (camera = initilState, box, action) => {
     const defaultZoom = Math.min(
       camera.screen.width/(box.maxX - box.minX),
       camera.screen.height/(box.maxY - box.minY),
@@ -118,6 +118,9 @@ export default function cameraReducer(camera = initilState, box, action)  {
                 panY: action.y,
             }
         case 'CAMERA_STOP_PAN':
+            if(camera.panX === null) {
+                return camera
+            }
             return {
                 ...camera,
                 box,

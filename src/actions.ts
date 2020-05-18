@@ -128,6 +128,11 @@ export const stepAlgorithm = (delta) => ({
     delta,
 })
 
+export const jumpStepAlgorithm = (to) => ({
+    type: 'JUMP_STEP_ALGORITHM',
+    to,
+})
+
 
 export const storageLoad = (id) => ({
     type: 'STORAGE_LOAD',
@@ -162,9 +167,18 @@ export const pathManipulatorCreate = (nodeIdx, edgeIdx, controlIdx, path, x, y) 
 export const pathManipulatorStartMove = (nodeIdx, edgeIdx, controlIdx, path, x, y) => ({type: 'PATH_MANIPULATOR_START_MOVE', nodeIdx, edgeIdx, controlIdx, path, x, y})
 
 export const selectAlgorithm = (algorithm) => ({type: 'ALGORITHM_SELECT', algorithm})
+export const selectAlgorithmParameter = (key, value) => ({type: 'ALGORITHM_SELECT_PARAMETER', key, value})
 export const selectTool = (tool) => ({type: 'TOOL_SELECT', tool})
 
 export const toggleProjectList = () => ({type: 'TOGGLE_PROJECT_LIST'})
 export const toggleSettings = () => ({type: 'TOGGLE_SETTINGS'})
 export const toggleDump = () => ({type: 'TOGGLE_DUMP'})
 export const toggleAlgorithm = () => ({type: 'TOGGLE_ALGORITHM'})
+
+export const runSelectedAlgorithm = () => ({
+    type: 'RUN_SELECTED_ALGORITHM',
+})
+export const setAlgorithmRerun = (rerun) => ({
+    type: 'SET_ALGORITHM_RERUN',
+    rerun,
+})

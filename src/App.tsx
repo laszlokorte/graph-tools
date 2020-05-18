@@ -8,10 +8,9 @@ import { freeEdgePath } from './stores/graph/reducers/layout'
 import { useSelector, useDispatch } from './stores/graph/context'
 import { useSelector as useProjectsSelector } from './stores/projects/context'
 import { ActionCreators } from 'redux-undo';
-import {ALGORITHMS} from './stores/graph/reducers/algorithm/index';
+import {ALGORITHM_MAP} from './stores/graph/reducers/algorithm/index';
 import * as actions from './actions'
 import * as selectors from './stores/graph/selectors'
-import {graphFlagsSelector} from "./stores/graph/selectors";
 
 const Title = styled.h1`
     margin: 0;
@@ -177,6 +176,8 @@ const SectionTitle = styled.h2`
     color: #fff;
     position: sticky;
     top: 0;
+    display: flex;
+    justify-content: space-between;
 `
 
 const SubSectionTitle = styled.h3`
@@ -323,7 +324,7 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     , [nodeId, attrKey])
 
     const onCheck = useCallback(
-        (evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))
+        (evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.checked))
     , [nodeId, attrKey])
 
     if(['text','color','numeric'].includes(typeName)) {
@@ -461,14 +462,15 @@ const EdgeDetails = ({index}) => {
 const GraphOptions = () => {
     const dispatch = useDispatch()
 
+    const flagKeys = useSelector(selectors.graphFlagKeysSelector)
     const flags = useSelector(selectors.graphFlagsSelector)
-
+    const setFlag = (e) => dispatch(actions.setFlag(e.target.getAttribute('data-flag'), e.target.checked))
 
     return <CheckboxList>
-        {Object.keys(flags).map((flagKey) =>
+        {flagKeys.map((flagKey) =>
             <CheckboxListItem key={flagKey}>
                 <label>
-                    <input type="checkbox" onChange={(e) => dispatch(actions.setFlag(flagKey, e.target.checked))} checked={flags[flagKey]} /> {flagKey}
+                    <input type="checkbox" onChange={setFlag} data-flag={flagKey} checked={flags[flagKey]} /> {flagKey}
                 </label>
             </CheckboxListItem>
         )}
@@ -518,7 +520,13 @@ const Tools = () => {
         'select': 'Select',
     }
 
-    const togglAlgorithm = useCallback(() => {
+    const toggleDump = useCallback((evt) => {
+        if(evt.target === evt.currentTarget) {
+            dispatch(actions.toggleDump())
+        }
+    }, [dispatch])
+
+    const toggleAlgorithm = useCallback(() => {
         dispatch(actions.toggleAlgorithm())
     }, [dispatch])
 
@@ -537,6 +545,7 @@ const Tools = () => {
 
     return <Toolbar>
         <ToolButton onClick={toggleProjectList}>Open</ToolButton>
+        <ToolButton onClick={toggleDump}>Dump</ToolButton>
         <ToolButton disabled={!canUndo} onClick={undo}>↶</ToolButton>
         <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
         <ToolButton onClick={clear}>Clear</ToolButton>
@@ -545,134 +554,119 @@ const Tools = () => {
         {Object.keys(tools).map((t) =>
             <ToolButton key={t} disabled={t===currentTool} onClick={selectTool} data-tool={t}>{tools[t]}</ToolButton>
         )}
-        <ToolButton active={showAlgorithm} onClick={togglAlgorithm}>Algorithm</ToolButton>
+        <ToolButton active={showAlgorithm} onClick={toggleAlgorithm}>Algorithm</ToolButton>
     </Toolbar>
 }
 
-const meetRequirements = (alg, graph) => {
-    return !alg.requirements || Object.entries(alg.requirements).every(([k,v]) => {
-        return graph.flags[k] === v;
-    })
-}
 
-const castAlgorithmParameter = (parameter, value) => {
-    if(value === '') {
-        return null;
-    }
-    switch(parameter.type) {
-        case 'NODE':
-            return parseInt(value, 10);
-    }
-
-    return value;
-}
-
-const AlgorithmOptions = ({algorithm}) => {
+const AlgorithmOptions = () => {
     const dispatch = useDispatch();
-    const graph = useSelector(selectors.graphSelector)
 
-    const alg = ALGORITHMS.find((a) => a.key === algorithm)
-    const canRun = alg !== null && meetRequirements(alg, graph)
-    const nodes = graph.nodes
-    const edgeAttributes = graph.attributeTypes.edges
-    const nodeAttributes = graph.attributeTypes.edges
+    const algOptions = useSelector(selectors.selectedAlgorithmOptionKeysSelector)
+    const canRun = useSelector(selectors.selectedAlgorithmCanRunSelector)
 
     const run = useCallback((evt) => {
         evt.preventDefault();
-        const formData = new FormData(evt.currentTarget);
-        const parameters = Object.keys(alg.parameters).reduce((memo, k) => ({
-          ...memo,
-          [k]: castAlgorithmParameter(alg.parameters[k], formData.get(k)),
-        }), {});
-
-        dispatch(actions.runAlgorithm(alg.key, parameters))
-    }, [dispatch, alg])
+        dispatch(actions.runSelectedAlgorithm())
+    }, [dispatch])
 
     return <>
         <form onSubmit={run}>
-        {alg.parameters.length ?
+        {algOptions.length ?
             <fieldset>
                 <legend>Options</legend>
-            {Object.keys(alg.parameters).map((p) => {
-                switch(alg.parameters[p].type) {
-                    case 'NODE': {
-                        return <label key={algorithm+p}>
-                            {alg.parameters[p].label}:<br/>
-                            <select defaultValue={''} name={p}>
-                                {alg.parameters[p].required ? null : <option value="">---</option>}
-                                {nodes.map((_,nodeIdx) => <option key={nodeIdx} value={nodeIdx}>#{nodeIdx}</option>)}
-                            </select>
-                        </label>
-                    }
-                    case 'NODE_ATTRIBUTE': {
-                        return <label key={algorithm+p}>
-                            {alg.parameters[p].label}:<br/>
-                            <select defaultValue={''} name={p}>
-                                {alg.parameters[p].required ? null : <option value="">---</option>}
-                                {Object.keys(nodeAttributes).filter((attr) =>
-                                    !alg.parameters[p].typeRequirement || alg.parameters[p].typeRequirement.includes(nodeAttributes[attr].type)
-                                ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
-                            </select>
-                        </label>
-                    }
-                    case 'EDGE_ATTRIBUTE': {
-                        return <label key={algorithm+p}>
-                            {alg.parameters[p].label}:<br/>
-                            <select defaultValue={''} name={p}>
-                                {alg.parameters[p].required ? null : <option value="">---</option>}
-                                {Object.keys(edgeAttributes).filter((attr) =>
-                                    !alg.parameters[p].typeRequirement || alg.parameters[p].typeRequirement.includes(edgeAttributes[attr].type)
-                                ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
-                            </select>
-                        </label>
-                    }
-                }
-
-                return '?';
-            })}
+            {algOptions.map((key) =>
+                <AlgorithmOption key={key} optionKey={key} />
+            )}
         </fieldset> : null}
         {!canRun ? null : <ToolButton>Run️</ToolButton>}
         </form>
     </>
 }
 
+const AlgorithmOption = ({optionKey}) => {
+    const dispatch = useDispatch();
+    const algOption = useSelector(selectors.selectedAlgorithmOptionSelector(optionKey))
+    const algOptionValue = useSelector(selectors.selectedAlgorithmOptionValueSelector(optionKey))
+
+    const nodes = useSelector(selectors.nodeIdsSelector)
+    const nodeAttributes = useSelector(selectors.nodeAttributesSelector)
+    const edgeAttributes = useSelector(selectors.edgeAttributesSelector)
+
+    const onChange = useCallback((evt) => {
+        dispatch(actions.selectAlgorithmParameter(evt.target.name, evt.target.value))
+    }, [dispatch])
+
+    switch(algOption.type) {
+        case 'NODE': {
+            return <label>
+                {algOption.label}:<br/>
+                <select name={optionKey} onChange={onChange} value={algOptionValue === null || algOptionValue === undefined ? '' : algOptionValue}>
+                    <option value="">---</option>
+                    {nodes.map((_,nodeIdx) => <option key={nodeIdx} value={nodeIdx}>#{nodeIdx}</option>)}
+                </select>
+            </label>
+        }
+        case 'NODE_ATTRIBUTE': {
+            return <label>
+                {algOption.label}:<br/>
+                <select name={optionKey} onChange={onChange} value={algOptionValue === null || algOptionValue === undefined ? '' : algOptionValue}>
+                    <option value="">---</option>
+                    {Object.keys(nodeAttributes).filter((attr) =>
+                        !algOption.typeRequirement || algOption.typeRequirement.includes(nodeAttributes[attr].type)
+                    ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
+                </select>
+            </label>
+        }
+        case 'EDGE_ATTRIBUTE': {
+            return <label>
+                {algOption.label}:<br/>
+                <select name={optionKey} onChange={onChange} value={algOptionValue === null || algOptionValue === undefined ? '' : algOptionValue}>
+                    <option value="">---</option>
+                    {Object.keys(edgeAttributes).filter((attr) =>
+                        !algOption.typeRequirement || algOption.typeRequirement.includes(edgeAttributes[attr].type)
+                    ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
+                </select>
+            </label>
+        }
+    }
+
+    return '?';
+}
+
 const AlgorithmRunner = () => {
     const dispatch = useDispatch();
-    const algorithm = useSelector(selectors.algorithmSelector);
     const algorithmSelection = useSelector(selectors.algorithmSelectionSelector);
-
-    const algorithmType = algorithm.type
-    const flags = useSelector(graphFlagsSelector)
 
     const selectAlg = useCallback((evt) => {
         dispatch(actions.selectAlgorithm(evt.target.value))
     }, [dispatch])
 
-
-    const applicableAlgorithms = ALGORITHMS.filter((alg) => {
-        return !alg.requirements || Object.entries(alg.requirements).every(([k,v]) => {
-            return flags[k] === v;
-        })
-    })
+    const applicableAlgorithms = useSelector(selectors.selectableAlgorithmsSelector)
 
     return <>
         <div>
             <span>Algorithm:</span><br/>
-            <select style={{maxWidth: '10em'}} value={algorithmSelection} onChange={selectAlg}>
+            <select value={algorithmSelection || ''} onChange={selectAlg}>
+                <option key='none' value=''>---</option>
                 {applicableAlgorithms.map((a) =>
-                    <option key={a.key} value={a.key}>{a.name}</option>
+                    <option key={a} value={a}>{ALGORITHM_MAP[a].name}</option>
                 )}
             </select>
         </div>
-        <AlgorithmOptions algorithm={algorithmSelection} />
-        {algorithmSelection !== algorithmType ? null : <AlgorithmResult />}
+        <AlgorithmOptions />
+        <AlgorithmResult />
     </>
 }
 
 const AlgorithmResult = () => {
     const dispatch = useDispatch();
     const algorithm = useSelector(selectors.algorithmSelector)
+    const rerun = useSelector(selectors.algorithmRerunSelector)
 
+    const toggleRerun = useCallback((evt) => {
+        dispatch(actions.setAlgorithmRerun(evt.target.checked))
+    }, [dispatch]);
 
     const stepFoward = useCallback(() => {
         dispatch(actions.stepAlgorithm(1))
@@ -682,19 +676,23 @@ const AlgorithmResult = () => {
         dispatch(actions.stepAlgorithm(-1))
     }, [dispatch]);
 
+    const jumpStep = useCallback((evt) => {
+        dispatch(actions.jumpStepAlgorithm(parseInt(evt.currentTarget.value, 10)))
+    }, [dispatch])
+
     if(algorithm.result === null) {
         return null;
     } else if (algorithm.result.steps) {
         return <div>
 
             <label>
-                <input type="checkbox" /> Auto re-run
+                <input type="checkbox" onChange={toggleRerun} checked={rerun} /> Auto re-run
             </label>
             <br/>
             {algorithm.focus + 1}/{algorithm.result.steps.length}
             <br/>
             <PlainButton onClick={stepBackward}>⏪</PlainButton>
-            <input type="range" value={algorithm.focus} min={0} max={algorithm.result.steps.length - 1} />
+            <input onChange={jumpStep} type="range" value={algorithm.focus} min={0} max={algorithm.result.steps.length - 1} />
             <PlainButton onClick={stepFoward}>⏩</PlainButton>
         </div>;
     } else {
@@ -718,18 +716,12 @@ const Menu = () => {
         }
     }, [dispatch])
 
-    const toggleDump = useCallback((evt) => {
-        if(evt.target === evt.currentTarget) {
-            dispatch(actions.toggleDump())
-        }
-    }, [dispatch])
 
     return <Scroller>
-            <ToolButton onClick={toggleSettings}>Settings</ToolButton>
-            <ToolButton onClick={toggleDump}>Dump</ToolButton>
 
             <Section>
-            <SectionTitle>Properties</SectionTitle>
+            <SectionTitle>Properties <button onClick={toggleSettings}>Settings</button>
+</SectionTitle>
             <SectionBody>
             <DefinitionList>
                 <dt>Type</dt>
@@ -1953,7 +1945,8 @@ const AlgorithmStepperPolygon = styled.polygon`
     stroke-linecap: round;
 `
 
-const NodeEdgeStepper = ({nodeId, edgeIdx, color}) => {
+const NodeEdgeStepper = ({nodeId, edgeIdx}) => {
+    const color = useSelector(selectors.algorithmStepEdgeColor(nodeId, edgeIdx))
     const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
     return <EdgeStepperLine stroke={color} d={edgePath.string} />
 }
@@ -2015,7 +2008,7 @@ const AlgorithmStepperNodeColoring = () => {
 
 const AlgorithmStepperColoredNode = ({nodeId}) => {
     const pos = useSelector(selectors.nodePositionSelector(nodeId))
-    const color = useSelector(selectors.algorithmStepNoeColor(nodeId))
+    const color = useSelector(selectors.algorithmStepNodeColor(nodeId))
 
     return <circle stroke="black" fill={color} key={nodeId} r="10" cx={pos.x} cy={pos.y} />
 }
@@ -2093,21 +2086,18 @@ const AlgorithmStepperSingleNodeEdgeColoring = ({nodeId}) => {
     const edgeIndices = useSelector(selectors.edgeIndicesSelector(nodeId))
     return <>
         {edgeIndices.map((edgeIdx) => {
-            const color = [edgeIdx]
-
             return <NodeEdgeStepper
                     nodeId={nodeId}
                     edgeIdx={edgeIdx}
                     key={edgeIdx}
-                    color={color}
                 />
         })}
     </>
 }
 
 const AlgorithmStepper = () => {
-    const visibleEdgeAttributesCount = useSelector(selectors.visibleNodeAttributesCountSelector)
-    const visibleNodeAttributesCount = useSelector(selectors.visibleEdgeAttributesCountSelector)
+    const visibleEdgeAttributesCount = useSelector(selectors.visibleEdgeAttributesCountSelector)
+    const visibleNodeAttributesCount = useSelector(selectors.visibleNodeAttributesCountSelector)
 
     const algorithmHasResult = useSelector(selectors.algorithmHasResult)
 

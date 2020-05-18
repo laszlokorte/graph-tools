@@ -14,6 +14,9 @@ const initialState = {
 export default function manipulationReducer (state = initialState, action) {
     switch(action.type) {
         case 'MANIPULATOR_STOP':
+            if(state.connectionStart === null && state.x === null && state.movingNode === null) {
+                return state
+            }
             return {
                 ...state,
                 connectionStart: null,

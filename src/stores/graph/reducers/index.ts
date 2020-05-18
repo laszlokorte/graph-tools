@@ -1,12 +1,13 @@
-import { combineReducers } from 'redux'
-import undoable, { includeAction, excludeAction } from 'redux-undo';import selection from './selection'
+import undoable, { excludeAction } from 'redux-undo';
+import selection from './selection'
 import graph from './graph'
-import algorithm, {ALGORITHMS} from './algorithm'
+import algorithm from './algorithm'
 import properties from './properties'
 
 import graphActionExpander from './graph_action_expander'
 import selectionActionExpander from './selection_action_expander'
 import cameraActionExpander from './camera_action_expander'
+import algorithmActionExpander from './algorithm_action_expander'
 
 
 import camera from './camera'
@@ -14,6 +15,7 @@ import manipulator from './manipulator'
 import pathManipulator from './path_manipulator'
 import selectionBox from './select_box'
 import layout from './layout'
+import {ALGORITHM_MAP} from "./algorithm/index";
 
 const skipActions = [
     'TOGGLE_PROJECT_LIST',
@@ -28,6 +30,7 @@ const skipActions = [
     'CAMERA_PAN',
     'CAMERA_ROTATE',
     'CAMERA_ZOOM',
+    'MANIPULATOR_START_CREATE',
     'MANIPULATOR_STOP',
     'MANIPULATOR_MOVE',
     'MANIPULATOR_SNAP_CONNECT',
@@ -45,9 +48,34 @@ const skipActions = [
     'TOOL_SELECT',
 ]
 
-const algorithmSelection = (state = ALGORITHMS[0].key, action) => {
+
+const castAlgorithmParameter = (parameter, value) => {
+    if(value === '' || value === null) {
+        return null;
+    }
+    switch(parameter.type) {
+        case 'NODE':
+            return parseInt(value, 10);
+    }
+
+    return value;
+}
+
+
+const algorithmSelection = (state = {type: null, parameters: {}}, action) => {
     if(action.type === 'ALGORITHM_SELECT') {
-        return action.algorithm
+        return {
+            type: ALGORITHM_MAP[action.algorithm] ? action.algorithm : null,
+            parameters: {}
+        }
+    } else if(action.type === 'ALGORITHM_SELECT_PARAMETER') {
+        return {
+            ...state,
+            parameters: {
+                ...state.parameters,
+                [action.key]: castAlgorithmParameter(ALGORITHM_MAP[state.type].parameters[action.key], action.value),
+            }
+        }
     }
 
     return state
@@ -85,7 +113,8 @@ const data = undoable(graphActionExpander((state, action) => {
 }), {
     limit: 10,
     filter: excludeAction([
-        'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE','STEP_ALGORITHM',
+        'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE',
+        'STEP_ALGORITHM','JUMP_STEP_ALGORITHM',
         'SELECT_AREA',
         'DESELECT_NODE',
         'DESELECT_EEDGE',
@@ -174,7 +203,7 @@ const toggleAlgorithm = (state = false, action) => {
     }
 }
 
-export default cameraActionExpander(selectionActionExpander((state, action) => {
+export default algorithmActionExpander(cameraActionExpander(selectionActionExpander((state, action) => {
     const skip = skipActions.includes(action.type)
 
     const d = skip ? state.data : data(state ? state.data : undefined, action)
@@ -223,4 +252,4 @@ export default cameraActionExpander(selectionActionExpander((state, action) => {
         showAlgorithm: toggleAlgorithm(state ? state.showAlgorithm : false, action),
         layout: d.present ? doLayout(d.present.graph) : undefined,
     };
-}))
+})))

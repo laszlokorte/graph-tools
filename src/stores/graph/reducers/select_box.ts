@@ -32,6 +32,9 @@ export default function(state = initialState, action) {
             }
         }
         case 'SELECTION_BOX_STOP': {
+            if(state.x0 === null) {
+                return state
+            }
             return {
                 ...state,
                 x0:null,
