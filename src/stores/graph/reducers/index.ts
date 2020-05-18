@@ -39,6 +39,10 @@ const skipActions = [
     'PATH_MANIPULATOR_MOVE',
     'PATH_MANIPULATOR_CREATE',
     'PATH_MANIPULATOR_START_MOVE',
+    'TOGGLE_SETTINGS',
+    'TOGGLE_DUMP',
+    'TOGGLE_ALGORITHM',
+    'TOOL_SELECT',
 ]
 
 const algorithmSelection = (state = ALGORITHMS[0].key, action) => {
@@ -161,6 +165,15 @@ const toggleDump = (state = false, action) => {
     }
 }
 
+
+const toggleAlgorithm = (state = false, action) => {
+    if(action.type === 'TOGGLE_ALGORITHM') {
+        return !state
+    } else {
+        return state
+    }
+}
+
 export default cameraActionExpander(selectionActionExpander((state, action) => {
     const skip = skipActions.includes(action.type)
 
@@ -207,6 +220,7 @@ export default cameraActionExpander(selectionActionExpander((state, action) => {
         showProjects: toggleProjects(state ? state.showProjects : false, action),
         showSettings: toggleSettings(state ? state.showSettings : false, action),
         showDump: toggleDump(state ? state.showDump : false, action),
+        showAlgorithm: toggleAlgorithm(state ? state.showAlgorithm : false, action),
         layout: d.present ? doLayout(d.present.graph) : undefined,
     };
 }))

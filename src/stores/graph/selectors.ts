@@ -1,4 +1,4 @@
-import {createSelector, createStructuredSelector} from "reselect";
+import {createSelector, createStructuredSelector} from 'reselect';
 
 export const presentSelector = (state) => state.data.present
 
@@ -29,6 +29,7 @@ export const toolSelectionSelector = (state) => state.toolSelection
 export const showProjectsSelector = (state) => state.showProjects
 export const showDumpSelector = (state) => state.showDump
 export const showSettingsSelector = (state) => state.showSettings
+export const showAlgorithmSelector = (state) => state.showAlgorithm
 
 export const selectionSelector = createSelector(
     presentSelector,
@@ -40,9 +41,41 @@ export const selectedNodesSelector = createSelector(
     (selection) => selection.nodes
 )
 
+export const selectedNodeCountSelector = createSelector(
+    selectedNodesSelector,
+    (nodes) => nodes.length
+)
+
+export const selectedNodesIndicesSelector = createSelector(
+    selectedNodeCountSelector,
+    (count) => Array(count).fill(null).map((_,i) => i)
+)
+
+export const selectedNodeSelector = (index) => createSelector(
+    selectedNodesSelector,
+    (nodes) => nodes[index]
+)
+
+
+
 export const selectedEdgesSelector = createSelector(
     selectionSelector,
     (selection) => selection.edges
+)
+
+export const selectedEdgeCountSelector = createSelector(
+    selectedEdgesSelector,
+    (edges) => edges.length
+)
+
+export const selectedEdgesIndicesSelector = createSelector(
+    selectedEdgeCountSelector,
+    (count) => Array(count).fill(null).map((_,i) => i)
+)
+
+export const selectedEdgeSelector = (index) => createSelector(
+    selectedEdgesSelector,
+    (edges) => edges[index]
 )
 
 export const graphSelector = createSelector(
@@ -234,4 +267,26 @@ export const algorithmStepLines = createSelector(
 export const algorithmHasResult = createSelector(
     algorithmSelector,
     (alg) => alg && alg.result && alg.result.steps && alg.result.steps.length > 0
+)
+
+export const selctedNodePositionSelector = (index) => createSelector(
+    nodesPositionsSelector,
+    selectedNodesSelector,
+    (positions, selectedNodes) => positions[selectedNodes[index]]
+)
+
+
+export const selctedEdgePathLayoutSelector = (index) => createSelector(
+    layoutSelector,
+    selectedEdgesSelector,
+    (layout, edges) => {
+        const e = edges[index]
+        return layout.edgePaths[e[0]][e[1]]
+    }
+)
+
+export const anyThingSelectedSelector = createSelector(
+    selectedEdgesSelector,
+    selectedNodesSelector,
+    (edges, nodes) => edges.length > 0 || nodes.length > 0
 )

@@ -249,6 +249,7 @@ const ToolbarForm = styled.form`
     padding: 1px;
     align-items: center;
     justify-content: flex-start;
+    flex-direction: column;
     padding: 0 0.5em;
     background: #222;
     color: #fff;
@@ -256,7 +257,7 @@ const ToolbarForm = styled.form`
 `
 
 const ToolButton = styled.button`
-    background: #222;
+    background: ${({active}) => active ? '#303030' : '#222'};
     color: #fff;
     font: inherit;
     margin: 1px;
@@ -356,9 +357,10 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     }
 }
 
-const NodeDetails = ({nodeId}) => {
+const NodeDetails = ({index}) => {
     const dispatch = useDispatch()
 
+    const nodeId = useSelector(selectors.selectedNodeSelector(index))
     const neighbours = useSelector(selectors.neighboursSelector(nodeId))
 
     const attributes = useSelector(selectors.nodeAttributeTypesSelector)
@@ -418,9 +420,10 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     }
 }
 
-const EdgeDetails = ({nodeId, edgeIndex}) => {
+const EdgeDetails = ({index}) => {
     const dispatch = useDispatch()
 
+    const [nodeId, edgeIndex] = useSelector(selectors.selectedEdgeSelector(index))
     const target = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIndex))
     const attributes =  useSelector(selectors.edgeAttributeTypesSelector)
     const flags = useSelector(selectors.graphFlagsSelector)
@@ -504,12 +507,26 @@ const ViewOptions = () => {
     </div>
 }
 
-const Tools = ({tools, currentTool, onSelectTool}) => {
+const Tools = () => {
     const dispatch = useDispatch();
     const canUndo = useSelector(selectors.canUndoSelector)
-
-
     const canRedo = useSelector(selectors.canRedoSelector)
+
+    const currentTool = useSelector(selectors.toolSelectionSelector)
+    const tools = {
+        'edit': 'Edit',
+        'select': 'Select',
+    }
+
+    const togglAlgorithm = useCallback(() => {
+        dispatch(actions.toggleAlgorithm())
+    }, [dispatch])
+
+    const showAlgorithm = useSelector(selectors.showAlgorithmSelector)
+
+    const selectTool = useCallback((evt) => {
+        dispatch(actions.selectTool(evt.target.getAttribute('data-tool')))
+    }, [dispatch])
 
     const toggleProjectList = useCallback(() => dispatch(actions.toggleProjectList()), [])
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
@@ -526,9 +543,9 @@ const Tools = ({tools, currentTool, onSelectTool}) => {
         <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
         <ToolButton onClick={autoLayout}>Auto Layout</ToolButton>
         {Object.keys(tools).map((t) =>
-            <ToolButton key={t} disabled={t===currentTool} onClick={() => onSelectTool(t)}>{tools[t]}</ToolButton>
+            <ToolButton key={t} disabled={t===currentTool} onClick={selectTool} data-tool={t}>{tools[t]}</ToolButton>
         )}
-        <AlgorithmRunner />
+        <ToolButton active={showAlgorithm} onClick={togglAlgorithm}>Algorithm</ToolButton>
     </Toolbar>
 }
 
@@ -571,48 +588,52 @@ const AlgorithmOptions = ({algorithm}) => {
         dispatch(actions.runAlgorithm(alg.key, parameters))
     }, [dispatch, alg])
 
-    return <ToolbarSection>
-        <ToolbarForm onSubmit={run}>
-        {Object.keys(alg.parameters).map((p) => {
-            switch(alg.parameters[p].type) {
-                case 'NODE': {
-                    return <label key={algorithm+p}>
-                        {alg.parameters[p].label}:<br/>
-                        <select defaultValue={''} name={p}>
-                            {alg.parameters[p].required ? null : <option value="">---</option>}
-                            {nodes.map((_,nodeIdx) => <option key={nodeIdx} value={nodeIdx}>#{nodeIdx}</option>)}
-                        </select>
-                    </label>
+    return <>
+        <form onSubmit={run}>
+        {alg.parameters.length ?
+            <fieldset>
+                <legend>Options</legend>
+            {Object.keys(alg.parameters).map((p) => {
+                switch(alg.parameters[p].type) {
+                    case 'NODE': {
+                        return <label key={algorithm+p}>
+                            {alg.parameters[p].label}:<br/>
+                            <select defaultValue={''} name={p}>
+                                {alg.parameters[p].required ? null : <option value="">---</option>}
+                                {nodes.map((_,nodeIdx) => <option key={nodeIdx} value={nodeIdx}>#{nodeIdx}</option>)}
+                            </select>
+                        </label>
+                    }
+                    case 'NODE_ATTRIBUTE': {
+                        return <label key={algorithm+p}>
+                            {alg.parameters[p].label}:<br/>
+                            <select defaultValue={''} name={p}>
+                                {alg.parameters[p].required ? null : <option value="">---</option>}
+                                {Object.keys(nodeAttributes).filter((attr) =>
+                                    !alg.parameters[p].typeRequirement || alg.parameters[p].typeRequirement.includes(nodeAttributes[attr].type)
+                                ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
+                            </select>
+                        </label>
+                    }
+                    case 'EDGE_ATTRIBUTE': {
+                        return <label key={algorithm+p}>
+                            {alg.parameters[p].label}:<br/>
+                            <select defaultValue={''} name={p}>
+                                {alg.parameters[p].required ? null : <option value="">---</option>}
+                                {Object.keys(edgeAttributes).filter((attr) =>
+                                    !alg.parameters[p].typeRequirement || alg.parameters[p].typeRequirement.includes(edgeAttributes[attr].type)
+                                ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
+                            </select>
+                        </label>
+                    }
                 }
-                case 'NODE_ATTRIBUTE': {
-                    return <label key={algorithm+p}>
-                        {alg.parameters[p].label}:<br/>
-                        <select defaultValue={''} name={p}>
-                            {alg.parameters[p].required ? null : <option value="">---</option>}
-                            {Object.keys(nodeAttributes).filter((attr) =>
-                                !alg.parameters[p].typeRequirement || alg.parameters[p].typeRequirement.includes(nodeAttributes[attr].type)
-                            ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
-                        </select>
-                    </label>
-                }
-                case 'EDGE_ATTRIBUTE': {
-                    return <label key={algorithm+p}>
-                        {alg.parameters[p].label}:<br/>
-                        <select defaultValue={''} name={p}>
-                            {alg.parameters[p].required ? null : <option value="">---</option>}
-                            {Object.keys(edgeAttributes).filter((attr) =>
-                                !alg.parameters[p].typeRequirement || alg.parameters[p].typeRequirement.includes(edgeAttributes[attr].type)
-                            ).map((attr) => <option value={attr} key={attr}>{attr}</option>)}
-                        </select>
-                    </label>
-                }
-            }
 
-            return '?';
-        })}
-        {!canRun ? null : <ToolButton>▶️</ToolButton>}
-        </ToolbarForm>
-    </ToolbarSection>
+                return '?';
+            })}
+        </fieldset> : null}
+        {!canRun ? null : <ToolButton>Run️</ToolButton>}
+        </form>
+    </>
 }
 
 const AlgorithmRunner = () => {
@@ -634,9 +655,9 @@ const AlgorithmRunner = () => {
         })
     })
 
-    return <ToolbarSection>
+    return <>
         <div>
-            <span>Run Algorithm:</span><br/>
+            <span>Algorithm:</span><br/>
             <select style={{maxWidth: '10em'}} value={algorithmSelection} onChange={selectAlg}>
                 {applicableAlgorithms.map((a) =>
                     <option key={a.key} value={a.key}>{a.name}</option>
@@ -645,7 +666,7 @@ const AlgorithmRunner = () => {
         </div>
         <AlgorithmOptions algorithm={algorithmSelection} />
         {algorithmSelection !== algorithmType ? null : <AlgorithmResult />}
-    </ToolbarSection>
+    </>
 }
 
 const AlgorithmResult = () => {
@@ -664,10 +685,16 @@ const AlgorithmResult = () => {
     if(algorithm.result === null) {
         return null;
     } else if (algorithm.result.steps) {
-        return <div style={{textAlign: 'center'}}>
+        return <div>
+
+            <label>
+                <input type="checkbox" /> Auto re-run
+            </label>
+            <br/>
             {algorithm.focus + 1}/{algorithm.result.steps.length}
             <br/>
             <PlainButton onClick={stepBackward}>⏪</PlainButton>
+            <input type="range" value={algorithm.focus} min={0} max={algorithm.result.steps.length - 1} />
             <PlainButton onClick={stepFoward}>⏩</PlainButton>
         </div>;
     } else {
@@ -678,12 +705,12 @@ const AlgorithmResult = () => {
 const Menu = () => {
     const dispatch = useDispatch()
 
-    const selection = useSelector(selectors.selectionSelector)
     const properties = useSelector(selectors.graphPropertiesSelector)
     const flags = useSelector(selectors.graphFlagsSelector)
-    const nodes = selection.nodes
-    const edges = selection.edges
-    const empty = edges.length < 1 && nodes.length < 1
+    const empty = !useSelector(selectors.anyThingSelectedSelector)
+    const nodeSelection = useSelector(selectors.selectedNodesIndicesSelector)
+    const edgeSelection = useSelector(selectors.selectedEdgesIndicesSelector)
+
 
     const toggleSettings = useCallback((evt) => {
         if(evt.target === evt.currentTarget) {
@@ -720,10 +747,10 @@ const Menu = () => {
             <Section>
             <SectionTitle>Selected</SectionTitle>
             <SectionBody>
-            {nodes.map((nodeId) =>
-                <NodeDetails key={nodeId} nodeId={nodeId} />)}
-            {edges.map(([nodeId, edgeIndex]) =>
-                <EdgeDetails key={nodeId + "-" + edgeIndex} nodeId={nodeId} edgeIndex={edgeIndex} />
+            {nodeSelection.map((index) =>
+                <NodeDetails key={"a" + index} index={index} />)}
+            {edgeSelection.map((index) =>
+                <EdgeDetails key={"b" + index} index={index} />
             )}
             {empty ? <p>Nothing Selected</p> : null}
             </SectionBody>
@@ -1296,6 +1323,7 @@ const EdgesGrabber = ({grabEdge}) => {
 const EdgePathManipulator = ({nodeId, edgeIdx, mouseDownControl, doubleClickControl}) => {
     const result = [];
 
+    const targetNode = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIdx))
     const controls = useSelector(selectors.edgePathSelector(nodeId, edgeIdx))
     const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
 
@@ -1319,6 +1347,10 @@ const EdgePathManipulator = ({nodeId, edgeIdx, mouseDownControl, doubleClickCont
         const c = 1*evt.target.getAttribute('data-c');
         doubleClickControl(nodeId, edgeIdx, c, controls, evt)
     }, [nodeId, edgeIdx, doubleClickControl, controls])
+
+    if(targetNode === nodeId) {
+        return null
+    }
 
     for (let i = 2; i < edgePath.curve.length - 5; i += 6)
     {
@@ -2095,14 +2127,19 @@ const AlgorithmStepper = () => {
 
 const AlgorithmDetails = () => {
     const algorithm = useSelector(selectors.algorithmSelector)
+    const showAlgorithm = useSelector(selectors.showAlgorithmSelector)
 
+    if(showAlgorithm) {
+        let matrices
 
-    if(algorithm.result && algorithm.result.steps && algorithm.result.steps[algorithm.focus]) {
-        const matrices = algorithm.result.steps[algorithm.focus].matrices
+        if(algorithm.result && algorithm.result.steps && algorithm.result.steps[algorithm.focus]) {
+            matrices = algorithm.result.steps[algorithm.focus].matrices
+        }
 
-        if(matrices) {
-            return <OverlayBox>
-            {Object.keys(matrices).map((k) => {
+        return <OverlayBox>
+            <AlgorithmRunner />
+
+            {matrices ? Object.keys(matrices).map((k) => {
                 const matrix = matrices[k]
                 return <div key={k}>
                     <h2>{k} matrix</h2>
@@ -2120,43 +2157,38 @@ const AlgorithmDetails = () => {
                         </tbody>
                     </table>
                 </div>
-            })}
+            }) : null}
             </OverlayBox>
-        }
+    } else {
+        return <></>
     }
-
-    return <></>
 }
 
 
-const NodeSelection = ({nodeId}) => {
-    const pos = useSelector(selectors.nodePositionSelector(nodeId))
+const NodeSelection = ({index}) => {
+    const pos = useSelector(selectors.selctedNodePositionSelector(index))
     return <NodeCircleSelection cx={pos.x} cy={pos.y} r={20} />
 }
 
 
-const NodeEdgeSelection = ({nodeId, edgeIdx}) => {
-    const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
+const NodeEdgeSelection = ({index}) => {
+    const edgePath = useSelector(selectors.selctedEdgePathLayoutSelector(index))
     return <EdgeSelectionLine d={edgePath.string} />
 }
 
 const GraphSelection = () => {
-    const selection = useSelector(selectors.selectionSelector)
-    const selectedNodes = (selection.nodes)
-    const selectedEdges = (selection.edges)
+    const selectedNodes = useSelector(selectors.selectedNodesIndicesSelector)
+    const selectedEdges = useSelector(selectors.selectedEdgesIndicesSelector)
 
     return <g>
-        {selectedNodes.map((nodeId, i) => {
-            return <NodeSelection nodeId={nodeId} key={i} />
+        {selectedNodes.map((index) => {
+            return <NodeSelection index={index} key={index} />
         })}
-        {selectedEdges.map((e) => {
-            const from = e[0];
-            const edgeIdx = e[1];
+        {selectedEdges.map((index) => {
 
             return <NodeEdgeSelection
-                key={`${from}-${edgeIdx}`}
-                nodeId={from}
-                edgeIdx={edgeIdx}
+                key={index}
+                index={index}
             />;
         })}
     </g>
@@ -2164,7 +2196,7 @@ const GraphSelection = () => {
 
 const GithubBadge = () => {
     return <a title="Form me on GitHub" href="https://github.com/laszlokorte/graph-tools">
-        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 250 250" fill="#444444" style={{position: 'absolute', right: 0, top: '3em'}}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 250 250" fill="#444444" style={{position: 'absolute', right: 0, top: '0'}}>
           <path d="M0 0l115 115h15l12 27 108 108V0z" fill="#444444"/>
           <path fill="#CCCCCC" d="M128 109c-15-9-9-19-9-19 3-7 2-11 2-11-1-7 3-2 3-2 4 5 2 11 2 11-3 10 5 15 9 16" />
           <path fill="#CCCCCC" d="M115 115s4 2 5 0l14-14c3-2 6-3 8-3-8-11-15-24 2-41 5-5 10-7 16-7 1-2 3-7 12-11 0 0 5 3 7 16 4 2 8 5 12 9s7 8 9 12c14 3 17 7 17 7-4 8-9 11-11 11 0 6-2 11-7 16-16 16-30 10-41 2 0 3-1 7-5 11l-12 11c-1 1 1 5 1 5z"/>
@@ -2253,23 +2285,34 @@ const DumpWindow = () => {
     </Overlay> : null
 }
 
-const GraphEditor = () => {
-    const dispatch = useDispatch();
+const ErrorBar = () => {
+    const error = useSelector(selectors.errorSelector);
+    return error ?  <ErrorMessage>{error}</ErrorMessage> : null
+}
 
+const GraphEditor = () => {
+    return <Container>
+            <Title>
+                Graph Editor
+            </Title>
+            <Tools />
+            <Menu />
+            <ErrorBar />
+            <Canvas>
+                <CanvasContent/>
+            </Canvas>
+            <ProjectList />
+            <Settings />
+            <DumpWindow />
+            <AlgorithmDetails />
+        </Container>;
+}
+
+const CanvasContent = () => {
     const box = useSelector(selectors.cameraBoxSelector);
 
-    const error = useSelector(selectors.errorSelector);
-
-    const selectTool = useCallback((tool) => {
-        dispatch(actions.selectTool(tool))
-    }, [dispatch])
 
     const currentTool = useSelector(selectors.toolSelectionSelector)
-
-    const tools = {
-        select: 'Select',
-        edit: 'Edit',
-    };
 
     const toolComponents = {
         select: GraphSelector,
@@ -2279,31 +2322,7 @@ const GraphEditor = () => {
 
     const ToolComponent = toolComponents[currentTool] || toolComponents['none'];
 
-    return <Container>
-            <Title>
-                Graph Editor
-            </Title>
-            <Tools tools={tools} currentTool={currentTool} onSelectTool={selectTool} />
-            <Menu />
-            {
-                error?
-                <ErrorMessage>{error}</ErrorMessage>
-                :null
-            }
-            <Canvas>
-                <CanvasContent
-                    box={box}
-                    ToolComponent={ToolComponent}
-                />
-            </Canvas>
-            <ProjectList />
-            <Settings />
-            <DumpWindow />
-            <AlgorithmDetails />
-        </Container>;
-}
 
-const CanvasContent = ({ToolComponent, box}) => {
     return <>
         <Graph
             box={box}
