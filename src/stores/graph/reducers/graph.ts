@@ -23,7 +23,7 @@ const initialState = {
     "multiGraph": false,
     "directed": true,
   },
-  "partition": false,
+  "partition": null,
   "attributeTypes": {
     "edges": {
       "path": {
@@ -203,7 +203,7 @@ export default (state = initialState, action) => {
                     error: 'Edges must be ordered from low to higher node id',
                 }
             }
-            if(state.partition) {
+            if(typeof state.partition === 'string') {
                 const sourcePartition = state.attributes.nodes[state.partition][action.fromNodeId];
                 const targetPartition = state.attributes.nodes[state.partition][action.toNodeId];
 
@@ -278,9 +278,6 @@ export default (state = initialState, action) => {
             });
         }
         case 'DELETE_NODE': {
-            if(action.nodeId === 3) {
-                return {error: 'Can not delete node 3'}
-            }
             if(state.nodes[action.nodeId].length) {
                 return {error: 'Node can not be deleted'}
             }

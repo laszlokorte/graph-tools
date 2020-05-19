@@ -777,9 +777,9 @@ const Menu = () => {
             <Section>
             <SectionTitle>Selected</SectionTitle>
             <SectionBody>
-                <button onClick={deleteEdges}>Delete Edges</button>
-                <button onClick={deleteNodes}>Delete Nodes</button>
-                <button onClick={deleteSelected}>Delete Selected</button>
+                <button onClick={deleteEdges}>Delete selected Edges</button>
+                <button onClick={deleteNodes}>Delete selected Nodes</button>
+                <button onClick={deleteSelected}>Delete selected</button>
             {nodeSelection.map((index) =>
                 <NodeDetails key={"a" + index} index={index} />)}
             {edgeSelection.map((index) =>
@@ -1761,7 +1761,7 @@ const GraphSelector = () => {
     }, [dispatch])
 
     const clearSelection = useCallback((evt) => {
-        if(!evt.metaKey && !evt.ctrlKey && !evt.shiftKey) {
+        if(!evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey) {
             dispatch(actions.clearSelection());
         }
     }, [dispatch])
@@ -1813,7 +1813,7 @@ const GraphSelector = () => {
     const rect = useRef();
 
     return <g onMouseDown={mouseDown}>
-        <rect style={{pointerEvents:'all'}} onClick={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
+        <rect style={{pointerEvents:'all'}} onMouseDown={clearSelection} x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} fill="none" />
         {range.x0 === null ? null :
             <SelectionBox ref={rect} points={ps2} />
         }
