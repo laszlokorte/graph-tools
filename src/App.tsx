@@ -358,6 +358,51 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     }
 }
 
+const SelectedNodesAttribute = ({attrKey}) => {
+    const dispatch = useDispatch()
+    const attr = useSelector(selectors.selectedNodesAttributeSelector(attrKey))
+
+    const typeName = attr.type.type
+
+    const onChange = useCallback(
+        (evt) => dispatch(actions.setSelectedNodesAttribute(attrKey, evt.target.value))
+    , [attrKey])
+
+    const onCheck = useCallback(
+        (evt) => dispatch(actions.setSelectedNodesAttribute(attrKey, evt.target.checked))
+    , [attrKey])
+
+    if(['text','color','numeric'].includes(typeName)) {
+        return (<>
+            <dt>{attrKey}*:</dt>
+            <dd><input placeholder={attr.mixed ? 'mixed' : ''} type="text" value={attr.mixed ? '' : (attr.value || '')} onChange={onChange} /></dd>
+        </>);
+    } else if(['boolean'].includes(typeName)) {
+        return (<>
+            <dt>{attrKey}*:</dt>
+            <dd><input type="checkbox" checked={attr.mixed || attr.value===true} onChange={onCheck} /></dd>
+        </>);
+    } else if(['enum'].includes(typeName)) {
+        return (<>
+            <dt>{attrKey}*:</dt>
+            <dd>
+                <select value={attr.mixed ? '_mixed' : attr.value || ''} onChange={onChange}>
+                    {attr.mixed ? <option value={'_mixed'} disabled>mixed</option> : null}
+                    {attr.type.required ? null : <option value={''}>---</option>}
+                    {attr.type.options.map((v, i) => {
+                        return <option key={i}>{v}</option>
+                    })}
+                </select>
+            </dd>
+        </>);
+    } else {
+        return (<>
+            <dt>{attrKey}:</dt>
+            <dd><input placeholder={attr.mixed ? 'mixed' : ''} type={attr.type} value={attr.mixed ? '' : JSON.stringify(attr.value)} readOnly /></dd>
+        </>);
+    }
+}
+
 const NodeDetails = ({index}) => {
     const dispatch = useDispatch()
 
@@ -428,6 +473,83 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
         </>
     }
 }
+
+const SelectedEdgesAttribute = ({attrKey}) => {
+    const dispatch = useDispatch()
+    const attr = useSelector(selectors.selectedEdgesAttributeSelector(attrKey))
+
+    const onChangeText = useCallback(
+        (evt) => dispatch(actions.setSelectedEdgesAttribute(attrKey, evt.target.value)),
+        [attrKey, attr.type]
+    );
+    const onChangeCheckbox = useCallback(
+        (evt) => dispatch(actions.setSelectedEdgesAttribute(attrKey, evt.target.checked)),
+    [attrKey, attr.type]);
+
+    if(['text','color','numeric'].includes(attr.type.type)) {
+        return <>
+            <dt>{attrKey}:</dt>
+            <dd><input placeholder={attr.mixed ? 'mixed' : ''} type={attr.type.type} value={attr.mixed ? '' : attr.value+''} onChange={onChangeText} /></dd>
+        </>
+    } else if(['boolean'].includes(attr.type.type)) {
+        return (<>
+            <dt>{attrKey}*:</dt>
+            <dd><input type="checkbox" checked={attr.mixed || attr.value===true} onChange={onChangeCheckbox} /></dd>
+        </>);
+    } else {
+        return <>
+            <dt>{attrKey}:</dt>
+            <dd><input placeholder={attr.mixed ? 'mixed' : ''} type={attr.type.type} value={attr.mixed ? '' : JSON.stringify(attr.value)} readOnly /></dd>
+        </>
+    }
+}
+
+const SelectedEdgesDetails = () => {
+    const dispatch = useDispatch()
+    const count = useSelector(selectors.selectedEdgeCountSelector)
+    const attributes =  useSelector(selectors.edgeAttributeTypesSelector)
+
+    const deleteSelected = useCallback(() => {
+        dispatch(actions.deleteSelectedEdges())
+    }, [dispatch])
+
+
+    return <DetailsBox>
+        <DetailsBoxHead>
+        <SubSectionTitle>{count} Edges Selected</SubSectionTitle>
+        <DetailsBoxButton onClick={deleteSelected} >Delete Edges</DetailsBoxButton>
+        </DetailsBoxHead>
+        <DefinitionList>
+        {attributes.map((attrKey) =>
+            <SelectedEdgesAttribute key={attrKey} attrKey={attrKey} />
+        )}
+        </DefinitionList>
+    </DetailsBox>
+}
+
+const SelectedNodesDetails = () => {
+    const dispatch = useDispatch()
+    const count = useSelector(selectors.selectedNodeCountSelector)
+    const attributes = useSelector(selectors.nodeAttributeTypesSelector)
+
+    const deleteSelected = useCallback(() => {
+        dispatch(actions.deleteSelectedNodes())
+    }, [dispatch])
+
+
+    return <DetailsBox>
+        <DetailsBoxHead>
+        <SubSectionTitle>{count} Nodes Selected</SubSectionTitle>
+        <DetailsBoxButton onClick={deleteSelected} >Delete Nodes</DetailsBoxButton>
+        </DetailsBoxHead>
+        <DefinitionList>
+            {attributes.map((attrKey) =>
+                <SelectedNodesAttribute key={attrKey} attrKey={attrKey} />
+            )}
+        </DefinitionList>
+    </DetailsBox>
+}
+
 
 const EdgeDetails = ({index}) => {
     const dispatch = useDispatch()
@@ -742,13 +864,6 @@ const Menu = () => {
         }
     }, [dispatch])
 
-    const deleteEdges = useCallback(() => {
-        dispatch(actions.deleteSelectedEdges())
-    }, [dispatch])
-
-    const deleteNodes = useCallback(() => {
-        dispatch(actions.deleteSelectedNodes())
-    }, [dispatch])
 
     const deleteSelected = useCallback(() => {
         dispatch(actions.deleteSelected())
@@ -775,16 +890,19 @@ const Menu = () => {
             </Section>
 
             <Section>
-            <SectionTitle>Selected</SectionTitle>
+            <SectionTitle>
+                Selection
+                {empty ? null : <button onClick={deleteSelected}>Delete all</button>}
+            </SectionTitle>
             <SectionBody>
-                <button onClick={deleteEdges}>Delete selected Edges</button>
-                <button onClick={deleteNodes}>Delete selected Nodes</button>
-                <button onClick={deleteSelected}>Delete selected</button>
-            {nodeSelection.map((index) =>
-                <NodeDetails key={"a" + index} index={index} />)}
-            {edgeSelection.map((index) =>
+            {nodeSelection.length === 1 ? nodeSelection.map((index) =>
+                <NodeDetails key={"a" + index} index={index} />
+            ) : null}
+            {edgeSelection.length === 1 ? edgeSelection.map((index) =>
                 <EdgeDetails key={"b" + index} index={index} />
-            )}
+            ) : null}
+            {nodeSelection.length > 1 ? <SelectedNodesDetails /> : null}
+            {edgeSelection.length > 1 ? <SelectedEdgesDetails /> : null}
             {empty ? <p>Nothing Selected</p> : null}
             </SectionBody>
             </Section>
@@ -2198,13 +2316,13 @@ const AlgorithmDetails = () => {
 
 
 const NodeSelection = ({index}) => {
-    const pos = useSelector(selectors.selctedNodePositionSelector(index))
+    const pos = useSelector(selectors.selectedNodePositionSelector(index))
     return <NodeCircleSelection cx={pos.x} cy={pos.y} r={20} />
 }
 
 
 const NodeEdgeSelection = ({index}) => {
-    const edgePath = useSelector(selectors.selctedEdgePathLayoutSelector(index))
+    const edgePath = useSelector(selectors.selectedEdgePathLayoutSelector(index))
     return <EdgeSelectionLine d={edgePath.string} />
 }
 

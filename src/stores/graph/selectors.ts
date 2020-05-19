@@ -279,14 +279,14 @@ export const algorithmHasResult = createSelector(
     (alg) => alg && alg.result && alg.result.steps && alg.result.steps.length > 0
 )
 
-export const selctedNodePositionSelector = (index) => createSelector(
+export const selectedNodePositionSelector = (index) => createSelector(
     nodesPositionsSelector,
     selectedNodesSelector,
     (positions, selectedNodes) => positions[selectedNodes[index]]
 )
 
 
-export const selctedEdgePathLayoutSelector = (index) => createSelector(
+export const selectedEdgePathLayoutSelector = (index) => createSelector(
     layoutSelector,
     selectedEdgesSelector,
     (layout, edges) => {
@@ -345,3 +345,57 @@ export const algorithmRerunSelector = createSelector(
     algorithmSelector,
     (alg) => alg.rerun
 )
+
+const selectedNodesAttributeIsMixedSelector = (attr) => createSelector(
+    selectedNodesSelector,
+    allNodesAttributeValueSelector(attr),
+    (nodeIds, attr) => !nodeIds.reduce((same, id) => same && attr[id] === attr[nodeIds[0]], true)
+)
+
+const selectedEdgesAttributeIsMixedSelector = (attr) => createSelector(
+    selectedEdgesSelector,
+    allEdgesAttributeValueSelector(attr),
+    (edges, attr) => !edges.reduce((same, [n, i]) => same && attr[n][i] === attr[edges[0][0]][edges[0][1]], true)
+)
+
+const selectedNodesAttributeValueSelector = (attr) => createSelector(
+    selectedNodesSelector,
+    allNodesAttributeValueSelector(attr),
+    (nodeIds, attr) => {
+        const n = nodeIds.reduce((other, id) => attr[other] === attr[id] ? other : null)
+        if(n !== null) {
+            return attr[n]
+        } else {
+            return null
+        }
+    }
+)
+
+const selectedEdgesAttributeValueSelector = (attr) => createSelector(
+    selectedEdgesSelector,
+    allEdgesAttributeValueSelector(attr),
+    (edges, attr) => {
+        if(edges.length < 1) {
+            return null
+        }
+        const e = edges.reduce((c, [n, i]) => c && attr[c[0]][c[1]] === attr[n][i] ? c : null, edges[0])
+        if(e) {
+            return attr[e[0]][e[1]]
+        } else {
+            return null
+        }
+    }
+)
+
+export const selectedEdgesAttributeSelector = (attrKey) => createStructuredSelector({
+    type: edgeAttributeTypeSelector(attrKey),
+    value: selectedEdgesAttributeValueSelector(attrKey),
+    mixed: selectedEdgesAttributeIsMixedSelector(attrKey),
+})
+
+export const selectedNodesAttributeSelector = (attrKey) => createStructuredSelector({
+    type: nodeAttributeTypeSelector(attrKey),
+    value: selectedNodesAttributeValueSelector(attrKey),
+    mixed: selectedNodesAttributeIsMixedSelector(attrKey),
+})
+
