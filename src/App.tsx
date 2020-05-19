@@ -742,6 +742,18 @@ const Menu = () => {
         }
     }, [dispatch])
 
+    const deleteEdges = useCallback(() => {
+        dispatch(actions.deleteSelectedEdges())
+    }, [dispatch])
+
+    const deleteNodes = useCallback(() => {
+        dispatch(actions.deleteSelectedNodes())
+    }, [dispatch])
+
+    const deleteSelected = useCallback(() => {
+        dispatch(actions.deleteSelected())
+    }, [dispatch])
+
 
     return <Scroller>
 
@@ -765,6 +777,9 @@ const Menu = () => {
             <Section>
             <SectionTitle>Selected</SectionTitle>
             <SectionBody>
+                <button onClick={deleteEdges}>Delete Edges</button>
+                <button onClick={deleteNodes}>Delete Nodes</button>
+                <button onClick={deleteSelected}>Delete Selected</button>
             {nodeSelection.map((index) =>
                 <NodeDetails key={"a" + index} index={index} />)}
             {edgeSelection.map((index) =>

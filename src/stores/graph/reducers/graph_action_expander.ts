@@ -6,11 +6,17 @@ export default (next) => (state, action) => {
     }
 
     return expandedActions.reduce((currentState, a) => {
-        if(state && !state.error && currentState.error) {
+        if(state && state !== currentState && currentState.error) {
             return {...state, error: currentState.error}
         }
 
-        return next(currentState, a)
+        const newState = next(currentState, a)
+
+        if(newState.error) {
+            return {...state, error: newState.error}
+        }
+
+        return newState
     }, state)
 }
 

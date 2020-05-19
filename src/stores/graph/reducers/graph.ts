@@ -278,6 +278,9 @@ export default (state = initialState, action) => {
             });
         }
         case 'DELETE_NODE': {
+            if(action.nodeId === 3) {
+                return {error: 'Can not delete node 3'}
+            }
             if(state.nodes[action.nodeId].length) {
                 return {error: 'Node can not be deleted'}
             }

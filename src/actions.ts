@@ -182,3 +182,28 @@ export const setAlgorithmRerun = (rerun) => ({
     type: 'SET_ALGORITHM_RERUN',
     rerun,
 })
+
+
+export const deleteSelected = () => ({
+    type: 'DELETE_SELECTED',
+})
+
+export const deleteSelectedNodes = () => ({
+    type: 'DELETE_SELECTED_NODES',
+})
+
+export const deleteSelectedEdges = () => ({
+    type: 'DELETE_SELECTED_EDGES',
+})
+
+export const setSelectedEdgesAttribute = (attribute, value) => ({
+    type: 'SET_SELECTED_EDGES_ATTRIBUTE',
+    attribute,
+    value,
+})
+
+export const setSelectedNodesAttribute = (attribute, value) => ({
+    type: 'SET_SELECTED_NODES_ATTRIBUTE',
+    attribute,
+    value,
+})

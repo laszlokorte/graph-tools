@@ -5,6 +5,7 @@ import algorithm from './algorithm'
 import properties from './properties'
 
 import graphActionExpander from './graph_action_expander'
+import graphSelectionActionExpander from './graph_selection_action_expander'
 import selectionActionExpander from './selection_action_expander'
 import cameraActionExpander from './camera_action_expander'
 import algorithmActionExpander from './algorithm_action_expander'
@@ -89,7 +90,7 @@ const toolSelection = (state = 'edit', action) => {
     return state
 }
 
-const data = undoable(graphActionExpander((state, action) => {
+const data = undoable(graphSelectionActionExpander(graphActionExpander((state, action) => {
     const oldGraph = state ? state.graph : undefined;
     const oldSelection = state ? state.selection : undefined;
     const oldAlgorithm = state ? state.algorithm : undefined;
@@ -110,14 +111,14 @@ const data = undoable(graphActionExpander((state, action) => {
         properties: newProperties,
         error: null,
     };
-}), {
+})), {
     limit: 10,
     filter: excludeAction([
         'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE',
         'STEP_ALGORITHM','JUMP_STEP_ALGORITHM',
         'SELECT_AREA',
         'DESELECT_NODE',
-        'DESELECT_EEDGE',
+        'DESELECT_EDGE',
         ...skipActions,
     ]),
     ignoreInitialState: true,
