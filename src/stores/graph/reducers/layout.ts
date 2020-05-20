@@ -47,6 +47,8 @@ export default (graph) => {
 
     const edgePaths = nodes.map((neighbors, nodeId) =>
         neighbors.map((neighbourId, edgeIdx, allEdges) => {
+            const countDupl = multiGraph ? allEdges.slice(edgeIdx).filter(x => x===neighbourId).length - 1 : 0
+
             if(neighbourId == nodeId) {
                 const nodeRadius = 20
                 const bow = 50
@@ -66,13 +68,12 @@ export default (graph) => {
                 const endX = center.x + nodeRadius * normX + gap * tangX
                 const endY = center.y + nodeRadius * normY + gap * tangY
 
-                const xtra = multiGraph ? edgeIdx * 5 : 0
 
-                const c1x = center.x + nodeRadius * normX + bow * normX - bow * tangX + xtra * (normX - 2*tangX)
-                const c1y = center.y + nodeRadius * normY + bow * normY - bow * tangY + xtra * (normY - 2*tangY)
+                const c1x = center.x + nodeRadius * normX + bow * normX - bow * tangX + countDupl * 5 * (normX - 2*tangX)
+                const c1y = center.y + nodeRadius * normY + bow * normY - bow * tangY + countDupl * 5 * (normY - 2*tangY)
 
-                const c2x = center.x + nodeRadius * normX + bow * normX + bow * tangX + xtra * (normX + 2*tangX)
-                const c2y = center.y + nodeRadius * normY + bow * normY + bow * tangY + xtra * (normY + 2*tangY)
+                const c2x = center.x + nodeRadius * normX + bow * normX + bow * tangX + countDupl * 5 * (normX + 2*tangX)
+                const c2y = center.y + nodeRadius * normY + bow * normY + bow * tangY + countDupl * 5 * (normY + 2*tangY)
 
                 return {
                     string: 'M ' + startX + ' ' + startY + 'C '+ c1x + ' ' + c1y + ' ' + c2x + ' ' + c2y + ' ' + endX + ' ' + endY,
@@ -86,8 +87,8 @@ export default (graph) => {
                         normY: normY,
                     },
                     text: {
-                        x: positions[nodeId].x + normX * bow + xtra * normX,
-                        y: positions[nodeId].y + normY * bow + xtra * normY,
+                        x: positions[nodeId].x + normX * bow + countDupl * 5 * normX,
+                        y: positions[nodeId].y + normY * bow + countDupl * 5 * normY,
                         normX: normX,
                         normY: normY,
                         orientation: orientation
@@ -106,6 +107,8 @@ export default (graph) => {
             const startPosition = positions[nodeId];
             const endPosition = positions[neighbourId];
 
+            const xtra = ((countDupl + (directed ? 0 : 1)) >> (directed ? 0 : 1)) * 5 * (directed ? 1 : (1 - 2 * (countDupl%2)))
+
             if(controls.length == 0) {
                 const deltaX = startPosition.x - endPosition.x;
                 const deltaY = startPosition.y - endPosition.y;
@@ -113,8 +116,8 @@ export default (graph) => {
                 const normX = deltaX / distance;
                 const normY = deltaY / distance;
                 points = [
-                    (startPosition.x + endPosition.x) / 2 + (directed ? 20 * normY : 0) + normY * (multiGraph ? 5 * (edgeIdx - (directed ? 0 : 1) * (allEdges.length-1)/2) : 0),
-                    (startPosition.y + endPosition.y) / 2 - (directed ? 20 * normX : 0) - normX * (multiGraph ? 5 * (edgeIdx - (directed ? 0 : 1) * (allEdges.length-1)/2) : 0),
+                    (startPosition.x + endPosition.x) / 2 + (directed ? 20 * normY : 0) + normY * xtra,
+                    (startPosition.y + endPosition.y) / 2 - (directed ? 20 * normX : 0) - normX * xtra,
                 ]
             }
 
