@@ -66,11 +66,13 @@ export default (graph) => {
                 const endX = center.x + nodeRadius * normX + gap * tangX
                 const endY = center.y + nodeRadius * normY + gap * tangY
 
-                const c1x = center.x + nodeRadius * normX + bow * normX - bow * tangX
-                const c1y = center.y + nodeRadius * normY + bow * normY - bow * tangY
+                const xtra = multiGraph ? edgeIdx * 5 : 0
 
-                const c2x = center.x + nodeRadius * normX + bow * normX + bow * tangX
-                const c2y = center.y + nodeRadius * normY + bow * normY + bow * tangY
+                const c1x = center.x + nodeRadius * normX + bow * normX - bow * tangX + xtra * (normX - 2*tangX)
+                const c1y = center.y + nodeRadius * normY + bow * normY - bow * tangY + xtra * (normY - 2*tangY)
+
+                const c2x = center.x + nodeRadius * normX + bow * normX + bow * tangX + xtra * (normX + 2*tangX)
+                const c2y = center.y + nodeRadius * normY + bow * normY + bow * tangY + xtra * (normY + 2*tangY)
 
                 return {
                     string: 'M ' + startX + ' ' + startY + 'C '+ c1x + ' ' + c1y + ' ' + c2x + ' ' + c2y + ' ' + endX + ' ' + endY,
@@ -84,8 +86,8 @@ export default (graph) => {
                         normY: normY,
                     },
                     text: {
-                        x: positions[nodeId].x + normX * bow,
-                        y: positions[nodeId].y + normY * bow,
+                        x: positions[nodeId].x + normX * bow + xtra * normX,
+                        y: positions[nodeId].y + normY * bow + xtra * normY,
                         normX: normX,
                         normY: normY,
                         orientation: orientation

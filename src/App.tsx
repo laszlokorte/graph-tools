@@ -57,6 +57,13 @@ const OverlayBox = styled.div`
     overflow: auto;
 `
 
+const EmptyBox = styled.div`
+    text-align: center;
+    padding: 1em;
+    font-style: italic;
+    color: #777;
+`
+
 const Overlay = styled.div`
   grid-column: 1 / -1;
   grid-row: 1 / -1;
@@ -178,6 +185,16 @@ const SectionTitle = styled.h2`
     top: 0;
     display: flex;
     justify-content: space-between;
+    align-items: center;
+`
+
+const SectionTitleButton = styled.button`
+    border-radius: 3px;
+    padding: 3px 5px;
+    background: #333;
+    border: none;
+    color: #fff;
+    cursor: pointer;
 `
 
 const SubSectionTitle = styled.h3`
@@ -363,6 +380,13 @@ const SelectedNodesAttribute = ({attrKey}) => {
     const attr = useSelector(selectors.selectedNodesAttributeSelector(attrKey))
 
     const typeName = attr.type.type
+    const checkboxRef = useRef()
+
+    useEffect(() => {
+        if(checkboxRef.current) {
+            checkboxRef.current.indeterminate = attr.mixed
+        }
+    }, [attr.mixed])
 
     const onChange = useCallback(
         (evt) => dispatch(actions.setSelectedNodesAttribute(attrKey, evt.target.value))
@@ -380,7 +404,7 @@ const SelectedNodesAttribute = ({attrKey}) => {
     } else if(['boolean'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><input type="checkbox" checked={attr.mixed || attr.value===true} onChange={onCheck} /></dd>
+            <dd><input ref={checkboxRef} type="checkbox" checked={!attr.mixed && attr.value===true} onChange={onCheck} /></dd>
         </>);
     } else if(['enum'].includes(typeName)) {
         return (<>
@@ -423,7 +447,7 @@ const NodeDetails = ({index}) => {
 
     return <DetailsBox>
         <DetailsBoxHead>
-        <SubSectionTitle>Node (#{nodeId})</SubSectionTitle>
+        <SubSectionTitle>Selected Node: #{nodeId}</SubSectionTitle>
         <DetailsBoxButton onClick={deleteNode}>Delete</DetailsBoxButton>
         </DetailsBoxHead>
         <SubSubSectionTitle>Attributes</SubSubSectionTitle>
@@ -433,14 +457,15 @@ const NodeDetails = ({index}) => {
             )}
         </DefinitionList>
         <SubSubSectionTitle>Neighbourhood</SubSubSectionTitle>
+        {neighbours.length === 0 ? <EmptyBox>No outgoing edges</EmptyBox> :
         <LinkList>
-            {neighbours.length === 0 ? <li>No outgoing edges</li> :
-                neighbours.map((neighbour, idx) =>
+            {neighbours.map((neighbour, idx) =>
                     neighbour === nodeId ?
                     <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>↩</BadgeLink> self</li> :
                     <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>→</BadgeLink><Link onClick={selectNode} data-node-id={neighbour}>Node #{neighbour}</Link></li>
             )}
         </LinkList>
+        }
     </DetailsBox>
 }
 
@@ -519,6 +544,7 @@ const SelectedEdgesDetails = () => {
         <SubSectionTitle>{count} Edges Selected</SubSectionTitle>
         <DetailsBoxButton onClick={deleteSelected} >Delete Edges</DetailsBoxButton>
         </DetailsBoxHead>
+        <SubSubSectionTitle>Attributes</SubSubSectionTitle>
         <DefinitionList>
         {attributes.map((attrKey) =>
             <SelectedEdgesAttribute key={attrKey} attrKey={attrKey} />
@@ -542,6 +568,7 @@ const SelectedNodesDetails = () => {
         <SubSectionTitle>{count} Nodes Selected</SubSectionTitle>
         <DetailsBoxButton onClick={deleteSelected} >Delete Nodes</DetailsBoxButton>
         </DetailsBoxHead>
+        <SubSubSectionTitle>Attributes</SubSubSectionTitle>
         <DefinitionList>
             {attributes.map((attrKey) =>
                 <SelectedNodesAttribute key={attrKey} attrKey={attrKey} />
@@ -562,7 +589,7 @@ const EdgeDetails = ({index}) => {
     const next = useSelector(selectors.nextMultiEdgeIndex(nodeId, edgeIndex))
 
     const deleteEdge = useCallback(
-        (evt) => dispatch(actions.deleteEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-node-id'), 10)))
+        (evt) => dispatch(actions.deleteEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-idx'), 10)))
     , [dispatch])
 
     const selectNode = useCallback(
@@ -570,25 +597,26 @@ const EdgeDetails = ({index}) => {
     , [dispatch])
 
     const selectEdge = useCallback(
-        (evt) => dispatch(actions.selectEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-node-id'), 10)))
+        (evt) => dispatch(actions.selectEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-idx'), 10)))
     , [dispatch])
 
     return <DetailsBox>
         <DetailsBoxHead>
-        <SubSectionTitle>Edge</SubSectionTitle>
+        <SubSectionTitle>Selected Edge: (#{nodeId}{flags.directed?'→':'–'}#{target})</SubSectionTitle>
         <DetailsBoxButton onClick={deleteEdge} data-node-id={nodeId} data-idx={edgeIndex}>Delete</DetailsBoxButton>
         </DetailsBoxHead>
-        <DefinitionList>
-        <dt>From</dt>
-        <dd><Link onClick={selectNode} data-node-id={nodeId}>Node #{nodeId}</Link></dd>
-        <dt>To</dt>
-        <dd><Link onClick={selectNode} data-node-id={target}>Node #{target}</Link></dd>
-        </DefinitionList>
         <SubSubSectionTitle>Attributes</SubSubSectionTitle>
         <DefinitionList>
         {attributes.map((attrKey) =>
             <EdgeAttribute key={attrKey} nodeId={nodeId} edgeIndex={edgeIndex} attrKey={attrKey} />
         )}
+        </DefinitionList>
+        <SubSubSectionTitle>Neighbourhood</SubSubSectionTitle>
+        <DefinitionList>
+        <dt>Source</dt>
+        <dd><Link onClick={selectNode} data-node-id={nodeId}>Node #{nodeId}</Link></dd>
+        <dt>Target</dt>
+        <dd><Link onClick={selectNode} data-node-id={target}>Node #{target}</Link></dd>
         </DefinitionList>
         {!flags.multiGraph ? null : <div>
             <SubSubSectionTitle>Partner Edges</SubSubSectionTitle>
@@ -873,8 +901,8 @@ const Menu = () => {
     return <Scroller>
 
             <Section>
-            <SectionTitle>Properties <button onClick={toggleSettings}>Settings</button>
-</SectionTitle>
+            <SectionTitle>Properties <SectionTitleButton onClick={toggleSettings}>Settings</SectionTitleButton>
+            </SectionTitle>
             <SectionBody>
             <DefinitionList>
                 <dt>Type</dt>
@@ -892,7 +920,7 @@ const Menu = () => {
             <Section>
             <SectionTitle>
                 Selection
-                {empty ? null : <button onClick={deleteSelected}>Delete all</button>}
+                {empty ? null : <SectionTitleButton onClick={deleteSelected}>Delete all</SectionTitleButton>}
             </SectionTitle>
             <SectionBody>
             {nodeSelection.length === 1 ? nodeSelection.map((index) =>
@@ -903,7 +931,7 @@ const Menu = () => {
             ) : null}
             {nodeSelection.length > 1 ? <SelectedNodesDetails /> : null}
             {edgeSelection.length > 1 ? <SelectedEdgesDetails /> : null}
-            {empty ? <p>Nothing Selected</p> : null}
+            {empty ? <EmptyBox>Nothing Selected</EmptyBox> : null}
             </SectionBody>
             </Section>
     </Scroller>

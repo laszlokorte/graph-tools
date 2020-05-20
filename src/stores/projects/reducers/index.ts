@@ -283,6 +283,7 @@ const store = {
             }
         },
         "flags": {
+            "loops": true,
             "multiGraph": false,
             "directed": true
         },
@@ -572,6 +573,7 @@ const store = {
                 }
             },
             "flags": {
+                "loops": true,
                 "multiGraph": false,
                 "directed": true
             },
@@ -1043,6 +1045,7 @@ const store = {
             }
         },
         "flags": {
+            "loops": true,
             "multiGraph": false,
             "directed": false
         },
@@ -1314,6 +1317,7 @@ const store = {
             }
         },
         "flags": {
+            "loops": true,
             "multiGraph": false,
             "directed": true
         },
@@ -1505,6 +1509,7 @@ const store = {
             }
         },
         "flags": {
+            "loops": true,
             "multiGraph": false,
             "directed": true
         },
@@ -1805,8 +1810,9 @@ const store = {
     }
   },
   "flags": {
-    "multiGraph": false,
-    "directed": true
+      "loops": true,
+      "multiGraph": false,
+      "directed": true
   },
   "partition": "type",
   "attributeTypes": {

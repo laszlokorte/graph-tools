@@ -20,8 +20,9 @@ const initialState = {
     }
   },
   "flags": {
-    "multiGraph": false,
-    "directed": true,
+      "multiGraph": false,
+      "directed": true,
+      "loops": true,
   },
   "partition": null,
   "attributeTypes": {
@@ -147,13 +148,31 @@ const flagConversions = {
         return {
             ...state,
             nodes: state.nodes.map((neighbours, nodeId) => {
-                return neighbours.filter((n) => n > nodeId)
+                return neighbours.filter((n) => n >= nodeId)
             }),
             attributes: {
                 ...state.attributes,
                 edges: objectMap(state.attributes.edges,
                     (key, value) =>
-                        value.map((vs, node) => vs.filter((v, i) => state.nodes[node][i] > node))
+                        value.map((vs, node) => vs.filter((v, i) => state.nodes[node][i] >= node))
+                )
+            },
+        };
+    },
+    loops: (state, yes) => {
+        if(yes) {
+            return state;
+        }
+        return {
+            ...state,
+            nodes: state.nodes.map((neighbours, nodeId) => {
+                return neighbours.filter((n) => n !== nodeId)
+            }),
+            attributes: {
+                ...state.attributes,
+                edges: objectMap(state.attributes.edges,
+                    (key, value) =>
+                        value.map((vs, node) => vs.filter((v, i) => state.nodes[node][i] !== node))
                 )
             },
         };
@@ -195,8 +214,8 @@ export default (state = initialState, action) => {
             if(!state.flags.multiGraph && state.nodes[action.fromNodeId].includes(action.toNodeId)) {
                 return {error: 'Edge already exists'};
             }
-            if(!state.flags.directed && action.fromNodeId === action.toNodeId) {
-                return {error: 'Can not Add looping edge on undirected graph'};
+            if(!state.flags.loops && action.fromNodeId === action.toNodeId) {
+                return {error: 'Looping edges are not allowed in this graph'};
             }
             if(!state.flags.directed && action.fromNodeId > action.toNodeId) {
                 return {
