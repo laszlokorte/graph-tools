@@ -30,7 +30,7 @@ const initialState = {
       "path": {
         "default": [],
         "type": "path",
-        "visible": true
+        "visible": false
       },
       "label": {
         "default": "",
@@ -65,7 +65,7 @@ const initialState = {
       "label": {
         "default": "new",
         "type": "text",
-        "visible": false
+        "visible": true
       },
       "type": {
         "default": "place",
@@ -425,7 +425,6 @@ export default (state = initialState, action) => {
         case 'NODE_AUTO_LAYOUT': {
             const positionAttribute = 'position';
             const pathAttribute = 'path';
-            const nodeCount = state.nodes.length;
 
             const count = state.nodes.length;
 

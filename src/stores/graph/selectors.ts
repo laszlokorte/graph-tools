@@ -137,7 +137,10 @@ export const neighbourNodeSelector = (nodeId, edgeIndex) => createSelector(
 
 export const allNodesAttributeValueSelector  = (attrKey) => createSelector(graphSelector, g => g.attributes.nodes[attrKey])
 export const allEdgesAttributeValueSelector  = (attrKey) => createSelector(graphSelector, g => g.attributes.edges[attrKey])
-export const nodeAttributeValueSelector  = (attrKey, nodeId) => createSelector(graphSelector, g => g.attributes.nodes[attrKey][nodeId])
+export const nodeAttributeValueSelector  = (attrKey, nodeId) => createSelector(
+    allNodesAttributeValueSelector(attrKey),
+    attrs => attrs ? attrs[nodeId] : null
+)
 export const nodeAttributeTypeSelector = (attrKey) => createSelector(graphSelector, g => g.attributeTypes.nodes[attrKey])
 export const nodeAttributeSelector = (attrKey, nodeId) => createStructuredSelector({
     type: nodeAttributeTypeSelector(attrKey),
@@ -164,6 +167,9 @@ export const nodeAttributesSelector = createSelector(
 
 export const edgeAttributeTypesSelector = createSelector(edgeAttributesSelector, attr => Object.keys(attr))
 export const nodeAttributeTypesSelector = createSelector(nodeAttributesSelector, attr => Object.keys(attr))
+
+export const edgeVisibleAttributeTypesSelector = createSelector(edgeAttributesSelector, attr => Object.keys(attr).filter((k) => attr[k].visible))
+export const nodeVisibleAttributeTypesSelector = createSelector(nodeAttributesSelector, attr => Object.keys(attr).filter((k) => attr[k].visible))
 
 export const nodesPositionsSelector = allNodesAttributeValueSelector('position')
 export const nodePositionSelector = (nodeId) => nodeAttributeValueSelector('position', nodeId)
@@ -399,3 +405,33 @@ export const selectedNodesAttributeSelector = (attrKey) => createStructuredSelec
     mixed: selectedNodesAttributeIsMixedSelector(attrKey),
 })
 
+
+export const nodeShapeSelector = (nodeId) => createSelector(
+    nodeAttributeValueSelector('type', nodeId),
+    (type) => {
+        if(type === 'place') {
+            return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
+        } else if(type === 'transition') {
+            return 'm 0 20 h -20 v -40 h 40 v 40 z'
+        } else {
+            return 'm 0 10 h -20 l 20 -30 l 20 30 z'
+        }
+    }
+)
+export const selectedNodeShapeSelector = (index) => createSelector(
+    allNodesAttributeValueSelector('type'),
+    selectedNodesSelector,
+    (types, selection) => {
+        const type = types ? types[selection[index]] : null
+
+        if(type === 'place') {
+            return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
+        } else if(type === 'transition') {
+            return 'm 0 20 h -20 v -40 h 40 v 40 z'
+        } else {
+            return 'm 0 10 h -20 l 20 -30 l 20 30 z'
+        }
+    }
+)
+
+export const newNodeShapeSelector = createSelector((state) => 'm 0 10 h -20 l 20 -30 l 20 30 z')

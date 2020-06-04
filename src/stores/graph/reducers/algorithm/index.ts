@@ -94,6 +94,18 @@ const resetResult = (state, graph) => {
     }
 }
 
+const validateParameters = (spec, actual, graph) => {
+    const errors = []
+
+    for(let s of Object.keys(spec)) {
+        if(spec[s].required && (actual[s] === null || actual[s] === undefined)) {
+            errors.push(`Parameter ${s} is required`);
+        }
+    }
+
+    return errors
+}
+
 export default (state = initialState, graph, action) => {
     if(invalidatingActions.includes(action.type)) {
         return resetResult(state, graph);
@@ -124,6 +136,14 @@ export default (state = initialState, graph, action) => {
     } else {
         switch(action.type) {
             case 'RUN_ALGORITHM': {
+                const parameterErrors = validateParameters(algorithms[action.algorithm].parameters, action.parameters, graph);
+
+                if(parameterErrors.length) {
+                    return {
+                        error: parameterErrors.join(', ')
+                    }
+                }
+
                 try {
                     const result = algorithms[action.algorithm].run(graph, action.parameters)
                     return {
@@ -147,7 +167,7 @@ export default (state = initialState, graph, action) => {
                                 }).map((k) => action.parameters[k])
                             ],
                         },
-                        rerun: false,
+                        rerun: state.rerun,
                     };
                 } catch(e) {
                     return {
@@ -173,6 +193,9 @@ export default (state = initialState, graph, action) => {
                     focus: Math.min(Math.max(0, action.to), state.result.steps.length),
                 };
             }
+            case 'CLEAR_ALGORITHM_RESULT': {
+                return initialState;
+            }
             case 'SET_ALGORITHM_RERUN': {
                 if(!state.result || !state.result.steps) {
                     return state;
@@ -181,6 +204,7 @@ export default (state = initialState, graph, action) => {
                     ...state,
                     rerun: action.rerun,
                 };
+
             }
         }
 

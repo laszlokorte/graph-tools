@@ -330,6 +330,21 @@ const PlainButton = styled.button`
     cursor: pointer;
 `
 
+const AttributeField = styled.input`
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #3569B1;
+    color: #3569B1;
+    background-color: #e0f0ff;
+    padding: 6px;
+
+    &:focus {
+      background-color: #fff;
+      color: #000;
+      border: 1px solid #3569B1;
+    }
+`
+
 const NodeAttribute = ({nodeId, attrKey}) => {
     const dispatch = useDispatch()
     const attr = useSelector(selectors.nodeAttributeSelector(attrKey, nodeId))
@@ -347,7 +362,7 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     if(['text','color','numeric'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><input type="text" value={attr.value || ''} onChange={onChange} /></dd>
+            <dd><AttributeField type="text" value={attr.value || ''} onChange={onChange} /></dd>
         </>);
     } else if(['boolean'].includes(typeName)) {
         return (<>
@@ -369,7 +384,7 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     } else {
         return (<>
             <dt>{attrKey}:</dt>
-            <dd><input type={attr.type} value={JSON.stringify(attr.value)} readOnly /></dd>
+            <dd><AttributeField type={attr.type} value={JSON.stringify(attr.value)} readOnly /></dd>
         </>);
 
     }
@@ -399,7 +414,7 @@ const SelectedNodesAttribute = ({attrKey}) => {
     if(['text','color','numeric'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><input placeholder={attr.mixed ? 'mixed' : ''} type="text" value={attr.mixed ? '' : (attr.value || '')} onChange={onChange} /></dd>
+            <dd><AttributeField placeholder={attr.mixed ? 'mixed' : ''} type="text" value={attr.mixed ? '' : (attr.value || '')} onChange={onChange} /></dd>
         </>);
     } else if(['boolean'].includes(typeName)) {
         return (<>
@@ -422,7 +437,7 @@ const SelectedNodesAttribute = ({attrKey}) => {
     } else {
         return (<>
             <dt>{attrKey}:</dt>
-            <dd><input placeholder={attr.mixed ? 'mixed' : ''} type={attr.type} value={attr.mixed ? '' : JSON.stringify(attr.value)} readOnly /></dd>
+            <dd><AttributeField placeholder={attr.mixed ? 'mixed' : ''} type={attr.type} value={attr.mixed ? '' : JSON.stringify(attr.value)} readOnly /></dd>
         </>);
     }
 }
@@ -432,8 +447,9 @@ const NodeDetails = ({index}) => {
 
     const nodeId = useSelector(selectors.selectedNodeSelector(index))
     const neighbours = useSelector(selectors.neighboursSelector(nodeId))
+    const flags = useSelector(selectors.graphFlagsSelector)
 
-    const attributes = useSelector(selectors.nodeAttributeTypesSelector)
+    const attributes = useSelector(selectors.nodeVisibleAttributeTypesSelector)
 
     const deleteNode = useCallback(() => dispatch(actions.deleteNode(nodeId)), [nodeId]);
 
@@ -462,7 +478,7 @@ const NodeDetails = ({index}) => {
             {neighbours.map((neighbour, idx) =>
                     neighbour === nodeId ?
                     <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>↩</BadgeLink> self</li> :
-                    <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>→</BadgeLink><Link onClick={selectNode} data-node-id={neighbour}>Node #{neighbour}</Link></li>
+                    <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>{flags.directed ? '→' : '↔'}</BadgeLink><Link onClick={selectNode} data-node-id={neighbour}>Node #{neighbour}</Link></li>
             )}
         </LinkList>
         }
@@ -484,7 +500,7 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     if(['text','color','numeric'].includes(attr.type.type)) {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><input type={attr.type.type} value={attr.value+''} onChange={onChangeText} /></dd>
+            <dd><AttributeField type={attr.type.type} value={attr.value+''} onChange={onChangeText} /></dd>
         </>
     } else if(['boolean'].includes(attr.type.type)) {
         return (<>
@@ -494,7 +510,7 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     } else {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><input type={attr.type.type} value={JSON.stringify(attr.value)} readOnly /></dd>
+            <dd><AttributeField type={attr.type.type} value={JSON.stringify(attr.value)} readOnly /></dd>
         </>
     }
 }
@@ -514,7 +530,7 @@ const SelectedEdgesAttribute = ({attrKey}) => {
     if(['text','color','numeric'].includes(attr.type.type)) {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><input placeholder={attr.mixed ? 'mixed' : ''} type={attr.type.type} value={attr.mixed ? '' : attr.value+''} onChange={onChangeText} /></dd>
+            <dd><AttributeField placeholder={attr.mixed ? 'mixed' : ''} type={attr.type.type} value={attr.mixed ? '' : attr.value+''} onChange={onChangeText} /></dd>
         </>
     } else if(['boolean'].includes(attr.type.type)) {
         return (<>
@@ -524,7 +540,7 @@ const SelectedEdgesAttribute = ({attrKey}) => {
     } else {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><input placeholder={attr.mixed ? 'mixed' : ''} type={attr.type.type} value={attr.mixed ? '' : JSON.stringify(attr.value)} readOnly /></dd>
+            <dd><AttributeField placeholder={attr.mixed ? 'mixed' : ''} type={attr.type.type} value={attr.mixed ? '' : JSON.stringify(attr.value)} readOnly /></dd>
         </>
     }
 }
@@ -532,7 +548,7 @@ const SelectedEdgesAttribute = ({attrKey}) => {
 const SelectedEdgesDetails = () => {
     const dispatch = useDispatch()
     const count = useSelector(selectors.selectedEdgeCountSelector)
-    const attributes =  useSelector(selectors.edgeAttributeTypesSelector)
+    const attributes =  useSelector(selectors.edgeVisibleAttributeTypesSelector)
 
     const deleteSelected = useCallback(() => {
         dispatch(actions.deleteSelectedEdges())
@@ -556,7 +572,7 @@ const SelectedEdgesDetails = () => {
 const SelectedNodesDetails = () => {
     const dispatch = useDispatch()
     const count = useSelector(selectors.selectedNodeCountSelector)
-    const attributes = useSelector(selectors.nodeAttributeTypesSelector)
+    const attributes = useSelector(selectors.nodeVisibleAttributeTypesSelector)
 
     const deleteSelected = useCallback(() => {
         dispatch(actions.deleteSelectedNodes())
@@ -583,7 +599,7 @@ const EdgeDetails = ({index}) => {
 
     const [nodeId, edgeIndex] = useSelector(selectors.selectedEdgeSelector(index))
     const target = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIndex))
-    const attributes =  useSelector(selectors.edgeAttributeTypesSelector)
+    const attributes =  useSelector(selectors.edgeVisibleAttributeTypesSelector)
     const flags = useSelector(selectors.graphFlagsSelector)
     const prev = useSelector(selectors.prevMultiEdgeIndex(nodeId, edgeIndex))
     const next = useSelector(selectors.nextMultiEdgeIndex(nodeId, edgeIndex))
@@ -661,7 +677,8 @@ const ViewOptions = () => {
         (e) => dispatch(actions.setNodeAttributeVisible(e.target.name, e.target.checked))
     , [dispatch])
 
-    return <div>
+    return <div style={{display:'flex'}}>
+        <div>
         <SubSectionTitle>Visible Edge Attributes</SubSectionTitle>
         <CheckboxList>
             {Object.keys(edgeAttributes).map((attrKey) =>
@@ -672,6 +689,8 @@ const ViewOptions = () => {
                 </CheckboxListItem>
             )}
         </CheckboxList>
+        </div>
+        <div>
         <SubSectionTitle>Visible Node Attributes</SubSectionTitle>
         <CheckboxList>
         {Object.keys(nodeAttributes).map((attrKey) =>
@@ -682,6 +701,7 @@ const ViewOptions = () => {
             </CheckboxListItem>
         )}
         </CheckboxList>
+        </div>
     </div>
 }
 
@@ -722,8 +742,8 @@ const Tools = () => {
     return <Toolbar>
         <ToolButton onClick={toggleProjectList}>Open</ToolButton>
         <ToolButton onClick={toggleDump}>Dump</ToolButton>
-        <ToolButton disabled={!canUndo} onClick={undo}>↶</ToolButton>
-        <ToolButton disabled={!canRedo} onClick={redo}>↷</ToolButton>
+        <ToolButton disabled={!canUndo} onClick={undo}>Undo</ToolButton>
+        <ToolButton disabled={!canRedo} onClick={redo}>Redo</ToolButton>
         <ToolButton onClick={clear}>Clear</ToolButton>
         <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
         <ToolButton onClick={autoLayout}>Auto Layout</ToolButton>
@@ -752,7 +772,9 @@ const AlgorithmOptions = () => {
             <fieldset>
                 <legend>Options</legend>
             {algOptions.map((key) =>
-                <AlgorithmOption key={key} optionKey={key} />
+                <div key={key}>
+                    <AlgorithmOption optionKey={key} />
+                </div>
             )}
         </fieldset> : null}
         {!canRun ? null : <ToolButton>Run️</ToolButton>}
@@ -856,11 +878,15 @@ const AlgorithmResult = () => {
         dispatch(actions.jumpStepAlgorithm(parseInt(evt.currentTarget.value, 10)))
     }, [dispatch])
 
+    const clearResult = useCallback((evt) => {
+        dispatch(actions.clearAlgorithmResult())
+    }, [dispatch])
+
     if(algorithm.result === null) {
         return null;
     } else if (algorithm.result.steps) {
         return <div>
-
+            <button onClick={clearResult}>Clear</button>
             <label>
                 <input type="checkbox" onChange={toggleRerun} checked={rerun} /> Auto re-run
             </label>
@@ -987,7 +1013,6 @@ const useCanvasPos = () => {
 }
 
 
-const cam = (s) => s.camera
 const Canvas = ({children}) => {
     const screenRef = useRef();
     const screen = useSize(screenRef, 100, 100);
@@ -1102,13 +1127,13 @@ const Canvas = ({children}) => {
 	</Svg>;
 }
 
-const NodeCircle = styled.circle`
+const NodeShape = styled.path`
     fill:#eee;
     stroke:currentColor;
     stroke-width: 1;
 `
 
-const NewNodeCircle = styled.circle`
+const NewNodeShape = styled.path`
     fill:#eee;
     stroke:currentColor;
     stroke-width: 1;
@@ -1122,7 +1147,7 @@ const NodeBox = styled.rect`
 	stroke-width: 1;
 `
 
-const NodeCircleSelection = styled.circle`
+const NodeShapeSelection = styled.path`
 	fill: none;
 	pointer-events: none;
     stroke: #37B1F6;
@@ -1269,8 +1294,10 @@ const EdgeHead = ({x,y, angle, disabled = false}) => {
 	</>
 }
 
-const Node = ({nodeType = 'circle', nodeId, style = {}, onClick = null, onDoubleClick = null}) => {
+const Node = ({nodeId, style = {}, onClick = null, onDoubleClick = null}) => {
     const pos = useSelector(selectors.nodePositionSelector(nodeId))
+    const shape = useSelector(selectors.nodeShapeSelector(nodeId))
+
     const onClickCallback = useCallback(onClick ? (evt) => {
         onClick(evt, nodeId)
     } : null, [nodeId, onClick]);
@@ -1280,10 +1307,7 @@ const Node = ({nodeType = 'circle', nodeId, style = {}, onClick = null, onDouble
     } : null, [nodeId, onDoubleClick]);
 
     return <g style={style} onClick={onClickCallback} onDoubleClick={onDoubleClickCallback}>
-        {nodeType === 'circle' ?
-            <NodeCircle cx={pos.x} cy={pos.y} r={20}/> :
-            <NodeBox x={pos.x - 17} y={pos.y - 17} width={34} height={34}/>
-        }
+        <NodeShape transform={`translate(${pos.x}, ${pos.y})`} d={shape} />
     </g>
 }
 
@@ -1333,11 +1357,14 @@ const NewEdge = ({loop = false, startNode, endNode, startX, startY, endX, endY, 
 }
 
 const NewNode = ({x, y}) => {
-    return <NewNodeCircle style={{cursor:'copy'}} r="20" cx={x} cy={y} />
+    const shape = useSelector(selectors.newNodeShapeSelector)
+
+    return <NewNodeShape  transform={`translate(${x}, ${y})`} style={{cursor:'copy'}} d={shape} />
 }
 
 const NodeManipulator = ({x = null,y = null,nodeId,snapped=false,active=false,onClick=null,onDoubleClick=null, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
     const pos = useSelector(selectors.nodePositionSelector(nodeId))
+    const shape = useSelector(selectors.nodeShapeSelector(nodeId))
 
     if(x === null || y === null) {
         x = pos.x
@@ -1373,22 +1400,15 @@ const NodeManipulator = ({x = null,y = null,nodeId,snapped=false,active=false,on
     return <g
             onMouseMove={mouseMoveCallback}
             onMouseLeave={mouseLeaveCallback}>
-        <NodeConnector d="M 0, 0
-            m 0, -40
-            a 40, 40, 0, 1, 0, 0, 80
-            a 40, 40, 0, 1, 0, 0, -80
-            Z"
-            transform={`translate(${x} ${y})`}
+        <NodeConnector d={shape}
+            transform={`translate(${x} ${y}) scale(2.5)`}
             onMouseDown={mouseDownConnectCallback}
             fillRule="evenodd"
             snapped={snapped}
             active={active}
             />
-         <NodeDragger d="M 0, 0
-            m 0, -15
-            a 15, 15, 0, 1, 0, 0, 30
-            a 15, 15, 0, 1, 0, 0, -30"
-            transform={`translate(${x} ${y})`}
+         <NodeDragger d={shape}
+            transform={`translate(${x} ${y}) scale(0.7)`}
             onMouseDown={mouseDownMoveCallback}
             onClick={onClickCallback}
             onDoubleClick={onDoubleClickCallback}
@@ -1844,7 +1864,7 @@ const GraphManipulator = () => {
     </g>
 }
 
-const NodeSelectionCircle = styled.circle`
+const NodeSelectionShape = styled.path`
     fill: none;
     stroke: none;
     stroke-width: 0;
@@ -1853,11 +1873,13 @@ const NodeSelectionCircle = styled.circle`
 
 const NodeSelector = ({nodeId, onMouseDown}) => {
     const pos = useSelector(selectors.nodePositionSelector(nodeId))
+    const shape = useSelector(selectors.nodeShapeSelector(nodeId))
+
     const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
         onMouseDown(evt, nodeId)
     } : null, [nodeId, onMouseDown]);
 
-    return <NodeSelectionCircle cx={pos.x} cy={pos.y} r="20" onMouseDown={onMouseDownCallback} />
+    return <NodeSelectionShape  transform={`translate(${pos.x}, ${pos.y})`} d={shape} onMouseDown={onMouseDownCallback} />
 }
 
 const EdgeSelectorLine = styled.path`
@@ -2198,7 +2220,7 @@ const AlgorithmStepperColoredNode = ({nodeId}) => {
     const pos = useSelector(selectors.nodePositionSelector(nodeId))
     const color = useSelector(selectors.algorithmStepNodeColor(nodeId))
 
-    return <circle stroke="black" fill={color} key={nodeId} r="10" cx={pos.x} cy={pos.y} />
+    return <path stroke="black" fill={color} key={nodeId} r="10" cx={pos.x} cy={pos.y} />
 }
 
 
@@ -2345,7 +2367,9 @@ const AlgorithmDetails = () => {
 
 const NodeSelection = ({index}) => {
     const pos = useSelector(selectors.selectedNodePositionSelector(index))
-    return <NodeCircleSelection cx={pos.x} cy={pos.y} r={20} />
+    const shape = useSelector(selectors.selectedNodeShapeSelector(index))
+
+    return <NodeShapeSelection transform={`translate(${pos.x}, ${pos.y})`} d={shape} />
 }
 
 

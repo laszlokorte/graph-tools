@@ -1,4 +1,4 @@
-import undoable, { excludeAction } from 'redux-undo';
+import undoable, { excludeAction, combineFilters } from 'redux-undo';
 import selection from './selection'
 import graph from './graph'
 import algorithm from './algorithm'
@@ -31,6 +31,7 @@ const skipActions = [
     'CAMERA_PAN',
     'CAMERA_ROTATE',
     'CAMERA_ZOOM',
+    'CAMERA_RESET',
     'MANIPULATOR_START_CREATE',
     'MANIPULATOR_STOP',
     'MANIPULATOR_MOVE',
@@ -38,7 +39,7 @@ const skipActions = [
     'MANIPULATOR_UNSNAP_CONNECT',
     'MANIPULATOR_START_MOVE',
     'MANIPULATOR_CREATE',
-    'MANIPULATOR_START_CONNECTION',
+    'MANIPULATOR_START_CONNECT',
     'PATH_MANIPULATOR_STOP',
     'PATH_MANIPULATOR_MOVE',
     'PATH_MANIPULATOR_CREATE',
@@ -113,24 +114,41 @@ const data = undoable(graphSelectionActionExpander(graphActionExpander((state, a
     };
 })), {
     limit: 10,
-    filter: excludeAction([
-        'CLEAR_SELECTION', 'SELECT_NODE','SELECT_EDGE',
-        'STEP_ALGORITHM','JUMP_STEP_ALGORITHM',
-        'SELECT_AREA',
-        'DESELECT_NODE',
-        'DESELECT_EDGE',
-        ...skipActions,
-    ]),
-    ignoreInitialState: true,
+    filter: combineFilters(
+        excludeAction([
+            'STEP_ALGORITHM','JUMP_STEP_ALGORITHM',
+            'DESELECT_NODE',
+            'DESELECT_EDGE',
+            ...skipActions,
+        ]),
+        (action, currentState, history) => {
+            return !currentState.error
+        },
+        (action, currentState, history) => {
+            return history.future.length === 0 || !([
+                'CLEAR_SELECTION',
+                'SELECT_NODE',
+                'SELECT_EDGE',
+                'SELECT_AREA',
+            ].includes(action.type))
+        }
+    ),
+    ignoreInitialState: false,
     groupBy: (action, currentState, previousHistory) => {
         if(action.type === 'SET_NODE_ATTRIBUTE') {
-            return 'node-attr' + action.nodeId + '-' + action.attribute;
+            return 'node-attr-' + action.nodeId + '-' + action.attribute;
         }
         if(action.type === 'SET_EDGE_ATTRIBUTE') {
-            return 'edge-attr' + action.nodeId + '-' + action.edgeIndex + '-' + action.attribute;
+            return 'edge-attr-' + action.nodeId + '-' + action.edgeIndex + '-' + action.attribute;
+        }
+        if(action.type === 'SET_SELECTED_NODES_ATTRIBUTE') {
+            return 'node-attr-' + action.attribute;
+        }
+        if(action.type === 'SET_SET_SELECTED_EDGES_ATTRIBUTE') {
+            return 'edge-attr-' + action.attribute;
         }
         if(action.type === 'SET_EDGE_ATTRIBUTE_VISIBLE') {
-            return 'edge-visible' + action.attribute;
+            return 'edge-visible-' + action.attribute;
         }
         if(action.type === 'SET_NODE_ATTRIBUTE_VISIBLE') {
             return 'node-visible' + action.attribute;
@@ -138,8 +156,18 @@ const data = undoable(graphSelectionActionExpander(graphActionExpander((state, a
         if(action.type === 'CLEAR_GRAPH') {
             return 'CLEAR_GRAPH';
         }
+        if(['CLEAR_SELECTION',
+            'SELECT_NODE',
+            'SELECT_EDGE',
+            'SELECT_AREA',
+        ].includes(action.type)) {
+            return 'selection';
+        }
         if(action.type === 'CLEAR_GRAPH_EDGES') {
             return 'CLEAR_GRAPH_EDGES';
+        }
+        if(action.type === 'NODE_AUTO_LAYOUT') {
+            return 'NODE_AUTO_LAYOUT';
         }
 
         return null;

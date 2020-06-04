@@ -133,6 +133,10 @@ export const jumpStepAlgorithm = (to) => ({
     to,
 })
 
+export const clearAlgorithmResult = () => ({
+    type: 'CLEAR_ALGORITHM_RESULT'
+})
+
 
 export const storageLoad = (id) => ({
     type: 'STORAGE_LOAD',
