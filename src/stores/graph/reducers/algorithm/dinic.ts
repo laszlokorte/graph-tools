@@ -54,14 +54,28 @@ const run = (graph) => {
             track(state);
         }
 
-
-
         {
             for(let s=0;s<shortestAugmentingPaths.length;s++) {
                 const shortestAugmentingPath = shortestAugmentingPaths[s]
 
+                let flowDelta = shortestAugmentingPath.maxCapacity
+                {
+                    let node = residual.source
+                    for(let p=0;p<shortestAugmentingPath.indexPath.length;p++) {
+                        const pathIndex = shortestAugmentingPath.indexPath[p]
+
+                        if(residual.capacity[node][pathIndex] < flowDelta) {
+                            flowDelta = residual.capacity[node][pathIndex]
+                        }
+                        node = residual.nodes[node][pathIndex]
+                    }
+
+                    if(flowDelta <= 0) {
+                        continue;
+                    }
+                }
+
                 let node = residual.source
-                const flowDelta = shortestAugmentingPath.maxCapacity
 
                 for(let p=0;p<shortestAugmentingPath.indexPath.length;p++) {
                     const pathIndex = shortestAugmentingPath.indexPath[p]
@@ -69,6 +83,9 @@ const run = (graph) => {
                     {
                         const backNode = residual.nodes[node][pathIndex]
                         const backIndex = residual.nodes[backNode].indexOf(node)
+                        if(node < graph.nodes.length && pathIndex < graph.nodes[node].length) {
+                            state.edges.color[node][pathIndex] = 'GREEN'
+                        }
                         residual.capacity[node][pathIndex] -= flowDelta
                         residual.capacity[backNode][backIndex] += flowDelta
                     }
@@ -127,9 +144,11 @@ const buildResidual = (graph) => {
         backEdge[s].push(true)
     }
 
+    let neighboursLengths = nodes.map((neighbours) => neighbours.length)
     for(let n=0;n<nodes.length;n++) {
         const neighbours = nodes[n]
-        for(let m=0;m<neighbours.length;m++) {
+        const neighbourLength = neighboursLengths[n]
+        for(let m=0;m<neighbourLength;m++) {
             const neighbour = neighbours[m]
 
             nodes[neighbour].push(n)
