@@ -405,18 +405,21 @@ export const selectedNodesAttributeSelector = (attrKey) => createStructuredSelec
     mixed: selectedNodesAttributeIsMixedSelector(attrKey),
 })
 
+const typeToShape = (type) => {
+    if(type === 'place') {
+        return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
+    } else if(type === 'transition') {
+        return 'm 0 20 h -20 v -40 h 40 v 40 z'
+    } else if(type === 'triangle') {
+        return 'm 0 10 h -20 l 20 -30 l 20 30 z'
+    } else {
+        return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
+    }
+}
 
 export const nodeShapeSelector = (nodeId) => createSelector(
     nodeAttributeValueSelector('type', nodeId),
-    (type) => {
-        if(type === 'place') {
-            return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
-        } else if(type === 'transition') {
-            return 'm 0 20 h -20 v -40 h 40 v 40 z'
-        } else {
-            return 'm 0 10 h -20 l 20 -30 l 20 30 z'
-        }
-    }
+    typeToShape
 )
 export const selectedNodeShapeSelector = (index) => createSelector(
     allNodesAttributeValueSelector('type'),
@@ -424,15 +427,7 @@ export const selectedNodeShapeSelector = (index) => createSelector(
     (types, selection) => {
         const type = types ? types[selection[index]] : null
 
-        if(type === 'place') {
-            return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
-        } else if(type === 'transition') {
-            return 'm 0 20 h -20 v -40 h 40 v 40 z'
-        } else if(type === 'triangle') {
-            return 'm 0 10 h -20 l 20 -30 l 20 30 z'
-        } else {
-            return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
-        }
+        return typeToShape(type)
     }
 )
 
