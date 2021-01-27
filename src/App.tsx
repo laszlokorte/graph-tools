@@ -1076,12 +1076,18 @@ const Canvas = ({children}) => {
         const pivot = svgPos({x: e.clientX, y: e.clientY})
         const factor = wheelFactor(e);
 
+        const multiplier = e.ctrlKey ? 5 : 1;
+
         if(e.shiftKey) {
-            dispatch(actions.cameraPan(e.deltaX, e.deltaY))
+            if(e.altKey) {
+                dispatch(actions.cameraPan(multiplier * e.deltaY, multiplier * e.deltaX))
+            } else {
+                dispatch(actions.cameraPan(multiplier * e.deltaX, multiplier * e.deltaY))
+            }
         } else if(e.altKey) {
-            dispatch(actions.cameraRotate(pivot.x, pivot.y, 10 * Math.log2(factor)))
+            dispatch(actions.cameraRotate(pivot.x, pivot.y, multiplier * 10 * Math.log2(factor)))
         } else {
-            dispatch(actions.cameraZoom(pivot.x, pivot.y, factor))
+            dispatch(actions.cameraZoom(pivot.x, pivot.y, Math.pow(factor, multiplier)))
         }
     }, [dispatch, svgPos])
 
