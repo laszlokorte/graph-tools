@@ -211,3 +211,10 @@ export const setSelectedNodesAttribute = (attribute, value) => ({
     attribute,
     value,
 })
+
+export const alignSelectedNodes = (axis, alignment = 0.5, spread = 0) => ({
+    type: 'ALIGN_SELECTED_NODES',
+    axis,
+    alignment,
+    spread,
+})

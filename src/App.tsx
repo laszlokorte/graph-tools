@@ -736,6 +736,10 @@ const Tools = () => {
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
     const autoLayout = useCallback(() => dispatch(actions.autoLayout()), [])
+    const alignX = useCallback(() => dispatch(actions.alignSelectedNodes('x')), [])
+    const alignY = useCallback(() => dispatch(actions.alignSelectedNodes('y')), [])
+    const spreadX = useCallback(() => dispatch(actions.alignSelectedNodes('x', 1, 1)), [])
+    const spreadY = useCallback(() => dispatch(actions.alignSelectedNodes('y', 1, 1)), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
 
@@ -747,6 +751,10 @@ const Tools = () => {
         <ToolButton onClick={clear}>Clear</ToolButton>
         <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
         <ToolButton onClick={autoLayout}>Auto Layout</ToolButton>
+        <ToolButton onClick={alignX}>Align X</ToolButton>
+        <ToolButton onClick={alignY}>Align Y</ToolButton>
+        <ToolButton onClick={spreadX}>Spread X</ToolButton>
+        <ToolButton onClick={spreadY}>Spread Y</ToolButton>
         {Object.keys(tools).map((t) =>
             <ToolButton key={t} disabled={t===currentTool} onClick={selectTool} data-tool={t}>{tools[t]}</ToolButton>
         )}
