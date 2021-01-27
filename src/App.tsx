@@ -726,7 +726,12 @@ const Tools = () => {
         dispatch(actions.toggleAlgorithm())
     }, [dispatch])
 
+    const toggleAlignment = useCallback(() => {
+        dispatch(actions.toggleAlignment())
+    }, [dispatch])
+
     const showAlgorithm = useSelector(selectors.showAlgorithmSelector)
+    const showAlignment = useSelector(selectors.showAlignmentSelector)
 
     const selectTool = useCallback((evt) => {
         dispatch(actions.selectTool(evt.target.getAttribute('data-tool')))
@@ -735,11 +740,6 @@ const Tools = () => {
     const toggleProjectList = useCallback(() => dispatch(actions.toggleProjectList()), [])
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
-    const autoLayout = useCallback(() => dispatch(actions.autoLayout()), [])
-    const alignX = useCallback(() => dispatch(actions.alignSelectedNodes('x')), [])
-    const alignY = useCallback(() => dispatch(actions.alignSelectedNodes('y')), [])
-    const spreadX = useCallback(() => dispatch(actions.alignSelectedNodes('x', 1, 1)), [])
-    const spreadY = useCallback(() => dispatch(actions.alignSelectedNodes('y', 1, 1)), [])
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
 
@@ -750,14 +750,10 @@ const Tools = () => {
         <ToolButton disabled={!canRedo} onClick={redo}>Redo</ToolButton>
         <ToolButton onClick={clear}>Clear</ToolButton>
         <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
-        <ToolButton onClick={autoLayout}>Auto Layout</ToolButton>
-        <ToolButton onClick={alignX}>Align X</ToolButton>
-        <ToolButton onClick={alignY}>Align Y</ToolButton>
-        <ToolButton onClick={spreadX}>Spread X</ToolButton>
-        <ToolButton onClick={spreadY}>Spread Y</ToolButton>
         {Object.keys(tools).map((t) =>
             <ToolButton key={t} disabled={t===currentTool} onClick={selectTool} data-tool={t}>{tools[t]}</ToolButton>
         )}
+        <ToolButton active={showAlignment} onClick={toggleAlignment}>Alignment</ToolButton>
         <ToolButton active={showAlgorithm} onClick={toggleAlgorithm}>Algorithm</ToolButton>
     </Toolbar>
 }
@@ -902,7 +898,7 @@ const AlgorithmResult = () => {
             {algorithm.focus + 1}/{algorithm.result.steps.length}
             <br/>
             <PlainButton onClick={stepBackward}>⏪</PlainButton>
-            <input onChange={jumpStep} type="range" value={algorithm.focus} min={0} max={algorithm.result.steps.length - 1} />
+            <input onChange={jumpStep} onInput={jumpStep} onDrag={jumpStep} type="range" step="1" value={algorithm.focus} min="0" max={algorithm.result.steps.length - 1} />
             <PlainButton onClick={stepFoward}>⏩</PlainButton>
         </div>;
     } else {
@@ -2219,6 +2215,8 @@ const AlgorithmStepperNodeColoring = () => {
     const hasColors = useSelector(selectors.algorithmStepHasNodeColors)
     const nodeIds = useSelector(selectors.nodeIdsSelector)
 
+    console.log(hasColors)
+
     if(!hasColors) {
         return <></>;
     }
@@ -2233,8 +2231,10 @@ const AlgorithmStepperNodeColoring = () => {
 const AlgorithmStepperColoredNode = ({nodeId}) => {
     const pos = useSelector(selectors.nodePositionSelector(nodeId))
     const color = useSelector(selectors.algorithmStepNodeColor(nodeId))
+    const shape = useSelector(selectors.nodeShapeSelector(nodeId))
 
-    return <path stroke="black" fill={color} key={nodeId} r="10" cx={pos.x} cy={pos.y} />
+
+    return <path stroke="black" fill={color} key={nodeId} transform={`translate(${pos.x}, ${pos.y}) scale(0.5)`} d={shape} />
 }
 
 
@@ -2372,6 +2372,31 @@ const AlgorithmDetails = () => {
                     </table>
                 </div>
             }) : null}
+            </OverlayBox>
+    } else {
+        return <></>
+    }
+}
+
+const AlignmentDetails = () => {
+    const dispatch = useDispatch()
+    const showAlignment = useSelector(selectors.showAlignmentSelector)
+    const alignX = useCallback(() => dispatch(actions.alignSelectedNodes('x')), [dispatch])
+    const alignY = useCallback(() => dispatch(actions.alignSelectedNodes('y')), [dispatch])
+    const spreadX = useCallback(() => dispatch(actions.alignSelectedNodes('x', 1, 1)), [dispatch])
+    const spreadY = useCallback(() => dispatch(actions.alignSelectedNodes('y', 1, 1)), [dispatch])
+    const autoLayout = useCallback(() => dispatch(actions.autoLayout()), [dispatch])
+    const canAlign = useSelector(selectors.canAlignSelectedNodesSelector)
+
+
+    if(showAlignment) {
+        return <OverlayBox>
+                <ToolButton onClick={autoLayout}>Auto Layout</ToolButton>
+                <ToolButton disabled={!canAlign} onClick={alignX}>Align X</ToolButton>
+                <ToolButton disabled={!canAlign} onClick={alignY}>Align Y</ToolButton>
+                <ToolButton disabled={!canAlign} onClick={spreadX}>Spread X</ToolButton>
+                <ToolButton disabled={!canAlign} onClick={spreadY}>Spread Y</ToolButton>
+
             </OverlayBox>
     } else {
         return <></>
@@ -2522,6 +2547,7 @@ const GraphEditor = () => {
             <Settings />
             <DumpWindow />
             <AlgorithmDetails />
+            <AlignmentDetails />
         </Container>;
 }
 

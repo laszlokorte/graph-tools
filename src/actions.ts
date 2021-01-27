@@ -178,6 +178,7 @@ export const toggleProjectList = () => ({type: 'TOGGLE_PROJECT_LIST'})
 export const toggleSettings = () => ({type: 'TOGGLE_SETTINGS'})
 export const toggleDump = () => ({type: 'TOGGLE_DUMP'})
 export const toggleAlgorithm = () => ({type: 'TOGGLE_ALGORITHM'})
+export const toggleAlignment = () => ({type: 'TOGGLE_ALIGNMENT'})
 
 export const runSelectedAlgorithm = () => ({
     type: 'RUN_SELECTED_ALGORITHM',

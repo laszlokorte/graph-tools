@@ -32,6 +32,7 @@ export const showProjectsSelector = (state) => state.showProjects
 export const showDumpSelector = (state) => state.showDump
 export const showSettingsSelector = (state) => state.showSettings
 export const showAlgorithmSelector = (state) => state.showAlgorithm
+export const showAlignmentSelector = (state) => state.showAlignment
 
 export const selectionSelector = createSelector(
     presentSelector,
@@ -46,6 +47,11 @@ export const selectedNodesSelector = createSelector(
 export const selectedNodeCountSelector = createSelector(
     selectedNodesSelector,
     (nodes) => nodes.length
+)
+
+export const canAlignSelectedNodesSelector = createSelector(
+    selectedNodeCountSelector,
+    (count) => count > 1
 )
 
 export const selectedNodesIndicesSelector = createSelector(

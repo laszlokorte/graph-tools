@@ -225,8 +225,8 @@ const toggleDump = (state = false, action) => {
 }
 
 
-const toggleAlgorithm = (state = false, action) => {
-    if(action.type === 'TOGGLE_ALGORITHM') {
+const toggle = (actionType, state = false, action) => {
+    if(action.type === actionType) {
         return !state
     } else {
         return state
@@ -279,7 +279,8 @@ export default algorithmActionExpander(cameraActionExpander(selectionActionExpan
         showProjects: toggleProjects(state ? state.showProjects : false, action),
         showSettings: toggleSettings(state ? state.showSettings : false, action),
         showDump: toggleDump(state ? state.showDump : false, action),
-        showAlgorithm: toggleAlgorithm(state ? state.showAlgorithm : false, action),
+        showAlgorithm: toggle('TOGGLE_ALGORITHM', state ? state.showAlgorithm : false, action),
+        showAlignment: toggle('TOGGLE_ALIGNMENT', state ? state.showAlignment : false, action),
         layout: d.present ? doLayout(d.present.graph) : undefined,
     };
 })))
