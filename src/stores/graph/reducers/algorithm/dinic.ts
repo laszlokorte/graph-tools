@@ -4,6 +4,9 @@ const run = (graph) => {
     const track = (s) => {
         steps.push(copy(s))
     }
+    const restoreTracked = (goback = 1) => {
+        return copy(steps[steps.length - 1 - goback])
+    }
 
     if(!isAntiSymmetric(graph)) {
         return steps;
@@ -37,15 +40,18 @@ const run = (graph) => {
                 for(let p=0;p<shortestAugmentingPath.indexPath.length;p++) {
                     const pathIndex = shortestAugmentingPath.indexPath[p]
 
-                    if(node < graph.nodes.length && pathIndex < graph.nodes[node].length) {
-                        if(residual.backEdge[node][pathIndex]) {
-                            const backNode = graph.nodes[node][pathIndex]
-                            const backIndex = graph.nodes[backNode].indexOf(node)
+                    if(residual.backEdge[node][pathIndex]) {
+                        const backNode = residual.nodes[node][pathIndex]
+                        const backIndex = residual.nodes[backNode].indexOf(node)
+                        if(backNode < graph.nodes.length && backIndex < graph.nodes[backNode].length) {
                             state.edges.color[backNode][backIndex] = 'cyan'
-                        } else {
+                        }
+                    } else {
+                        if(node < graph.nodes.length && pathIndex < graph.nodes[node].length) {
                             state.edges.color[node][pathIndex] = 'cyan'
                         }
                     }
+
 
                     node = residual.nodes[node][pathIndex]
                 }
@@ -54,8 +60,13 @@ const run = (graph) => {
             track(state);
         }
 
+
         {
+            const edgeColors = copy(state.edges.color)
+
             for(let s=0;s<shortestAugmentingPaths.length;s++) {
+                state.edges.color = copy(edgeColors)
+
                 const shortestAugmentingPath = shortestAugmentingPaths[s]
 
                 let flowDelta = shortestAugmentingPath.maxCapacity
@@ -83,21 +94,18 @@ const run = (graph) => {
                     {
                         const backNode = residual.nodes[node][pathIndex]
                         const backIndex = residual.nodes[backNode].indexOf(node)
+
+                        if(backNode < graph.nodes.length && backIndex < graph.nodes[backNode].length) {
+                            state.edges.color[backNode][backIndex] = 'RED'
+                            state.edges.flow[backNode][backIndex] -= flowDelta
+                        }
                         if(node < graph.nodes.length && pathIndex < graph.nodes[node].length) {
                             state.edges.color[node][pathIndex] = 'GREEN'
-                        }
-                        residual.capacity[node][pathIndex] -= flowDelta
-                        residual.capacity[backNode][backIndex] += flowDelta
-                    }
-
-                    if(node < graph.nodes.length && pathIndex < graph.nodes[node].length) {
-                        if(residual.backEdge[node][pathIndex]) {
-                            const backNode = graph.nodes[node][pathIndex]
-                            const backIndex = graph.nodes[backNode].indexOf(node)
-                            state.edges.flow[backNode][backIndex] -= flowDelta
-                        } else {
                             state.edges.flow[node][pathIndex] += flowDelta
                         }
+
+                        residual.capacity[node][pathIndex] -= flowDelta
+                        residual.capacity[backNode][backIndex] += flowDelta
                     }
 
                     node = residual.nodes[node][pathIndex]
