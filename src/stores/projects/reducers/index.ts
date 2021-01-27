@@ -1,4 +1,544 @@
 const store = {
+    "Complex Flow": {
+      "nodes": [
+        [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        [],
+        [
+          7,
+          8
+        ],
+        [
+          7,
+          9,
+          11
+        ],
+        [
+          10,
+          7,
+          11
+        ],
+        [
+          10,
+          11,
+          8,
+          7
+        ],
+        [
+          11,
+          8,
+          9
+        ],
+        [
+          1
+        ],
+        [
+          1
+        ],
+        [
+          1
+        ],
+        [
+          1
+        ],
+        [
+          1
+        ]
+      ],
+      "attributes": {
+        "edges": {
+          "path": [
+            [
+              [],
+              [],
+              [],
+              [],
+              []
+            ],
+            [],
+            [
+              [],
+              []
+            ],
+            [
+              [],
+              [],
+              []
+            ],
+            [
+              [],
+              [],
+              []
+            ],
+            [
+              [],
+              [],
+              [],
+              []
+            ],
+            [
+              [],
+              [],
+              []
+            ],
+            [
+              []
+            ],
+            [
+              []
+            ],
+            [
+              []
+            ],
+            [
+              []
+            ],
+            [
+              []
+            ]
+          ],
+          "label": [
+            [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [],
+            [
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              ""
+            ],
+            [
+              ""
+            ],
+            [
+              ""
+            ],
+            [
+              ""
+            ],
+            [
+              ""
+            ]
+          ],
+          "cost": [
+            [
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            [],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ],
+          "capacity": [
+            [
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            [],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ],
+          "weight": [
+            [
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            [],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1,
+              1
+            ],
+            [
+              1,
+              1,
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        },
+        "nodes": {
+          "position": [
+            {
+              "x": -689.1639251708984,
+              "y": 6.307190179824829
+            },
+            {
+              "x": 385.8360595703125,
+              "y": 7.83099365234375
+            },
+            {
+              "x": -256.66392517089844,
+              "y": -307.44280982017517
+            },
+            {
+              "x": -280.41392517089844,
+              "y": -197.44280982017517
+            },
+            {
+              "x": -309.16392517089844,
+              "y": -73.69280982017517
+            },
+            {
+              "x": -347.91392517089844,
+              "y": 101.30719017982483
+            },
+            {
+              "x": -330.41392517089844,
+              "y": 320.05719017982483
+            },
+            {
+              "x": 0.8360748291015625,
+              "y": -297.44280982017517
+            },
+            {
+              "x": 17.0860595703125,
+              "y": -172.16900634765625
+            },
+            {
+              "x": 10.8360595703125,
+              "y": -48.41900634765625
+            },
+            {
+              "x": 4.5860595703125,
+              "y": 89.08099365234375
+            },
+            {
+              "x": 24.5860595703125,
+              "y": 284.08099365234375
+            }
+          ],
+          "label": [
+            "new",
+            "new",
+            "new",
+            "new",
+            "new",
+            "new",
+            "new",
+            "new",
+            "new",
+            "new",
+            "new",
+            "new"
+          ],
+          "type": [
+            "place",
+            "place",
+            "place",
+            "place",
+            "place",
+            "place",
+            "place",
+            "place",
+            "place",
+            "place",
+            "place",
+            "place"
+          ],
+          "color": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "initial": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "final": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "source": [
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "sink": [
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      "flags": {
+        "multiGraph": false,
+        "directed": true,
+        "loops": true
+      },
+      "partition": null,
+      "attributeTypes": {
+        "edges": {
+          "path": {
+            "default": [],
+            "type": "path",
+            "visible": false
+          },
+          "label": {
+            "default": "",
+            "type": "text",
+            "visible": true
+          },
+          "cost": {
+            "default": 1,
+            "type": "numeric",
+            "visible": true
+          },
+          "capacity": {
+            "default": 1,
+            "type": "numeric",
+            "visible": false
+          },
+          "weight": {
+            "default": 1,
+            "type": "numeric",
+            "visible": false
+          }
+        },
+        "nodes": {
+          "position": {
+            "default": {
+              "x": 0,
+              "y": 0
+            },
+            "type": "object",
+            "visible": false
+          },
+          "label": {
+            "default": "new",
+            "type": "text",
+            "visible": true
+          },
+          "type": {
+            "default": "place",
+            "type": "enum",
+            "options": [
+              "place",
+              "transition"
+            ],
+            "required": true
+          },
+          "color": {
+            "default": null,
+            "type": "color",
+            "visible": false
+          },
+          "initial": {
+            "default": false,
+            "type": "boolean",
+            "visible": false
+          },
+          "final": {
+            "default": false,
+            "type": "boolean",
+            "visible": false
+          },
+          "source": {
+            "default": false,
+            "type": "boolean",
+            "visible": true
+          },
+          "sink": {
+            "default": false,
+            "type": "boolean",
+            "visible": true
+          }
+        }
+      }
+    },
     "Basic Example": {
         "nodes": [
             [
