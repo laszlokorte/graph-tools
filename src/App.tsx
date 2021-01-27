@@ -1968,7 +1968,7 @@ const GraphSelector = () => {
     }, [dispatch, canvasPos, range]);
 
     const mouseUp = useCallback((evt) => {
-        dispatch(actions.selectionBoxStop())
+        dispatch(actions.selectionBoxStop(evt.shiftKey, evt.ctrlKey))
     }, [dispatch]);
 
     useEffect(() => {

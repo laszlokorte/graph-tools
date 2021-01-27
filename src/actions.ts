@@ -145,7 +145,7 @@ export const storageLoad = (id) => ({
 
 export const selectionBoxStart = (x, y) => ({type: 'SELECTION_BOX_START', x, y});
 export const selectionBoxMove = (x, y) => ({type: 'SELECTION_BOX_MOVE', x, y});
-export const selectionBoxStop = () => ({type: 'SELECTION_BOX_STOP'});
+export const selectionBoxStop = (add, toggle) => ({type: 'SELECTION_BOX_STOP', add, toggle});
 
 export const cameraUpdateScreen = (screen) => ({type: 'CAMERA_UPDATE_SCREEN', screen});
 export const cameraUpdateBox = (box) => ({type: 'CAMERA_UPDATE_BOX', box});

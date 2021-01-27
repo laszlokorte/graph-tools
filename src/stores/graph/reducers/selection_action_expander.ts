@@ -25,6 +25,8 @@ const expandAction = (state, action) => {
                 maxY: Math.max(state.selectionBox.y0, state.selectionBox.y1),
                 nodes: true,
                 edges: true,
+                add: action.add,
+                toggle: action.toggle,
             }]
     }
 

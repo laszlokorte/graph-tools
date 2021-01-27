@@ -182,8 +182,8 @@ const expandGraphAction = (state, action) => {
                 const nodeSelection = nodeIds.map((nodeId, i) => ({
                     type: 'SELECT_NODE',
                     nodeId,
-                    add: i > 0,
-                    toggle: false,
+                    add: i > 0 || action.add || action.toggle,
+                    toggle: action.toggle,
                 }))
 
                 const edgeSelection = graph.nodes.flatMap((neighbours, nodeId) => {
@@ -210,8 +210,8 @@ const expandGraphAction = (state, action) => {
                     }).filter(n => n !== null).map((x, i) => ({
                         ...x,
                         type: 'SELECT_EDGE',
-                        add: i > 0 || nodeSelection.length > 0,
-                        toggle: false,
+                        add: i > 0 || nodeSelection.length > 0 || action.add || action.toggle,
+                        toggle: action.toggle,
                     }))
                 })
 
