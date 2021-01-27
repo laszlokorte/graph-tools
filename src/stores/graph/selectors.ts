@@ -428,10 +428,12 @@ export const selectedNodeShapeSelector = (index) => createSelector(
             return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
         } else if(type === 'transition') {
             return 'm 0 20 h -20 v -40 h 40 v 40 z'
-        } else {
+        } else if(type === 'triangle') {
             return 'm 0 10 h -20 l 20 -30 l 20 30 z'
+        } else {
+            return 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40'
         }
     }
 )
 
-export const newNodeShapeSelector = createSelector((state) => 'm 0 10 h -20 l 20 -30 l 20 30 z')
+export const newNodeShapeSelector = createSelector((state) => 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40')
