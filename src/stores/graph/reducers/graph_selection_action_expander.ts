@@ -85,6 +85,46 @@ const expandAction = (state, action) => {
                 }))
             ]
         }
+        case 'SET_NODE_ATTRIBUTE': {
+            if(action.attribute === 'position' && selectedNodes.includes(action.nodeId)) {
+                const offsetX = action.value.x - state.graph.attributes.nodes.position[action.nodeId].x
+                const offsetY = action.value.y - state.graph.attributes.nodes.position[action.nodeId].y
+                return [
+                    action,
+                    ...selectedNodes
+                    .sort((a,b) => b - a)
+                    .filter((nodeId) => nodeId != action.nodeId)
+                    .map((nodeId) => ({
+                        type: 'SET_NODE_ATTRIBUTE',
+                        nodeId,
+                        attribute: action.attribute,
+                        value: {
+                            x: state.graph.attributes.nodes.position[nodeId].x + offsetX,
+                            y: state.graph.attributes.nodes.position[nodeId].y + offsetY,
+                        },
+                    })),
+                ]
+            }
+        }
+        case 'ALIGN_SELECTED_NODES':
+            return [
+                action,
+                {
+                    type: 'ALIGN_NODES',
+                    axis: action.axis,
+                    alignment: action.alignment,
+                    spread: action.spread,
+                    nodeIds: selectedNodes,
+                },
+            ]
+        case 'SELECTED_NODE_AUTO_LAYOUT':
+            return [
+                action,
+                {
+                    type: 'ALIGN_NODES_CIRCLE',
+                    nodes: selectedNodes.length > 1 ? selectedNodes : state.graph.nodes.map((neighbours, nodeId) => nodeId),
+                },
+            ]
     }
 
     return false

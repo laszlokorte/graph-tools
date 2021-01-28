@@ -53,8 +53,12 @@ const OverlayBox = styled.div`
     background: white;
     background: rgba(0,0,0,0.8);
     color: #fff;
-    padding: 1em;
     overflow: auto;
+`
+
+const OverlayBoxContent = styled.div`
+    padding: 1em;
+    margin-bottom: 2em;
 `
 
 const EmptyBox = styled.div`
@@ -344,6 +348,15 @@ const AttributeField = styled.input`
       border: 1px solid #3569B1;
     }
 `
+
+const EdgeSelectorLine = styled.path`
+    fill: none;
+    stroke: none;
+    stroke-width: 20;
+    pointer-events: stroke;
+    cursor: default;
+`
+
 
 const NodeAttribute = ({nodeId, attrKey}) => {
     const dispatch = useDispatch()
@@ -712,7 +725,7 @@ const Tools = () => {
 
     const currentTool = useSelector(selectors.toolSelectionSelector)
     const tools = {
-        'edit': 'Edit',
+        'create': 'Create',
         'select': 'Select',
     }
 
@@ -1111,8 +1124,14 @@ const Canvas = ({children}) => {
         }
     },[onWheelHandler, screenRef])
 
+
+    const preventContextMenu = useCallback((evt) => {
+        evt.preventDefault();
+    }, []);
+
 	return <Svg
         ref={screenRef}
+        onContextMenu={preventContextMenu}
         onMouseDown={onMouseDownHandler}
         onDoubleClick={onDoubleClickHandler}
         viewBox={viewBox}
@@ -1242,9 +1261,16 @@ const ArrowHeadSelection = styled.polygon`
 `
 
 const NodeDragger = styled.path`
-    cursor: move;
+    cursor: default;
     fill: #333;
     opacity: 0.5;
+    pointer-events: ${({available}) => available ? 'fill':'none'};
+`;
+
+const NodePositionHandle = styled.path`
+    cursor: move;
+    fill: #396DF2;
+    pointer-events: ${({available}) => available ? 'fill':'none'};
 `;
 
 const EdgeHandleAdvanced = styled.circle`
@@ -1372,23 +1398,18 @@ const NewNode = ({x, y}) => {
     return <NewNodeShape  transform={`translate(${x}, ${y})`} style={{cursor:'copy'}} d={shape} />
 }
 
-const NodeManipulator = ({x = null,y = null,nodeId,snapped=false,active=false,onClick=null,onDoubleClick=null, mouseDownConnect=null,mouseDownMove = null,mouseMove,mouseLeave}) => {
-    const pos = useSelector(selectors.nodePositionSelector(nodeId))
+const NodeManipulator = ({x = null,y = null,nodeId,snapped=false,active=false,onClick=null,onDoubleClick=null, mouseDownConnect=null,selectNode,mouseMove,mouseLeave}) => {
+    const pos = useSelector(selectors.nodeManipulatorPositionSelector(nodeId))
     const shape = useSelector(selectors.nodeShapeSelector(nodeId))
-
-    if(x === null || y === null) {
-        x = pos.x
-        y = pos.y
-    }
-
+    const selected = useSelector(selectors.isNodeSelectedSelector(nodeId))
 
     const mouseDownConnectCallback = useCallback(mouseDownConnect ? (evt) => {
-        mouseDownConnect(evt, nodeId, x, y)
-    } : null, [nodeId, mouseDownConnect, x, y])
-
-    const mouseDownMoveCallback = useCallback(mouseDownMove ? (evt) => {
-        mouseDownMove(evt, nodeId, x, y)
-    } : null, [nodeId, mouseDownMove, x, y])
+        evt.preventDefault()
+        if(evt.altKey || evt.button > 0) {
+            return;
+        }
+        mouseDownConnect(evt, nodeId, pos.x, pos.y)
+    } : null, [nodeId, mouseDownConnect, pos.x, pos.y])
 
     const mouseMoveCallback = useCallback(mouseMove ? (evt) => {
         mouseMove(evt, nodeId)
@@ -1407,25 +1428,77 @@ const NodeManipulator = ({x = null,y = null,nodeId,snapped=false,active=false,on
         onDoubleClick(evt, nodeId)
     } : null, [nodeId, onDoubleClick])
 
+    const onSelectCallback = useCallback(selectNode ? (evt) => {
+        evt.preventDefault()
+        if(evt.altKey || evt.button > 0) {
+            return;
+        }
+        selectNode(evt, nodeId)
+        mouseDownMove(evt, nodeId, pos.x, pos.y)
+    } : null, [nodeId, selectNode, pos.x, pos.y])
+
     return <g
             onMouseMove={mouseMoveCallback}
             onMouseLeave={mouseLeaveCallback}>
         <NodeConnector d={shape}
-            transform={`translate(${x} ${y}) scale(2.5)`}
+            transform={`translate(${pos.x} ${pos.y}) scale(2.5)`}
             onMouseDown={mouseDownConnectCallback}
             fillRule="evenodd"
             snapped={snapped}
             active={active}
             />
-         <NodeDragger d={shape}
-            transform={`translate(${x} ${y}) scale(0.7)`}
+    </g>
+}
+
+const NodePositionManipulator = ({x = null,y = null,nodeId,onDoubleClick=null, mouseDownMove = null,selectNode}) => {
+    const pos = useSelector(selectors.nodeManipulatorPositionSelector(nodeId))
+    const shape = useSelector(selectors.nodeShapeSelector(nodeId))
+    const selected = useSelector(selectors.isNodeSelectedSelector(nodeId))
+    const available = useSelector(selectors.isNodePositionHandleActive)
+
+    const mouseDownMoveCallback = useCallback(mouseDownMove ? (evt) => {
+        evt.preventDefault()
+        if(evt.altKey || evt.button > 0) {
+            return;
+        }
+
+        if(evt.ctrlKey) {
+            selectNode(evt, nodeId)
+            evt.stopPropagation();
+            return;
+        }
+
+        mouseDownMove(evt, nodeId, pos.x, pos.y)
+    } : null, [nodeId, mouseDownMove, pos.x, pos.y, selectNode])
+
+    const onDoubleClickCallback = useCallback(onDoubleClick ? (evt) => {
+        onDoubleClick(evt, nodeId)
+    } : null, [nodeId, onDoubleClick])
+
+    const onSelectCallback = useCallback(selectNode ? (evt) => {
+        evt.preventDefault()
+        if(evt.altKey || evt.button > 0) {
+            return;
+        }
+        selectNode(evt, nodeId)
+        mouseDownMove(evt, nodeId, pos.x, pos.y)
+    } : null, [nodeId, selectNode, pos.x, pos.y])
+
+    return selected&&available ? <NodePositionHandle d={shape}
+            transform={`translate(${pos.x} ${pos.y}) scale(0.7)`}
             onMouseDown={mouseDownMoveCallback}
-            onClick={onClickCallback}
             onDoubleClick={onDoubleClickCallback}
             fillRule="evenodd"
-            fill="#111"
-            />
-    </g>
+            fill="#396DF2"
+            available={available}
+            /> :
+        <NodeDragger d={shape}
+        transform={`translate(${pos.x} ${pos.y}) scale(0.7)`}
+        onMouseDown={onSelectCallback}
+        fillRule="evenodd"
+        fill="#111"
+        available={available}
+        />
 }
 
 const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx}) => {
@@ -1663,6 +1736,7 @@ const GraphManipulator = () => {
     const nodeIds = useSelector(selectors.nodeIdsSelector)
 
     const manipulation = useSelector(selectors.manipulatorSelector)
+    const pathManipulation = useSelector(selectors.pathManipulatorSelector)
     const manipulationRef = useRef(manipulation)
 
     const endNode = useSelector(selectors.manipulatorTargetNodeSelector)
@@ -1672,38 +1746,128 @@ const GraphManipulator = () => {
     }, [manipulation])
 
     const onMouseUp = useCallback((evt) => {
-        if(manipulationRef.current.connectionStart !== null && manipulationRef.current.connectionSnap !== null) {
-            dispatch(actions.addEdge(
-                manipulationRef.current.connectionStart,
-                manipulationRef.current.connectionSnap
-            ))
-        } else if(manipulationRef.current.connectionStart !== null) {
-            dispatch(actions.createNode(
-                manipulationRef.current.x+manipulationRef.current.offsetX,
-                manipulationRef.current.y+manipulationRef.current.offsetY,
-                manipulationRef.current.connectionStart,
-                manipulationRef.current.edgeIndex,
-                evt.altKey,
-                manipulationRef.current.control
-            ))
-        } else if(manipulationRef.current.movingNode !== null) {
-            if(manipulationRef.current.hasMoved) {
-                dispatch(actions.setNodeAttribute(
-                    manipulationRef.current.movingNode,
-                    'position',
-                    {x:manipulationRef.current.x+manipulationRef.current.offsetX, y:manipulationRef.current.y+manipulationRef.current.offsetY}
-                ))
-            } else {
-                dispatch(actions.selectNode(manipulationRef.current.movingNode, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
-            }
-        } else if(manipulationRef.current.x !== null && manipulationRef.current.y !== null) {
-            dispatch(actions.createNode(
-                manipulationRef.current.x+manipulationRef.current.offsetX,
-                manipulationRef.current.y+manipulationRef.current.offsetY
-            ))
-        }
+        dispatch(actions.manipulatorStop(evt.altKey, evt.ctrlKey, evt.shiftKey))
+    }, [dispatch]);
 
-        dispatch(actions.manipulatorStop())
+    useEffect(() => {
+        const prevMouseUp = onMouseUp
+        window.addEventListener('mouseup', prevMouseUp)
+
+        return () => {
+            window.removeEventListener('mouseup', prevMouseUp)
+        }
+    }, [onMouseUp]);
+
+    const onMouseMove =  useCallback((evt) => {
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+        if(manipulationRef.current.x !== null || manipulationRef.current.connectionSnap !== null) {
+            dispatch(actions.manipulatorMove(pos.x, pos.y))
+        }
+    }, [canvasPos, manipulationRef])
+
+
+    useEffect(() => {
+        window.addEventListener('mousemove', onMouseMove)
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove)
+        }
+    }, [onMouseMove]);
+
+
+    const selectNode = useCallback((evt, nodeId) => {
+        dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
+    }, [dispatch])
+
+    const moveStart = useCallback((evt, nodeId, cx, cy) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        dispatch(actions.manipulatorStartMove(nodeId, pos.x, pos.y, cx - pos.x, cy - pos.y))
+    }, [canvasPos, dispatch]);
+
+    const deleteEdge = useCallback((evt, nodeId, edgeIndex) => {
+        evt.stopPropagation();
+        dispatch(actions.deleteEdge(nodeId, edgeIndex));
+    }, [dispatch])
+
+    const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
+        if(evt.altKey || evt.button > 0) {
+            return
+        }
+        evt.stopPropagation();
+        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
+    }, [dispatch])
+
+    const deleteNode = useCallback((evt, nodeId) => {
+        evt.stopPropagation();
+        dispatch(actions.deleteNode(nodeId));
+    }, [dispatch])
+
+
+    const onMouseDown = useCallback((evt) => {
+        evt.preventDefault()
+        if(evt.altKey || evt.button > 0) {
+            return;
+        }
+        evt.stopPropagation();
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        dispatch(actions.manipulatorStartCreate(pos.x, pos.y))
+    }, [canvasPos, dispatch])
+
+    const onGrabEdge = useCallback((evt, nodeId, edgeIndex, cx, cy, control) => {
+        evt.stopPropagation();
+        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
+
+        dispatch(actions.manipulatorStartConnect(nodeId, pos.x, pos.y, cx - pos.x, cy - pos.y, edgeIndex, control))
+    }, [canvasPos, dispatch])
+
+    return <g>
+        {
+            nodeIds.map((nodeId) =>
+            <NodePositionManipulator
+                key={nodeId}
+                nodeId={nodeId}
+                mouseDownMove={moveStart}
+                selectNode={selectNode}
+                onDoubleClick={deleteNode} />
+        )}
+        {
+            manipulation.x === null && manipulation.y === null &&
+            manipulation.connectionStart === null && manipulation.movingNode === null ?
+            <EdgesManipulator
+                selectEdge={selectEdge}
+                deleteEdge={deleteEdge}
+            /> : null
+        }
+        {
+            manipulation.x === null && manipulation.y === null &&
+            manipulation.connectionStart === null && manipulation.movingNode === null ?
+            <EdgesPathManipulator/> : null
+        }
+    </g>
+}
+
+const GraphCreator = () => {
+    const box = useSelector(selectors.cameraBoxSelector);
+    const dispatch = useDispatch()
+    const canvasPos = useCanvasPos()
+
+    const nodeIds = useSelector(selectors.nodeIdsSelector)
+
+    const manipulation = useSelector(selectors.manipulatorSelector)
+    const manipulationRef = useRef(manipulation)
+
+    const endNode = useSelector(selectors.manipulatorTargetNodeSelector)
+
+    useLayoutEffect(() => {
+        manipulationRef.current = manipulation
+    }, [manipulation])
+
+    const onMouseUp = useCallback((evt) => {
+        dispatch(actions.manipulatorStop(evt.altKey, evt.ctrlKey, evt.shiftKey))
     }, [dispatch]);
 
     useEffect(() => {
@@ -1752,32 +1916,14 @@ const GraphManipulator = () => {
         }
     }, [canvasPos,dispatch, manipulationRef]);
 
-    const moveStart = useCallback((evt, nodeId, cx, cy) => {
-        evt.preventDefault();
-        evt.stopPropagation();
-        const pos = canvasPos({x: evt.clientX, y: evt.clientY});
-
-        dispatch(actions.manipulatorStartMove(nodeId, pos.x, pos.y, cx - pos.x, cy - pos.y))
-    }, [canvasPos, dispatch]);
-
-    const deleteEdge = useCallback((evt, nodeId, edgeIndex) => {
-        evt.stopPropagation();
-        dispatch(actions.deleteEdge(nodeId, edgeIndex));
-    }, [dispatch])
-
-    const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
-        evt.stopPropagation();
-        dispatch(actions.selectEdge(nodeId, edgeIndex, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
-    }, [dispatch])
-
-    const deleteNode = useCallback((evt, nodeId) => {
-        evt.stopPropagation();
-        dispatch(actions.deleteNode(nodeId));
+    const selectNode = useCallback((evt, nodeId) => {
+        dispatch(actions.selectNode(nodeId, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
     }, [dispatch])
 
 
     const onMouseDown = useCallback((evt) => {
-        if(evt.altKey) {
+        evt.preventDefault()
+        if(evt.altKey || evt.button > 0) {
             return;
         }
         evt.stopPropagation();
@@ -1799,33 +1945,17 @@ const GraphManipulator = () => {
             <NodeManipulator
                 key={nodeId}
                 nodeId={nodeId}
-                x={manipulation.movingNode === nodeId ? (manipulation.x + manipulation.offsetX) : null}
-                y={manipulation.movingNode === nodeId ? (manipulation.y + manipulation.offsetY) : null}
                 mouseDownConnect={connectStart}
-                mouseDownMove={moveStart}
                 mouseMove={snap}
                 mouseLeave={unsnap}
+                selectNode={selectNode}
                 active={nodeId === manipulation.connectionStart}
-                snapped={nodeId === manipulation.connectionSnap}
-                onDoubleClick={deleteNode} />
+                snapped={nodeId === manipulation.connectionSnap} />
         )}
-        {
-            manipulation.x === null && manipulation.y === null &&
-            manipulation.connectionStart === null && manipulation.movingNode === null ?
-            <EdgesManipulator
-                selectEdge={selectEdge}
-                deleteEdge={deleteEdge}
-            /> : null
-        }
         {
             <EdgesGrabber
                 grabEdge={onGrabEdge}
             />
-        }
-        {
-            manipulation.x === null && manipulation.y === null &&
-            manipulation.connectionStart === null && manipulation.movingNode === null ?
-            <EdgesPathManipulator/> : null
         }
         {(manipulation.connectionStart === null || manipulation.edgeIndex !== null) ? (
             (manipulation.movingNode !== null || manipulation.x === null || manipulation.y === null || manipulation.connectionStart !== null) ? null :
@@ -1874,32 +2004,6 @@ const GraphManipulator = () => {
     </g>
 }
 
-const NodeSelectionShape = styled.path`
-    fill: none;
-    stroke: none;
-    stroke-width: 0;
-    pointer-events: all;
-`
-
-const NodeSelector = ({nodeId, onMouseDown}) => {
-    const pos = useSelector(selectors.nodePositionSelector(nodeId))
-    const shape = useSelector(selectors.nodeShapeSelector(nodeId))
-
-    const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
-        onMouseDown(evt, nodeId)
-    } : null, [nodeId, onMouseDown]);
-
-    return <NodeSelectionShape  transform={`translate(${pos.x}, ${pos.y})`} d={shape} onMouseDown={onMouseDownCallback} />
-}
-
-const EdgeSelectorLine = styled.path`
-    fill: none;
-    stroke: none;
-    stroke-width: 20;
-    pointer-events: stroke;
-    cursor: default;
-`
-
 const NodeEdgeSelector = ({nodeId,edgeIndex,onMouseDown}) => {
     const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIndex))
     const onMouseDownCallback = useCallback(onMouseDown ? (evt) => {
@@ -1935,18 +2039,21 @@ const GraphSelector = () => {
     }, [dispatch])
 
     const selectEdge = useCallback((evt, nodeId, edgeIndex) => {
+        if(evt.altKey || evt.button > 0) {
+            return
+        }
         dispatch(actions.selectEdge(nodeId, edgeIndex, evt.metaKey || evt.ctrlKey || evt.shiftKey, evt.metaKey || evt.ctrlKey));
     }, [dispatch])
 
     const clearSelection = useCallback((evt) => {
-        if(!evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey) {
+        if(!evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) {
             dispatch(actions.clearSelection());
         }
     }, [dispatch])
 
 
     const mouseDown = useCallback((evt) => {
-        if(evt.altKey) {
+        if(evt.altKey || evt.button > 0) {
             return;
         }
         evt.stopPropagation();
@@ -1995,31 +2102,7 @@ const GraphSelector = () => {
         {range.x0 === null ? null :
             <SelectionBox ref={rect} points={ps2} />
         }
-        {nodeIds.map((nodeId) => {
-            return <React.Fragment key={nodeId}>
-                <NodeSelector
-                    nodeId={nodeId}
-                    onMouseDown={selectNode}
-                />
-                <NodeEdgesSelector nodeId={nodeId} selectEdge={selectEdge} />
-            </React.Fragment>
-        })}
     </g>
-}
-
-const NodeEdgesSelector = ({nodeId, selectEdge}) => {
-    const neighbors = useSelector(selectors.neighboursSelector(nodeId))
-
-    return <>
-        {neighbors.map((neighbourId, edgeIdx) => {
-            return <NodeEdgeSelector
-                    nodeId={nodeId}
-                    edgeIndex={edgeIdx}
-                    key={`${nodeId}-${edgeIdx}`}
-                    onMouseDown={selectEdge}
-                />;
-        })}
-    </>
 }
 
 const GraphLayerNodes = () => {
@@ -2215,8 +2298,6 @@ const AlgorithmStepperNodeColoring = () => {
     const hasColors = useSelector(selectors.algorithmStepHasNodeColors)
     const nodeIds = useSelector(selectors.nodeIdsSelector)
 
-    console.log(hasColors)
-
     if(!hasColors) {
         return <></>;
     }
@@ -2350,7 +2431,8 @@ const AlgorithmDetails = () => {
             matrices = algorithm.result.steps[algorithm.focus].matrices
         }
 
-        return <OverlayBox>
+        return <OverlayBoxContent>
+            <h2>Run Algorithm</h2>
             <AlgorithmRunner />
 
             {matrices ? Object.keys(matrices).map((k) => {
@@ -2372,7 +2454,7 @@ const AlgorithmDetails = () => {
                     </table>
                 </div>
             }) : null}
-            </OverlayBox>
+            </OverlayBoxContent>
     } else {
         return <></>
     }
@@ -2381,23 +2463,38 @@ const AlgorithmDetails = () => {
 const AlignmentDetails = () => {
     const dispatch = useDispatch()
     const showAlignment = useSelector(selectors.showAlignmentSelector)
-    const alignX = useCallback(() => dispatch(actions.alignSelectedNodes('x')), [dispatch])
-    const alignY = useCallback(() => dispatch(actions.alignSelectedNodes('y')), [dispatch])
-    const spreadX = useCallback(() => dispatch(actions.alignSelectedNodes('x', 1, 1)), [dispatch])
-    const spreadY = useCallback(() => dispatch(actions.alignSelectedNodes('y', 1, 1)), [dispatch])
-    const autoLayout = useCallback(() => dispatch(actions.autoLayout()), [dispatch])
+    const alignXLeft = useCallback(() => dispatch(actions.alignSelectedNodes('x', 0)), [dispatch])
+    const alignXCenter = useCallback(() => dispatch(actions.alignSelectedNodes('x', 0.5)), [dispatch])
+    const alignXRight = useCallback(() => dispatch(actions.alignSelectedNodes('x', 1)), [dispatch])
+    const alignYTop = useCallback(() => dispatch(actions.alignSelectedNodes('y', 0)), [dispatch])
+    const alignYCenter = useCallback(() => dispatch(actions.alignSelectedNodes('y', 0.5)), [dispatch])
+    const alignYBottom = useCallback(() => dispatch(actions.alignSelectedNodes('y', 1)), [dispatch])
+    const spreadX = useCallback(() => dispatch(actions.alignSelectedNodes('x', 0, 1)), [dispatch])
+    const spreadY = useCallback(() => dispatch(actions.alignSelectedNodes('y', 0, 1)), [dispatch])
+    const autoLayout = useCallback(() => dispatch(actions.selectedNodesAutoLayout(true)), [dispatch])
     const canAlign = useSelector(selectors.canAlignSelectedNodesSelector)
+    const canAutolayout = useSelector(selectors.canAutolayoutSelector)
 
 
     if(showAlignment) {
-        return <OverlayBox>
-                <ToolButton onClick={autoLayout}>Auto Layout</ToolButton>
-                <ToolButton disabled={!canAlign} onClick={alignX}>Align X</ToolButton>
-                <ToolButton disabled={!canAlign} onClick={alignY}>Align Y</ToolButton>
+        return <OverlayBoxContent>
+                <h2>Align Nodes</h2>
+                <ToolButton disabled={!canAutolayout} onClick={autoLayout}>Auto Layout</ToolButton><br />
+                <div style={{display: 'flex'}}>
+                    <ToolButton disabled={!canAlign} onClick={alignXLeft}>Align Left</ToolButton>
+                    <ToolButton disabled={!canAlign} onClick={alignXCenter}>Align Center</ToolButton>
+                    <ToolButton disabled={!canAlign} onClick={alignXRight}>Align Right</ToolButton>
+                </div>
+                <div style={{display: 'flex'}}>
+                <ToolButton disabled={!canAlign} onClick={alignYTop}>Align Top</ToolButton>
+                <ToolButton disabled={!canAlign} onClick={alignYCenter}>Align Center</ToolButton>
+                <ToolButton disabled={!canAlign} onClick={alignYBottom}>Align Bottom</ToolButton>
+                </div>
+                <div style={{display: 'flex'}}>
                 <ToolButton disabled={!canAlign} onClick={spreadX}>Spread X</ToolButton>
                 <ToolButton disabled={!canAlign} onClick={spreadY}>Spread Y</ToolButton>
-
-            </OverlayBox>
+                </div>
+            </OverlayBoxContent>
     } else {
         return <></>
     }
@@ -2533,6 +2630,7 @@ const ErrorBar = () => {
 const GraphEditor = () => {
     const content = useMemo(() => <CanvasContent/>, [])
 
+
     return <Container>
             <Title>
                 Graph Editor
@@ -2546,8 +2644,10 @@ const GraphEditor = () => {
             <ProjectList />
             <Settings />
             <DumpWindow />
-            <AlgorithmDetails />
-            <AlignmentDetails />
+            <OverlayBox>
+                <AlignmentDetails />
+                <AlgorithmDetails />
+            </OverlayBox>
         </Container>;
 }
 
@@ -2556,7 +2656,7 @@ const CanvasContent = () => {
 
     const toolComponents = {
         select: GraphSelector,
-        edit: GraphManipulator,
+        create: GraphCreator,
         none: () => null,
     }
 
@@ -2566,6 +2666,7 @@ const CanvasContent = () => {
         <Graph />
         <GraphSelection />
         <ToolComponent />
+        <GraphManipulator />
         <AlgorithmStepper/>
     </>
 }

@@ -60,16 +60,17 @@ const run = (graph) => {
             state.nodes.color[sortedNodes[i]] = COLOR_BLACK
             stack.push(i)
             i += 1
+
+            state.polygons = [
+                {
+                    points: stack.map((i) => positioning[sortedNodes[i]]),
+                }
+            ]
         } else {
             const no = stack.pop()
             state.nodes.color[sortedNodes[no]] = COLOR_GRAY
         }
 
-        state.polygons = [
-            {
-                points: stack.map((i) => positioning[sortedNodes[i]]),
-            }
-        ]
 
         track(state)
     }

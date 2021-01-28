@@ -39,9 +39,15 @@ export const selectionSelector = createSelector(
     (present) => present.selection
 )
 
+
 export const selectedNodesSelector = createSelector(
     selectionSelector,
     (selection) => selection.nodes
+)
+
+export const isNodeSelectedSelector = (nodeId) => createSelector(
+    selectedNodesSelector,
+    (selection) => selection.includes(nodeId)
 )
 
 export const selectedNodeCountSelector = createSelector(
@@ -52,6 +58,12 @@ export const selectedNodeCountSelector = createSelector(
 export const canAlignSelectedNodesSelector = createSelector(
     selectedNodeCountSelector,
     (count) => count > 1
+)
+
+
+export const canAutolayoutSelector = createSelector(
+    selectedNodeCountSelector,
+    (count) => count !== 1
 )
 
 export const selectedNodesIndicesSelector = createSelector(
@@ -207,6 +219,50 @@ export const manipulatorTargetNodeSelector = createSelector(
         }
     }
 )
+
+export const manipulatorDeltaSelector = createSelector(
+    nodesPositionsSelector,
+    manipulatorSelector,
+    (positions, manipulator) => {
+        if(manipulator.movingNode === null) {
+            return null
+        }
+        const nodePos = positions[manipulator.movingNode]
+
+        return {
+            x: manipulator.x - nodePos.x + manipulator.offsetX,
+            y: manipulator.y - nodePos.y + manipulator.offsetY,
+        }
+    }
+)
+
+const manipulatorMovingNodeSelector = createSelector(
+    manipulatorSelector,
+    (manipulator) => {
+        return manipulator.movingNode
+    }
+)
+
+const manipulatorMovingNodeSelectedSelector = createSelector(
+    selectedNodesSelector,
+    manipulatorSelector,
+    (selection, manipulator) => {
+        return selection.includes(manipulator.movingNode)
+    }
+)
+
+export const nodeManipulatorPositionSelector = (nodeId) =>
+    createSelector(
+        manipulatorMovingNodeSelectedSelector,
+        nodePositionSelector(nodeId),
+        isNodeSelectedSelector(nodeId),
+        manipulatorDeltaSelector,
+        manipulatorMovingNodeSelector,
+        (movingSelected, nodePosition, isSelected, delta, moving) => {
+            return (!isSelected||!movingSelected)&&(moving!=nodeId)||!delta ? nodePosition : {x: nodePosition.x + delta.x, y: nodePosition.y + delta.y}
+        }
+    )
+
 
 export const visibleNodeAttributesSelector = createSelector(
     nodeAttributesSelector,
@@ -438,3 +494,9 @@ export const selectedNodeShapeSelector = (index) => createSelector(
 )
 
 export const newNodeShapeSelector = createSelector((state) => 'm 0 20 a 20 20 0 1 0 0 -40 a 20 20 0 1 0 0 40')
+
+export const isNodePositionHandleActive = createSelector(
+    pathManipulatorSelector,
+    manipulatorSelector,
+    (pm, m) => m.connectionStart === null && pm.controlIdx === null
+)

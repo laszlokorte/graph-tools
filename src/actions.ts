@@ -113,8 +113,14 @@ export const setNodeAttributeVisible = (attribute, visible) => ({
 })
 
 
-export const autoLayout = () => ({
-    type: 'NODE_AUTO_LAYOUT'
+export const autoLayout = (nodes) => ({
+    type: 'NODE_AUTO_LAYOUT',
+    nodes,
+})
+
+export const selectedNodesAutoLayout = (orAll) => ({
+    type: 'SELECTED_NODE_AUTO_LAYOUT',
+    orAll,
 })
 
 export const runAlgorithm = (algorithm, parameters) => ({
@@ -157,7 +163,7 @@ export const cameraPan = (deltaX, deltaY) => ({type: 'CAMERA_PAN', deltaX, delta
 export const cameraRotate = (x, y, deltaAngle) => ({type: 'CAMERA_ROTATE', x, y, deltaAngle});
 export const cameraZoom = (x, y, factor) => ({type: 'CAMERA_ZOOM', x, y, factor});
 
-export const manipulatorStop = () => ({type: 'MANIPULATOR_STOP'});
+export const manipulatorStop = (altKey, ctrlKey, shiftKey) => ({type: 'MANIPULATOR_STOP', altKey, ctrlKey, shiftKey});
 export const manipulatorMove = (x, y) => ({type: 'MANIPULATOR_MOVE', x, y});
 export const manipulatorSnapConnect = (nodeId) => ({type: 'MANIPULATOR_SNAP_CONNECT', nodeId});
 export const manipulatorUnsnapConnect = (x, y) => ({type: 'MANIPULATOR_UNSNAP_CONNECT', x, y});

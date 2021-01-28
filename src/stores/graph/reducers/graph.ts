@@ -422,44 +422,6 @@ export default (state = initialState, action) => {
                 }
             };
         }
-        case 'NODE_AUTO_LAYOUT': {
-            const positionAttribute = 'position';
-            const pathAttribute = 'path';
-
-            const count = state.nodes.length;
-
-            const sum = state.attributes.nodes[positionAttribute].reduce(({cx,cy}, {x,y}) => ({
-                cx: cx + x,
-                cy: cy + y,
-            }), {cx: 0,cy: 0})
-
-            const center = {
-                x: sum.cx / count,
-                y: sum.cy / count,
-            }
-
-            const radius = Math.sqrt(state.attributes.nodes[positionAttribute].reduce((d, {x,y}) => (
-                d + (x-center.x)*(x-center.x)+(y-center.y)*(y-center.y)
-            ), 0) / count)
-
-            return {
-                ...state,
-                attributes: {
-                    ...state.attributes,
-                    edges: {
-                        ...state.attributes.edges,
-                        [pathAttribute]: state.attributes.edges[pathAttribute].map((paths) => paths.map(() => [])),
-                    },
-                    nodes: {
-                        ...state.attributes.nodes,
-                        [positionAttribute]: state.attributes.nodes[positionAttribute].map(({x,y}, i) => ({
-                            x: center.x + radius * Math.sin(2*Math.PI * i / count),
-                            y: center.y + radius * Math.cos(2*Math.PI * i / count),
-                        }))
-                    }
-                }
-            }
-        }
         default:
             return state;
     }

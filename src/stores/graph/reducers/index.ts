@@ -6,6 +6,7 @@ import properties from './properties'
 
 import graphActionExpander from './graph_action_expander'
 import graphSelectionActionExpander from './graph_selection_action_expander'
+import manipulatorExpander from './manipulator_expander'
 import selectionActionExpander from './selection_action_expander'
 import nodeAlignmentExpander from './graph_node_alignment_expander'
 import cameraActionExpander from './camera_action_expander'
@@ -84,7 +85,7 @@ const algorithmSelection = (state = {type: null, parameters: {}}, action) => {
     return state
 }
 
-const toolSelection = (state = 'edit', action) => {
+const toolSelection = (state = 'create', action) => {
     if(action.type === 'TOOL_SELECT') {
         return action.tool
     }
@@ -120,17 +121,33 @@ const data = undoable(graphSelectionActionExpander(nodeAlignmentExpander(graphAc
             'STEP_ALGORITHM','JUMP_STEP_ALGORITHM',
             'DESELECT_NODE',
             'DESELECT_EDGE',
+            'SELECTION_BOX_START',
+            'SELECTION_BOX_MOVE',
+            'SELECTION_BOX_STOP',
             ...skipActions,
         ]),
         (action, currentState, history) => {
             return !currentState.error
         },
         (action, currentState, history) => {
-            return history.future.length === 0 || !([
+            return history.future.length !== 0 || !([
                 'CLEAR_SELECTION',
                 'SELECT_NODE',
                 'SELECT_EDGE',
-                'SELECT_AREA',
+                'SELECTION_BOX_START',
+                'SELECTION_BOX_MOVE',
+                'SELECTION_BOX_STOP',
+            ].includes(action.type))
+        },
+        (action, currentState, history) => {
+            return history.past.length !== 0 || !([
+                'CLEAR_SELECTION',
+                'SELECT_NODE',
+                'SELECT_EDGE',
+                'SELECTION_BOX_START',
+                'SELECTION_BOX_MOVE',
+                'SELECTION_BOX_STOP',
+                'SELECT_AREA'
             ].includes(action.type))
         }
     ),
@@ -161,6 +178,9 @@ const data = undoable(graphSelectionActionExpander(nodeAlignmentExpander(graphAc
             'SELECT_NODE',
             'SELECT_EDGE',
             'SELECT_AREA',
+            'SELECTION_BOX_START',
+            'SELECTION_BOX_MOVE',
+            'SELECTION_BOX_STOP',
         ].includes(action.type)) {
             return 'selection';
         }
@@ -170,6 +190,7 @@ const data = undoable(graphSelectionActionExpander(nodeAlignmentExpander(graphAc
         if(action.type === 'NODE_AUTO_LAYOUT') {
             return 'NODE_AUTO_LAYOUT';
         }
+
 
         return null;
     }
@@ -233,32 +254,42 @@ const toggle = (actionType, state = false, action) => {
     }
 }
 
-export default algorithmActionExpander(cameraActionExpander(selectionActionExpander((state, action) => {
+const boundingBox = (d, margin) => {
+    const box = d.present.graph.attributes.nodes.position.reduce((acc, p) => ({
+        minX: Math.min(acc.minX, p.x),
+        maxX: Math.max(acc.maxX, p.x),
+        minY: Math.min(acc.minY, p.y),
+        maxY: Math.max(acc.maxY, p.y),
+    }), ({
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity,
+    }));
+
+    const edge = d.present.graph.attributes.edges.path.reduce((ncc, edges) => edges.reduce((pcc, path) => path.reduce((acc, c, i) => ({
+        minX: i%2 == 0 ? Math.min(acc.minX, c) : acc.minX,
+        maxX: i%2 == 0 ? Math.max(acc.maxX, c) : acc.maxX,
+        minY: i%2 == 1 ? Math.min(acc.minY, c) : acc.minY,
+        maxY: i%2 == 1 ? Math.max(acc.maxY, c) : acc.maxY,
+    }), pcc), ncc), box);
+
+    return {
+        minX: edge.minX===Infinity ? -1*margin : edge.minX - margin,
+        maxX: edge.maxX===-Infinity ? 1*margin : edge.maxX + margin,
+        minY: edge.minY===Infinity ? -1*margin : edge.minY - margin,
+        maxY: edge.maxY===-Infinity ? 1*margin : edge.maxY + margin,
+    }
+}
+
+export default algorithmActionExpander(cameraActionExpander(manipulatorExpander(selectionActionExpander((state, action) => {
     const skip = skipActions.includes(action.type)
 
     const d = skip ? state.data : data(state ? state.data : undefined, action)
-    const margin = 200;
 
     let nonInfBox = state && state.camera.box
     if (!skip || !nonInfBox) {
-        const box = d.present.graph.attributes.nodes.position.reduce((acc, p) => ({
-            minX: Math.min(acc.minX + margin, p.x) - margin,
-            maxX: Math.max(acc.maxX - margin, p.x) + margin,
-            minY: Math.min(acc.minY + margin, p.y) - margin,
-            maxY: Math.max(acc.maxY - margin, p.y) + margin,
-        }), ({
-            minX: Infinity,
-            maxX: -Infinity,
-            minY: Infinity,
-            maxY: -Infinity,
-        }));
-
-        nonInfBox = {
-            minX: box.minX===Infinity ? -1*margin : box.minX,
-            maxX: box.maxX===-Infinity ? 1*margin : box.maxX,
-            minY: box.minY===Infinity ? -1*margin : box.minY,
-            maxY: box.maxY===-Infinity ? 1*margin : box.maxY,
-        }
+        nonInfBox = boundingBox(d, 200)
     }
 
     const newCamera = camera(state ? state.camera : undefined, nonInfBox, action)
@@ -283,4 +314,4 @@ export default algorithmActionExpander(cameraActionExpander(selectionActionExpan
         showAlignment: toggle('TOGGLE_ALIGNMENT', state ? state.showAlignment : false, action),
         layout: d.present ? doLayout(d.present.graph) : undefined,
     };
-})))
+}))))

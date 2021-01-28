@@ -14,6 +14,11 @@ const expandAction = (state, action) => {
     const graph = state && state.data && state.data.present && state.data.present.graph
     switch(action.type) {
         case 'SELECTION_BOX_STOP':
+            if(!state.selectionBox.moved && state.selectionBox.x0 !== null) {
+                return [action, {
+                    type: 'CLEAR_SELECTION',
+                }]
+            }
             if(!state.selectionBox.moved) {
                 return false
             }

@@ -173,10 +173,11 @@ const expandGraphAction = (state, action) => {
         }
         case 'SELECT_AREA': {
             if(action.nodes) {
+                const margin = 20
                 const nodeIds = graph.nodes.map((_, n) => n).filter(n => {
                     const pos = graph.attributes.nodes.position[n]
-                    return action.minX < pos.x && pos.x < action.maxX &&
-                        action.minY < pos.y && pos.y < action.maxY
+                    return action.minX - margin < pos.x && pos.x < action.maxX + margin &&
+                        action.minY - margin < pos.y && pos.y < action.maxY + margin
                 })
 
                 const nodeSelection = nodeIds.map((nodeId, i) => ({
@@ -218,7 +219,12 @@ const expandGraphAction = (state, action) => {
                 if(nodeSelection.length || edgeSelection.length) {
                     return [action, ...nodeSelection, ...edgeSelection];
                 } else {
-                    return false
+                    return [
+                        action,
+                        {
+                            type: 'CLEAR_SELECTION',
+                        }
+                    ]
                 }
 
             }
