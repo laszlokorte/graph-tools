@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {useRef, useMemo, useEffect, useLayoutEffect, useContext, useCallback} from 'react';
+import {useState, useRef, useMemo, useEffect, useLayoutEffect, useContext, useCallback} from 'react';
 import styled from 'styled-components';
 import { useSize } from './react-hook-size';
 
@@ -392,6 +392,10 @@ const AttributeField = styled.input`
     background-color: #e0f0ff;
     padding: 6px;
 
+    text-decoration: ${({transient}) => transient ? 'underline' : 'none'};
+    text-decoration-color: ${({transient}) => transient ? 'red' : 'currentColor'};
+    text-decoration-style: ${({transient}) => transient ? 'wavy' : 'solid'};
+
     &:focus {
       background-color: #fff;
       color: #000;
@@ -411,11 +415,15 @@ const EdgeSelectorLine = styled.path`
 const NodeAttribute = ({nodeId, attrKey}) => {
     const dispatch = useDispatch()
     const attr = useSelector(selectors.nodeAttributeSelector(attrKey, nodeId))
+    const [volatile, setVolatile] = useState(attr.value || '')
 
     const typeName = attr.type.type
 
     const onChange = useCallback(
-        (evt) => dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))
+        (evt) => {
+            setVolatile(evt.target.value)
+            dispatch(actions.setNodeAttribute(nodeId, attrKey, evt.target.value))
+        }
     , [nodeId, attrKey])
 
     const onCheck = useCallback(
@@ -425,7 +433,7 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     if(['text','color','numeric'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><AttributeField type="text" value={attr.value || ''} onChange={onChange} /></dd>
+            <dd><AttributeField transient={volatile && (attr.value != volatile)} type={typeName} value={volatile} onChange={onChange} /></dd>
         </>);
     } else if(['boolean'].includes(typeName)) {
         return (<>
@@ -456,6 +464,11 @@ const NodeAttribute = ({nodeId, attrKey}) => {
 const SelectedNodesAttribute = ({attrKey}) => {
     const dispatch = useDispatch()
     const attr = useSelector(selectors.selectedNodesAttributeSelector(attrKey))
+    const [volatile, setVolatile] = useState(attr.mixed ? '' : (attr.value || ''))
+
+    useEffect(() => {
+       setVolatile(attr.mixed ? '' : attr.value+'');
+    }, [attr.mixed, attr.value])
 
     const typeName = attr.type.type
     const checkboxRef = useRef()
@@ -467,7 +480,10 @@ const SelectedNodesAttribute = ({attrKey}) => {
     }, [attr.mixed])
 
     const onChange = useCallback(
-        (evt) => dispatch(actions.setSelectedNodesAttribute(attrKey, evt.target.value))
+        (evt) => {
+            setVolatile(evt.target.value)
+            dispatch(actions.setSelectedNodesAttribute(attrKey, evt.target.value))
+        }
     , [attrKey])
 
     const onCheck = useCallback(
@@ -477,7 +493,7 @@ const SelectedNodesAttribute = ({attrKey}) => {
     if(['text','color','numeric'].includes(typeName)) {
         return (<>
             <dt>{attrKey}*:</dt>
-            <dd><AttributeField placeholder={attr.mixed ? 'mixed' : ''} type="text" value={attr.mixed ? '' : (attr.value || '')} onChange={onChange} /></dd>
+            <dd><AttributeField transient={volatile && (attr.value != volatile)} placeholder={attr.mixed ? 'mixed' : ''} type={typeName} value={volatile} onChange={onChange} /></dd>
         </>);
     } else if(['boolean'].includes(typeName)) {
         return (<>
@@ -551,9 +567,13 @@ const NodeDetails = ({index}) => {
 const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     const dispatch = useDispatch()
     const attr = useSelector(selectors.edgeAttributeSelector(attrKey, nodeId, edgeIndex))
+    const [volatile, setVolatile] = useState(attr.value)
 
     const onChangeText = useCallback(
-        (evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value)),
+        (evt) => {
+            setVolatile(evt.target.value)
+            dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value))
+        },
         [attr.type, nodeId, edgeIndex]
     );
     const onChangeCheckbox = useCallback(
@@ -563,7 +583,7 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     if(['text','color','numeric'].includes(attr.type.type)) {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><AttributeField type={attr.type.type} value={attr.value+''} onChange={onChangeText} /></dd>
+            <dd><AttributeField transient={volatile && (attr.value != volatile)} type={attr.type.type} value={volatile} onChange={onChangeText} /></dd>
         </>
     } else if(['boolean'].includes(attr.type.type)) {
         return (<>
@@ -581,11 +601,20 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
 const SelectedEdgesAttribute = ({attrKey}) => {
     const dispatch = useDispatch()
     const attr = useSelector(selectors.selectedEdgesAttributeSelector(attrKey))
+    const [volatile, setVolatile] = useState(attr.mixed ? '' : attr.value+'')
+
+    useEffect(() => {
+       setVolatile(attr.mixed ? '' : attr.value+'');
+   }, [attr.mixed, attr.value])
 
     const onChangeText = useCallback(
-        (evt) => dispatch(actions.setSelectedEdgesAttribute(attrKey, evt.target.value)),
+        (evt) => {
+            setVolatile(evt.target.value)
+            dispatch(actions.setSelectedEdgesAttribute(attrKey, evt.target.value))
+        },
         [attrKey, attr.type]
     );
+
     const onChangeCheckbox = useCallback(
         (evt) => dispatch(actions.setSelectedEdgesAttribute(attrKey, evt.target.checked)),
     [attrKey, attr.type]);
@@ -593,7 +622,7 @@ const SelectedEdgesAttribute = ({attrKey}) => {
     if(['text','color','numeric'].includes(attr.type.type)) {
         return <>
             <dt>{attrKey}:</dt>
-            <dd><AttributeField placeholder={attr.mixed ? 'mixed' : ''} type={attr.type.type} value={attr.mixed ? '' : attr.value+''} onChange={onChangeText} /></dd>
+            <dd><AttributeField transient={volatile && (attr.value != volatile)} placeholder={attr.mixed ? 'mixed' : ''} type={attr.type.type} value={volatile} onChange={onChangeText} /></dd>
         </>
     } else if(['boolean'].includes(attr.type.type)) {
         return (<>

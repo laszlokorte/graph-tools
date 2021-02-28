@@ -104,10 +104,14 @@ const initialState = {
   }
 };
 
-const castAttributeType = (attr, val) => {
+const castAttributeType = (attr, val, old) => {
     switch(attr.type) {
         case 'numeric':
-            return parseFloat(val || 0);
+            const parsed = parseFloat(val || 0);
+            if(isNaN(parsed)) {
+                return old
+            }
+            return parsed
         case 'boolean':
             return !!val;
         case 'enum':
@@ -328,8 +332,8 @@ export default (state = initialState, action) => {
             });
         }
         case 'SET_EDGE_ATTRIBUTE': {
-            const newAttr = castAttributeType(state.attributeTypes.edges[action.attribute], action.value);
             const oldAttr = state.attributes.edges[action.attribute][action.nodeId][action.edgeIndex];
+            const newAttr = castAttributeType(state.attributeTypes.edges[action.attribute], action.value, oldAttr);
             if(newAttr == oldAttr) {
                 return state;
             }
@@ -354,8 +358,8 @@ export default (state = initialState, action) => {
             });
         }
         case 'SET_NODE_ATTRIBUTE': {
-            const newAttr = castAttributeType(state.attributeTypes.nodes[action.attribute], action.value);
             const oldAttr = state.attributes.nodes[action.attribute][action.nodeId];
+            const newAttr = castAttributeType(state.attributeTypes.nodes[action.attribute], action.value, oldAttr);
             if(newAttr == oldAttr) {
                 return state;
             }
