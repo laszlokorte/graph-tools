@@ -40,9 +40,9 @@ const Container = styled.div`
 	height: 100vh;
     width: 100vw;
 	display: grid;
-	grid-template-columns: 2fr 4fr 2fr;
+	grid-template-columns: 2fr 6fr 2fr;
 	grid-template-rows: 3em 3fr 2fr;
-	grid-template-areas: "a b b" "c d d" "c d d";
+	grid-template-areas: "a b e" "c d e" "c d e";
 	justify-items: stretch;
 	align-items: stretch;
 `;
@@ -246,7 +246,7 @@ const DetailsBoxHead = styled.div`
     margin-bottom: 0.5em;
 `
 
-const Toolbar = styled.div`
+const MenuBarContainer = styled.div`
     display: flex;
     background: #444;
     padding: 1px;
@@ -255,7 +255,29 @@ const Toolbar = styled.div`
     grid-row: 1 / 2;
 `
 
-const ToolbarSection = styled.div`
+const ToolPanelContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    margin: 0.5em;
+    padding: 1px;
+    align-items: stretch;
+    grid-column: 2 / -1;
+    grid-row: 2 / 2;
+    align-self: start;
+    justify-self: start;
+    z-index: 100;
+`
+
+const ToolPanelSection = styled.div`
+    display: flex;
+    flex-direction: column;
+    background: #444;
+    border-radius: 0.4em;
+    opacity: 0.7;
+    margin: 0.5em;
+`
+
+const MenuBarSection = styled.div`
     display: flex;
     padding: 1px;
     align-items: center;
@@ -266,7 +288,7 @@ const ToolbarSection = styled.div`
     margin: 1px;
 `
 
-const ToolbarForm = styled.form`
+const MenuBarForm = styled.form`
     display: flex;
     padding: 1px;
     align-items: center;
@@ -277,6 +299,34 @@ const ToolbarForm = styled.form`
     color: #fff;
     margin: 1px;
 `
+
+const MenuBarItem = styled.button`
+    background: ${({active}) => active ? '#303030' : '#222'};
+    color: #fff;
+    font: inherit;
+    margin: 1px;
+    padding: 4px 10px;
+    cursor: pointer;
+    display: flex;
+    align-content: center;
+    align-items: center;
+    align-self: stretch;
+    border: none;
+
+    :hover {
+        background: #333;
+    }
+    :disabled, [disabled],
+    :disabled:active, [disabled]:active {
+        background: #303030;
+        color: #999;
+        cursor: default;
+    }
+    :active {
+        background: #222;
+    }
+`
+
 
 const ToolButton = styled.button`
     background: ${({active}) => active ? '#303030' : '#222'};
@@ -718,7 +768,7 @@ const ViewOptions = () => {
     </div>
 }
 
-const Tools = () => {
+const MenuBar = () => {
     const dispatch = useDispatch();
     const canUndo = useSelector(selectors.canUndoSelector)
     const canRedo = useSelector(selectors.canRedoSelector)
@@ -753,24 +803,54 @@ const Tools = () => {
     const toggleProjectList = useCallback(() => dispatch(actions.toggleProjectList()), [])
     const undo = useCallback(() => dispatch(ActionCreators.undo()), [])
     const redo = useCallback(() => dispatch(ActionCreators.redo()), [])
+
+    return <MenuBarContainer>
+        <MenuBarItem onClick={toggleProjectList}>Open</MenuBarItem>
+        <MenuBarItem onClick={toggleDump}>Dump</MenuBarItem>
+        <MenuBarItem disabled={!canUndo} onClick={undo}>Undo</MenuBarItem>
+        <MenuBarItem disabled={!canRedo} onClick={redo}>Redo</MenuBarItem>
+        <MenuBarItem active={showAlignment} onClick={toggleAlignment}>Alignment</MenuBarItem>
+        <MenuBarItem active={showAlgorithm} onClick={toggleAlgorithm}>Algorithm</MenuBarItem>
+    </MenuBarContainer>
+}
+
+
+const ToolPanel = () => {
+    const dispatch = useDispatch();
+
+    const currentTool = useSelector(selectors.toolSelectionSelector)
+    const tools = {
+        'create': 'Create',
+        'select': 'Select',
+    }
+
+    const toggleAlgorithm = useCallback(() => {
+        dispatch(actions.toggleAlgorithm())
+    }, [dispatch])
+
+    const toggleAlignment = useCallback(() => {
+        dispatch(actions.toggleAlignment())
+    }, [dispatch])
+
+    const selectTool = useCallback((evt) => {
+        dispatch(actions.selectTool(evt.target.getAttribute('data-tool')))
+    }, [dispatch])
+
     const clear = useCallback(() => dispatch(actions.clearGraph()), [])
     const clearEdges = useCallback(() => dispatch(actions.clearGraphEdges()), [])
 
-    return <Toolbar>
-        <ToolButton onClick={toggleProjectList}>Open</ToolButton>
-        <ToolButton onClick={toggleDump}>Dump</ToolButton>
-        <ToolButton disabled={!canUndo} onClick={undo}>Undo</ToolButton>
-        <ToolButton disabled={!canRedo} onClick={redo}>Redo</ToolButton>
-        <ToolButton onClick={clear}>Clear</ToolButton>
-        <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
+    return <ToolPanelContainer>
+        <ToolPanelSection>
         {Object.keys(tools).map((t) =>
             <ToolButton key={t} disabled={t===currentTool} onClick={selectTool} data-tool={t}>{tools[t]}</ToolButton>
         )}
-        <ToolButton active={showAlignment} onClick={toggleAlignment}>Alignment</ToolButton>
-        <ToolButton active={showAlgorithm} onClick={toggleAlgorithm}>Algorithm</ToolButton>
-    </Toolbar>
+        </ToolPanelSection>
+        <ToolPanelSection>
+        <ToolButton onClick={clear}>Clear</ToolButton>
+        <ToolButton onClick={clearEdges}>Clear Edges</ToolButton>
+        </ToolPanelSection>
+    </ToolPanelContainer>
 }
-
 
 const AlgorithmOptions = () => {
     const dispatch = useDispatch();
@@ -2628,18 +2708,16 @@ const ErrorBar = () => {
 }
 
 const GraphEditor = () => {
-    const content = useMemo(() => <CanvasContent/>, [])
-
-
     return <Container>
             <Title>
                 Graph Editor
             </Title>
-            <Tools />
+            <MenuBar />
+            <ToolPanel />
             <Menu />
             <ErrorBar />
             <Canvas>
-                {content}
+                <CanvasContent/>
             </Canvas>
             <ProjectList />
             <Settings />
