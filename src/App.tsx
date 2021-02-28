@@ -417,6 +417,10 @@ const NodeAttribute = ({nodeId, attrKey}) => {
     const attr = useSelector(selectors.nodeAttributeSelector(attrKey, nodeId))
     const [volatile, setVolatile] = useState(attr.value || '')
 
+    useEffect(() => {
+       setVolatile(attr.value);
+    }, [nodeId])
+
     const typeName = attr.type.type
 
     const onChange = useCallback(
@@ -569,6 +573,10 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
     const attr = useSelector(selectors.edgeAttributeSelector(attrKey, nodeId, edgeIndex))
     const [volatile, setVolatile] = useState(attr.value)
 
+    useEffect(() => {
+       setVolatile(attr.value);
+    }, [nodeId, edgeIndex])
+
     const onChangeText = useCallback(
         (evt) => {
             setVolatile(evt.target.value)
@@ -605,7 +613,7 @@ const SelectedEdgesAttribute = ({attrKey}) => {
 
     useEffect(() => {
        setVolatile(attr.mixed ? '' : attr.value+'');
-   }, [attr.mixed, attr.value])
+    }, [attr.mixed, attr.value])
 
     const onChangeText = useCallback(
         (evt) => {
