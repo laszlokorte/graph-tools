@@ -82,15 +82,32 @@ const expandAction = (state, action) => {
                 return d + (x-center.x)*(x-center.x)+(y-center.y)*(y-center.y)
             }, 0) / count)
 
+            const sortedNodes = action.nodes.sort((a,b) => {
+                return Math.atan2(
+                    state.graph.attributes.nodes[positionAttribute][b].y - center.y,
+                    state.graph.attributes.nodes[positionAttribute][b].x - center.x
+                ) - Math.atan2(
+                    state.graph.attributes.nodes[positionAttribute][a].y - center.y,
+                    state.graph.attributes.nodes[positionAttribute][a].x - center.x
+                )
+            })
+
+            const initialAngle = sortedNodes.length ?
+                Math.atan2(
+                    state.graph.attributes.nodes[positionAttribute][sortedNodes[0]].y - center.y,
+                    state.graph.attributes.nodes[positionAttribute][sortedNodes[0]].x - center.x
+                ) - Math.PI/2
+                : Math.PI/2
+
             return [
                 action,
-                ...action.nodes.map((nodeId, i) => ({
+                ...sortedNodes.map((nodeId, i) => ({
                     type: 'SET_NODE_ATTRIBUTE',
                     nodeId,
                     attribute: 'position',
                     value: {
-                        x: center.x + radius * Math.sin(2*Math.PI * i / count),
-                        y: center.y + radius * Math.cos(2*Math.PI * i / count),
+                        x: center.x + radius * Math.sin(2*Math.PI * i / count - initialAngle),
+                        y: center.y + radius * Math.cos(2*Math.PI * i / count - initialAngle),
                     }
                 }))
             ]
