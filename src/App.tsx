@@ -504,11 +504,11 @@ const EdgeAttribute = ({nodeId, edgeIndex, attrKey}) => {
 
     const onChangeText = useCallback(
         (evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.value)),
-        [attr.type]
+        [attr.type, nodeId, edgeIndex]
     );
     const onChangeCheckbox = useCallback(
         (evt) => dispatch(actions.setEdgeAttribute(nodeId, edgeIndex, attrKey, evt.target.checked)),
-    [attr.type]);
+    [attr.type, nodeId, edgeIndex]);
 
     if(['text','color','numeric'].includes(attr.type.type)) {
         return <>
