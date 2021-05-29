@@ -133,24 +133,34 @@ export const nodeIdsSelector = createSelector(
     (nodes) => Array(nodes.length).fill(null).map((_,i) => i)
 )
 
-export const neighboursSelector = (nodeId) => createSelector(
+export const outgoingNeighboursSelector = (nodeId) => createSelector(
     nodesSelector,
     (nodes) => nodes[nodeId]
 )
 
-export const neighbourCountSelector = (nodeId) => createSelector(
-    neighboursSelector(nodeId),
-    (neighbours) => neighbours.length
+export const outgoingNeighbourCountSelector = (nodeId) => createSelector(
+    outgoingNeighboursSelector(nodeId),
+    (outgoingNeighbours) => outgoingNeighbours.length
 )
 
 export const edgeIndicesSelector = (nodeId) => createSelector(
-    neighboursSelector(nodeId),
-    (neighbours) => Array(neighbours.length).fill(null).map((_,i) => i)
+    outgoingNeighboursSelector(nodeId),
+    (outgoingNeighbours) => Array(outgoingNeighbours.length).fill(null).map((_,i) => i)
 )
 
-export const neighbourNodeSelector = (nodeId, edgeIndex) => createSelector(
-    neighboursSelector(nodeId),
-    (neighbours) => neighbours[edgeIndex]
+export const outgoingNeighbourNodeSelector = (nodeId, edgeIndex) => createSelector(
+    outgoingNeighboursSelector(nodeId),
+    (outgoingNeighbours) => outgoingNeighbours[edgeIndex]
+)
+
+export const allEdgesSelector = createSelector(
+    nodesSelector,
+    (nodes) => nodes.flatMap((edges, source) => edges.map((target, edgeIndex) => ({source, edgeIndex, target})))
+)
+
+export const incomingNeighboursSelector = (nodeId) => createSelector(
+    allEdgesSelector,
+    (edges) => edges.filter(({target}) => target === nodeId)
 )
 
 export const allNodesAttributeValueSelector  = (attrKey) => createSelector(graphSelector, g => g.attributes.nodes[attrKey])
@@ -197,14 +207,14 @@ export const edgePathLayoutSelector = (nodeId, edgeIdx) => createSelector(layout
 
 
 export const prevMultiEdgeIndex = (nodeId, edgeIndex) => createSelector(
-    neighbourNodeSelector(nodeId, edgeIndex),
-    neighbourNodeSelector(nodeId, edgeIndex - 1),
+    outgoingNeighbourNodeSelector(nodeId, edgeIndex),
+    outgoingNeighbourNodeSelector(nodeId, edgeIndex - 1),
     (current, next) => current !== null && next === current ? edgeIndex - 1 : null
 )
 
 export const nextMultiEdgeIndex = (nodeId, edgeIndex) => createSelector(
-    neighbourNodeSelector(nodeId, edgeIndex),
-    neighbourNodeSelector(nodeId, edgeIndex + 1),
+    outgoingNeighbourNodeSelector(nodeId, edgeIndex),
+    outgoingNeighbourNodeSelector(nodeId, edgeIndex + 1),
     (current, next) => current !== null && next === current ? edgeIndex + 1 : null
 )
 

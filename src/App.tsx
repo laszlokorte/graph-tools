@@ -529,7 +529,8 @@ const NodeDetails = ({index}) => {
     const dispatch = useDispatch()
 
     const nodeId = useSelector(selectors.selectedNodeSelector(index))
-    const neighbours = useSelector(selectors.neighboursSelector(nodeId))
+    const neighboursOugoing = useSelector(selectors.outgoingNeighboursSelector(nodeId))
+    const neighboursIncoming = useSelector(selectors.incomingNeighboursSelector(nodeId))
     const flags = useSelector(selectors.graphFlagsSelector)
 
     const attributes = useSelector(selectors.nodeVisibleAttributeTypesSelector)
@@ -555,13 +556,23 @@ const NodeDetails = ({index}) => {
                 <NodeAttribute key={attrKey} nodeId={nodeId} attrKey={attrKey} />
             )}
         </DefinitionList>
-        <SubSubSectionTitle>Neighbourhood</SubSubSectionTitle>
-        {neighbours.length === 0 ? <EmptyBox>No outgoing edges</EmptyBox> :
+        <SubSubSectionTitle>Neighbourhood (outgoing)</SubSubSectionTitle>
+        {neighboursOugoing.length === 0 ? <EmptyBox>No outgoing edges</EmptyBox> :
         <LinkList>
-            {neighbours.map((neighbour, idx) =>
+            {neighboursOugoing.map((neighbour, idx) =>
                     neighbour === nodeId ?
                     <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>↩</BadgeLink> self</li> :
                     <li key={idx}><BadgeLink onClick={followEdge} data-node-id={nodeId} data-idx={idx}>{flags.directed ? '→' : '↔'}</BadgeLink><Link onClick={selectNode} data-node-id={neighbour}>Node #{neighbour}</Link></li>
+            )}
+        </LinkList>
+        }
+        <SubSubSectionTitle>Neighbourhood (incoming)</SubSubSectionTitle>
+        {neighboursIncoming.length === 0 ? <EmptyBox>No incoming edges</EmptyBox> :
+        <LinkList>
+            {neighboursIncoming.map(({source, edgeIndex, target}) =>
+                    source === nodeId ?
+                    <li key={edgeIndex}>self <BadgeLink onClick={followEdge} data-node-id={source} data-idx={edgeIndex}>↩</BadgeLink></li> :
+                    <li key={edgeIndex}><Link onClick={selectNode} data-node-id={source}>Node #{source}</Link> <BadgeLink onClick={followEdge} data-node-id={source} data-idx={edgeIndex}>{flags.directed ? '→' : '↔'}</BadgeLink></li>
             )}
         </LinkList>
         }
@@ -698,22 +709,22 @@ const EdgeDetails = ({index}) => {
     const dispatch = useDispatch()
 
     const [nodeId, edgeIndex] = useSelector(selectors.selectedEdgeSelector(index))
-    const target = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIndex))
+    const target = useSelector(selectors.outgoingNeighbourNodeSelector(nodeId, edgeIndex))
     const attributes =  useSelector(selectors.edgeVisibleAttributeTypesSelector)
     const flags = useSelector(selectors.graphFlagsSelector)
     const prev = useSelector(selectors.prevMultiEdgeIndex(nodeId, edgeIndex))
     const next = useSelector(selectors.nextMultiEdgeIndex(nodeId, edgeIndex))
 
     const deleteEdge = useCallback(
-        (evt) => dispatch(actions.deleteEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-idx'), 10)))
+        (evt) => (evt.preventDefault(), dispatch(actions.deleteEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-idx'), 10))))
     , [dispatch])
 
     const selectNode = useCallback(
-        (evt) => dispatch(actions.selectNode(parseInt(evt.target.getAttribute('data-node-id'), 10)))
+        (evt) => (evt.preventDefault(), dispatch(actions.selectNode(parseInt(evt.target.getAttribute('data-node-id'), 10))))
     , [dispatch])
 
     const selectEdge = useCallback(
-        (evt) => dispatch(actions.selectEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-idx'), 10)))
+        (evt) => (evt.preventDefault(), dispatch(actions.selectEdge(parseInt(evt.target.getAttribute('data-node-id'), 10), parseInt(evt.target.getAttribute('data-idx'), 10))))
     , [dispatch])
 
     return <DetailsBox>
@@ -1641,7 +1652,7 @@ const EdgeManipulator = ({selectEdge, deleteEdge, nodeId, edgeIdx}) => {
 
 const EdgeGrabber = ({nodeId, edgeIdx, mouseDown}) => {
     const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
-    const neighbourId = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIdx))
+    const neighbourId = useSelector(selectors.outgoingNeighbourNodeSelector(nodeId, edgeIdx))
 
     const mouseDownCallback = useCallback(mouseDown ? (evt) => {
         const node = 1*evt.target.getAttribute('data-node-id')
@@ -1718,7 +1729,7 @@ const EdgesGrabber = ({grabEdge}) => {
 const EdgePathManipulator = ({nodeId, edgeIdx, mouseDownControl, doubleClickControl}) => {
     const result = [];
 
-    const targetNode = useSelector(selectors.neighbourNodeSelector(nodeId, edgeIdx))
+    const targetNode = useSelector(selectors.outgoingNeighbourNodeSelector(nodeId, edgeIdx))
     const controls = useSelector(selectors.edgePathSelector(nodeId, edgeIdx))
     const edgePath = useSelector(selectors.edgePathLayoutSelector(nodeId, edgeIdx))
 
@@ -2248,10 +2259,10 @@ const GraphLayerEdges = () => {
 }
 
 const GraphLayerNodeEdges = ({nodeId}) => {
-    const edgeCount = useSelector(selectors.neighbourCountSelector(nodeId))
+    const edgeIndices = useSelector(selectors.edgeIndicesSelector(nodeId))
 
     return <>
-        {Array(edgeCount).fill(null).map((_, edgeIdx) =>
+        {edgeIndices.map((edgeIdx) =>
             <Edge
                 nodeId={nodeId}
                 edgeIndex={edgeIdx}
